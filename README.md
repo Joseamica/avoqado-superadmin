@@ -1,6 +1,6 @@
 # Avoqado · Superadmin
 
-Dashboard interno de operaciones para el equipo Avoqado. Apunta al backend principal (`avoqado-server`) bajo el namespace `/api/v1/admin/*`.
+Dashboard interno de operaciones para el equipo Avoqado. Apunta al backend principal (`avoqado-server`) bajo el namespace `/api/v1/superadmin/*`.
 
 ## Stack
 
@@ -11,6 +11,7 @@ Dashboard interno de operaciones para el equipo Avoqado. Apunta al backend princ
 - **React Router v6** (rutas)
 - **Firebase Auth** (mismo proyecto que `avoqado-web-dashboard`)
 - **axios** con interceptor que inyecta el ID token de Firebase
+- **luxon** para fechas con timezone (UTC → display)
 - **sonner** (toasts), **recharts** (gráficas), **lucide-react** (iconos)
 
 ## Setup
@@ -27,11 +28,34 @@ La app corre en `http://localhost:5174`.
 
 ## Backend
 
-**No** existe un servicio separado para superadmin. Las rutas viven en `avoqado-server` bajo `/api/v1/admin/*`, protegidas por middleware de rol `SUPERADMIN`. Razones:
+Este dashboard consume `avoqado-server` bajo el namespace **existente** `/api/v1/superadmin/*`, ya protegido por `authenticateTokenMiddleware` + `authorizeRole([StaffRole.SUPERADMIN])`. **No** existe un servicio separado y **no** se crea un namespace v2 paralelo.
 
-- Un único Prisma schema (206 modelos) — no se duplica.
-- Las reglas de permissions ya están centralizadas en el server.
-- Evitamos el anti-patrón de dos servicios escribiendo la misma BD.
+### Política de evolución (cómo NO romper al `avoqado-web-dashboard` que también consume estos endpoints)
+
+1. **Aditivo siempre.** Cambios permitidos:
+   - Agregar campos opcionales a un response.
+   - Agregar endpoints nuevos.
+   - Agregar query params opcionales.
+
+   Cambios **prohibidos** (rompen al dashboard viejo):
+   - Quitar o renombrar campos.
+   - Cambiar tipos de campos existentes.
+   - Cambiar la semántica de un campo.
+
+2. **Sub-versión por endpoint cuando el shape genuinamente cambia.** Sólo ese endpoint adquiere un sufijo `/v2` (ej. `GET /superadmin/venues/v2`). El viejo sigue funcionando hasta que el dashboard viejo migre.
+
+3. **Contract tests opcionales** en `avoqado-server` para pinear el shape vía snapshot — falla CI si alguien rompe sin querer.
+
+## Timezone
+
+- **Backend transmite UTC** (ISO 8601 con sufijo `Z`).
+- **Display default**: `America/Mexico_City`.
+- **Cuando la respuesta incluye `venue.timezone`**: se pasa explícitamente al helper para mostrar en hora del venue.
+- Todas las funciones de fecha viven en [`src/lib/datetime.ts`](src/lib/datetime.ts):
+  - `formatDateTime(iso, tz?)`, `formatDate`, `formatTime`, `formatDateISO`, `formatRelative`, `timezoneShort`
+- En headers de tabla siempre se debe indicar el TZ visible (`Created at (CST)`).
+
+Nada se infiere del browser. La decisión es explícita en cada uso.
 
 ## Scripts
 
@@ -52,7 +76,7 @@ src/
 │   └── ui/             # shadcn primitives (vacío — agregar con `npx shadcn add ...`)
 ├── context/            # AuthContext
 ├── hooks/              # custom hooks
-├── lib/                # api.ts, firebase.ts, utils.ts
+├── lib/                # api.ts, firebase.ts, utils.ts, datetime.ts
 ├── pages/              # rutas top-level
 ├── router/             # AppRoutes + ProtectedRoute
 └── types/              # tipos compartidos
