@@ -44,15 +44,26 @@ Cuando agregues una página/feature nueva al superadmin:
 
 El socket sólo conecta cuando hay sesión superadmin activa y se desconecta automáticamente en logout (handled by `AuthContext` + `disconnectSocket`).
 
-### API evolution policy (read this every time you touch an endpoint)
+### API evolution policy — **CRÍTICO, NO ROMPER NADA**
 
-`avoqado-web-dashboard` also consumes some of these endpoints. To avoid breaking that consumer:
+`avoqado-web-dashboard` (el dashboard superadmin **legacy** que sigue en producción) consume los mismos endpoints de `/api/v1/superadmin/*`. Cualquier cambio que rompa esos endpoints **rompe operaciones en vivo**.
 
-1. **Additive only.** Adding optional fields, new endpoints, new optional query params: OK. Removing fields, renaming fields, changing types, changing field semantics: **prohibited**.
-2. **Per-endpoint sub-version** when the shape genuinely needs to change. The route gets a `/v2` suffix (`GET /superadmin/venues/v2`). The old endpoint stays alive until the old dashboard migrates.
-3. **Never create a parallel `/superadmin-v2/*` namespace.** That duplicates ~25 routers with zero value.
+1. **Aditivo siempre.** Permitido:
+   - Agregar campos opcionales a un response.
+   - Agregar endpoints nuevos.
+   - Agregar query params opcionales.
 
-If you find yourself wanting to "just rename one field," stop and add a new one instead.
+   **Prohibido** (rompe al dashboard legacy):
+   - Quitar o renombrar campos existentes.
+   - Cambiar tipos (`string` → `number`, etc.).
+   - Cambiar la semántica de un campo aunque conserve el nombre.
+   - Cambiar el status code de éxito.
+
+2. **Sub-versión por endpoint** sólo cuando el shape genuinamente debe romperse. El endpoint adquiere sufijo `/v2` (ej. `GET /superadmin/venues/v2`); el viejo sigue funcionando hasta que el dashboard legacy migre.
+
+3. **Nunca crear un namespace paralelo** `/superadmin-v2/*`. Duplica 25 routers con cero valor.
+
+4. **Antes de tocar un endpoint** corre `grep -rn "<endpoint>" /Users/amieva/Documents/Programming/Avoqado/avoqado-web-dashboard` para ver dónde lo consume el legacy.
 
 ### ActivityLog registration (write side)
 
@@ -67,6 +78,14 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
 ### Hard rules
 
 - **Dark theme es el default.** Las variables de `:root` son dark. La paleta light queda en la clase `.light` por si en el futuro necesitamos toggle — hoy NO está expuesta en UI. Si tu cambio asume light, lo más probable es que esté mal.
+- **Mobile first / mobile friendly** — el operador usa esta consola desde móvil también:
+  - Touch targets mínimos: 36 px de alto (`h-9`) para acciones secundarias, 44 px (`h-11`) para CTA principales.
+  - El sidebar fijo desaparece en `< md`; usa el `MobileTopBar` + drawer del `AppLayout`.
+  - Las tablas viven dentro de un `overflow-x-auto`; nunca rompen viewport.
+  - Texto base ≥ 13 px; nunca uses 10 px para datos críticos.
+  - Headers de tabla `eyebrow` quedan en 10.5 px sólo porque están en uppercase + tracking — son OK.
+  - Forms en mobile: campos full-width, label encima del input, botón CTA full-width.
+- **DataTable es el componente único para listas**: [src/components/DataTable/DataTable.tsx](src/components/DataTable/DataTable.tsx). Sortable headers, búsqueda global, paginación, export CSV con dialog (rango de fechas + selección de columnas). Cualquier nueva página de listado debe usar este componente — no escribir `<table>` a mano.
 - **Todo `<button>` no-disabled tiene `cursor: pointer`** vía el base layer de `src/index.css` (Tailwind v4 lo quitó del default). No lo agregues por componente.
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
@@ -166,6 +185,14 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 - Cambiar la política de release o despliegue.
 
 Si tu PR cambia algo de lo anterior y el README sigue igual → **el PR está incompleto.**
+
+### Mantén el CHANGELOG en sincronía
+
+**Cada PR debe añadir una entrada en [`CHANGELOG.md`](CHANGELOG.md) bajo la sección `[Unreleased]`**, categoría correcta (`Added` / `Changed` / `Fixed` / `Removed` / `Deprecated` / `Security`). El formato sigue [Keep a Changelog 1.1](https://keepachangelog.com/en/1.1.0/).
+
+Si tu PR no toca el changelog → **el PR está incompleto.** El reviewer lo va a rechazar.
+
+Sólo se exenta de esto: cambios puramente de comentarios o renames internos sin impacto observable.
 
 ---
 

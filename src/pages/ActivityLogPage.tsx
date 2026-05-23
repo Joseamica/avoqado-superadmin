@@ -1,8 +1,8 @@
-import { useId, useMemo, useState } from 'react'
-import { ArrowUpRight, Filter, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowUpRight, Filter } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Kbd } from '@/components/ui/Kbd'
+import { DataTable } from '@/components/DataTable/DataTable'
 import { DEFAULT_TIMEZONE, formatDateTime, formatRelative, timezoneShort } from '@/lib/datetime'
 import { cn } from '@/lib/utils'
 import {
@@ -46,30 +46,129 @@ const CATEGORIES: (ActivityCategory | 'all')[] = [
 ]
 
 export function ActivityLogPage() {
-  const [query, setQuery] = useState('')
   const [category, setCategory] = useState<ActivityCategory | 'all'>('all')
-  const searchId = useId()
 
-  const entries = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return MOCK_ACTIVITY.filter((e) => {
-      if (category !== 'all' && e.category !== category) return false
-      if (!q) return true
-      return (
-        e.action.toLowerCase().includes(q) ||
-        e.actor.name.toLowerCase().includes(q) ||
-        e.target?.label.toLowerCase().includes(q) ||
-        e.venue?.name.toLowerCase().includes(q)
-      )
-    })
-  }, [query, category])
+  const filtered = useMemo(() => {
+    if (category === 'all') return MOCK_ACTIVITY
+    return MOCK_ACTIVITY.filter((e) => e.category === category)
+  }, [category])
+
+  const columns = useMemo<ColumnDef<ActivityEntry, unknown>[]>(
+    () => [
+      {
+        id: 'occurredAt',
+        header: 'Cuándo',
+        accessorFn: (row) => new Date(row.occurredAt).getTime(),
+        cell: ({ row }) => {
+          const e = row.original
+          const tz = e.venue?.timezone ?? DEFAULT_TIMEZONE
+          return (
+            <>
+              <p className="tabular text-[12.5px] text-[var(--ink)]">
+                {formatRelative(e.occurredAt, tz)}
+              </p>
+              <p className="tabular mt-0.5 text-[10.5px] text-[var(--ink-faint)]">
+                {formatDateTime(e.occurredAt, tz)}
+              </p>
+            </>
+          )
+        },
+        sortingFn: 'basic',
+        meta: { headerClassName: 'w-[150px]' },
+      },
+      {
+        id: 'actor',
+        header: 'Actor',
+        accessorFn: (row) => row.actor.name,
+        cell: ({ row }) => (
+          <>
+            <p className="text-[12.5px] font-medium text-[var(--ink)]">{row.original.actor.name}</p>
+            <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">{row.original.actor.email}</p>
+          </>
+        ),
+        meta: { headerClassName: 'w-[180px]' },
+      },
+      {
+        id: 'category',
+        header: 'Categoría',
+        accessorFn: (row) => CATEGORY_LABEL[row.category],
+        cell: ({ row }) => (
+          <Badge tone={SEVERITY_TONE[row.original.severity]}>
+            {CATEGORY_LABEL[row.original.category]}
+            <span className="sr-only"> ({SEVERITY_LABEL[row.original.severity]})</span>
+          </Badge>
+        ),
+        meta: { headerClassName: 'w-[120px]' },
+      },
+      {
+        id: 'action',
+        header: 'Acción',
+        accessorFn: (row) =>
+          [row.action, row.target?.label, row.venue?.name].filter(Boolean).join(' '),
+        cell: ({ row }) => (
+          <>
+            <p className="text-[13px] leading-snug text-[var(--ink)]">{row.original.action}</p>
+            {row.original.target && (
+              <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
+                {row.original.target.href ? (
+                  <a
+                    href={row.original.target.href}
+                    className="border-b border-dashed border-[var(--ink-faint)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  >
+                    {row.original.target.label}
+                  </a>
+                ) : (
+                  row.original.target.label
+                )}
+              </p>
+            )}
+          </>
+        ),
+        enableSorting: false,
+      },
+      {
+        id: 'source',
+        header: 'Origen',
+        accessorFn: (row) => row.source.ip,
+        cell: ({ row }) => (
+          <>
+            <p className="font-mono tabular text-[11.5px] text-[var(--ink-muted)]">
+              {row.original.source.ip}
+            </p>
+            <p className="mt-0.5 text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
+              {row.original.source.device}
+            </p>
+          </>
+        ),
+        meta: { headerClassName: 'w-[180px]' },
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Acciones</span>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <button
+              type="button"
+              aria-label={`Ver detalle del evento ${row.original.id}`}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        ),
+        meta: { headerClassName: 'w-[60px]', cellClassName: 'text-right' },
+      },
+    ],
+    [],
+  )
 
   return (
-    <div className="mx-auto max-w-[1200px] px-10 py-10">
-      <header className="mb-7 flex items-end justify-between gap-6">
+    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
+      <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div>
           <p className="eyebrow">Auditoría</p>
-          <h1 className="mt-1.5 font-display text-[34px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)]">
+          <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)] sm:text-[34px]">
             Activity log
           </h1>
           <p className="mt-2 text-[13.5px] text-[var(--ink-muted)]">
@@ -79,183 +178,64 @@ export function ActivityLogPage() {
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <Button variant="secondary" size="md">
-            Exportar CSV
-          </Button>
-        </div>
       </header>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[260px] flex-1">
-          <label htmlFor={searchId} className="sr-only">
-            Buscar en el activity log
-          </label>
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-faint)]"
-            aria-hidden
-          />
-          <input
-            id={searchId}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar acción, actor, venue…"
-            className="h-9 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] pl-9 pr-3 text-[13px] placeholder:text-[var(--ink-faint)] focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          />
-        </div>
-        <div
-          role="group"
-          aria-label="Filtrar por categoría"
-          className="flex items-center gap-1.5 rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-0.5"
-        >
-          <Filter className="mx-1.5 h-3.5 w-3.5 text-[var(--ink-faint)]" aria-hidden />
-          {CATEGORIES.map((c) => {
-            const isActive = category === c
-            return (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => setCategory(c)}
-                className={cn(
-                  'h-8 rounded-[4px] px-2.5 text-[11.5px] font-medium uppercase tracking-[0.06em] transition-colors',
-                  isActive
-                    ? 'bg-[var(--ink)] text-[var(--canvas)]'
-                    : 'text-[var(--ink-muted)] hover:text-[var(--ink)]',
-                )}
-              >
-                {c === 'all' ? 'Todo' : CATEGORY_LABEL[c]}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <section className="overflow-x-auto rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)]">
-        <table className="w-full min-w-[820px] border-collapse text-[13px]">
-          <caption className="sr-only">
-            Eventos registrados en la plataforma. {entries.length} de {MOCK_ACTIVITY.length}{' '}
-            visibles.
-          </caption>
-          <thead>
-            <tr className="border-b border-[var(--line-strong)] bg-[var(--canvas-sunken)]">
-              <Th className="w-[140px]">Cuándo</Th>
-              <Th className="w-[180px]">Actor</Th>
-              <Th className="w-[110px]">Categoría</Th>
-              <Th>Acción</Th>
-              <Th className="w-[180px]">Origen</Th>
-              <Th className="w-[40px]">
-                <span className="sr-only">Acciones de fila</span>
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <ActivityRow key={entry.id} entry={entry} />
-            ))}
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-14 text-center">
-                  <p className="font-display text-[15px] font-semibold text-[var(--ink)]">
-                    Sin coincidencias
-                  </p>
-                  <p className="mt-1 text-[12.5px] text-[var(--ink-faint)]">
-                    Ajusta el filtro o limpia la búsqueda para volver a ver todo el log.
-                  </p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-
-      <footer className="mt-3 flex items-center justify-between text-[11.5px] text-[var(--ink-faint)]">
-        <span className="tabular">
-          {entries.length} de {MOCK_ACTIVITY.length} eventos
-        </span>
-        <span className="flex items-center gap-1.5" aria-hidden>
-          <Kbd>K</Kbd>
-          <span>anterior</span>
-          <span className="mx-1.5 opacity-50">·</span>
-          <Kbd>J</Kbd>
-          <span>siguiente</span>
-        </span>
-      </footer>
+      <DataTable
+        data={filtered}
+        columns={columns}
+        searchPlaceholder="Buscar acción, actor, venue…"
+        caption={`Eventos registrados. ${filtered.length} de ${MOCK_ACTIVITY.length} visibles.`}
+        initialSorting={[{ id: 'occurredAt', desc: true }]}
+        pageSize={20}
+        toolbar={
+          <div
+            role="group"
+            aria-label="Filtrar por categoría"
+            className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-1 sm:mx-0"
+          >
+            <Filter className="mx-1.5 h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)]" aria-hidden />
+            {CATEGORIES.map((c) => {
+              const isActive = category === c
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setCategory(c)}
+                  className={cn(
+                    'h-9 shrink-0 rounded-[4px] px-3 text-[11.5px] font-medium uppercase tracking-[0.06em] transition-colors',
+                    isActive
+                      ? 'bg-[var(--ink)] text-[var(--canvas)]'
+                      : 'text-[var(--ink-muted)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]',
+                  )}
+                >
+                  {c === 'all' ? 'Todo' : CATEGORY_LABEL[c]}
+                </button>
+              )
+            })}
+          </div>
+        }
+        emptyState={{
+          title: 'Sin coincidencias',
+          description: 'Ajusta el filtro o limpia la búsqueda para volver a ver todo el log.',
+        }}
+        exportable={{
+          filename: 'avoqado-activity-log',
+          dateAccessor: (row) => row.occurredAt,
+          columns: [
+            { key: 'occurredAt', header: 'Cuándo (UTC)', accessor: (r) => r.occurredAt },
+            { key: 'actorName', header: 'Actor', accessor: (r) => r.actor.name },
+            { key: 'actorEmail', header: 'Email del actor', accessor: (r) => r.actor.email },
+            { key: 'category', header: 'Categoría', accessor: (r) => CATEGORY_LABEL[r.category] },
+            { key: 'severity', header: 'Severidad', accessor: (r) => SEVERITY_LABEL[r.severity] },
+            { key: 'action', header: 'Acción', accessor: (r) => r.action },
+            { key: 'target', header: 'Objetivo', accessor: (r) => r.target?.label ?? '' },
+            { key: 'venue', header: 'Venue', accessor: (r) => r.venue?.name ?? '' },
+            { key: 'sourceIp', header: 'IP', accessor: (r) => r.source.ip },
+            { key: 'sourceDevice', header: 'Dispositivo', accessor: (r) => r.source.device },
+          ],
+        }}
+      />
     </div>
-  )
-}
-
-function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return (
-    <th
-      scope="col"
-      className={cn(
-        'px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]',
-        className,
-      )}
-    >
-      {children}
-    </th>
-  )
-}
-
-function ActivityRow({ entry }: { entry: ActivityEntry }) {
-  const tz = entry.venue?.timezone ?? DEFAULT_TIMEZONE
-  return (
-    <tr className="group border-b border-[var(--line)] transition-colors last:border-b-0 hover:bg-[var(--canvas-sunken)]/60">
-      <td className="px-4 py-3 align-top">
-        <p className="tabular text-[12.5px] text-[var(--ink)]">
-          {formatRelative(entry.occurredAt, tz)}
-        </p>
-        <p
-          className="mt-0.5 tabular text-[10.5px] text-[var(--ink-faint)]"
-          title={`${formatDateTime(entry.occurredAt, tz)} · ${timezoneShort(tz)}`}
-        >
-          {formatDateTime(entry.occurredAt, tz)}
-        </p>
-      </td>
-      <td className="px-4 py-3 align-top">
-        <p className="text-[12.5px] font-medium text-[var(--ink)]">{entry.actor.name}</p>
-        <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">{entry.actor.email}</p>
-      </td>
-      <td className="px-4 py-3 align-top">
-        <Badge tone={SEVERITY_TONE[entry.severity]}>
-          {CATEGORY_LABEL[entry.category]}
-          <span className="sr-only"> ({SEVERITY_LABEL[entry.severity]})</span>
-        </Badge>
-      </td>
-      <td className="px-4 py-3 align-top">
-        <p className="text-[13px] leading-snug text-[var(--ink)]">{entry.action}</p>
-        {entry.target && (
-          <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-            {entry.target.href ? (
-              <a
-                href={entry.target.href}
-                className="border-b border-dashed border-[var(--ink-faint)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                {entry.target.label}
-              </a>
-            ) : (
-              entry.target.label
-            )}
-          </p>
-        )}
-      </td>
-      <td className="px-4 py-3 align-top">
-        <p className="font-mono text-[11.5px] tabular text-[var(--ink-muted)]">{entry.source.ip}</p>
-        <p className="mt-0.5 text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-          {entry.source.device}
-        </p>
-      </td>
-      <td className="px-4 py-3 align-top text-right">
-        <button
-          type="button"
-          aria-label={`Ver detalle del evento ${entry.id}`}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)] focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </td>
-    </tr>
   )
 }

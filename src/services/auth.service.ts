@@ -17,6 +17,12 @@ export interface SessionUser {
   lastName: string | null
   email: string
   photoUrl: string | null
+  /**
+   * Top-level role. El backend lo devuelve para "master login" y para staff
+   * regular como `highestRole`. Si está presente, lo usamos como source of truth;
+   * si no, caemos al chequeo per-venue.
+   */
+  role?: StaffRole
   venues: SessionVenue[]
 }
 
@@ -64,5 +70,10 @@ export async function googleOAuthCallback(code: string): Promise<LoginResponse> 
 
 export function hasSuperadminRole(user: SessionUser | null | undefined): boolean {
   if (!user) return false
-  return user.venues.some((v) => v.role === 'SUPERADMIN')
+  // El backend (avoqado-server/src/controllers/dashboard/auth.dashboard.controller.ts)
+  // devuelve `user.role` al top level tanto para master-login como para staff regular
+  // (calculado como `highestRole`). Lo usamos primero como source of truth.
+  if (user.role === 'SUPERADMIN') return true
+  // Fallback defensivo: por si algún endpoint emite sólo venues con role per-venue.
+  return user.venues?.some((v) => v.role === 'SUPERADMIN') ?? false
 }

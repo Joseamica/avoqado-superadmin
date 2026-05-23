@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
 import { readApiErrorMessage } from '@/lib/api'
+import * as authService from '@/services/auth.service'
 import { hasSuperadminRole } from '@/services/auth.service'
+import { useQueryClient } from '@tanstack/react-query'
 
 const schema = z.object({
   email: z.string().email('Email inválido'),
@@ -22,6 +24,7 @@ export function LoginPage() {
   const { login, logout, isAuthenticated, isSuperadmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const [submitting, setSubmitting] = useState(false)
   const [accessError, setAccessError] = useState<string | null>(null)
 
@@ -44,12 +47,18 @@ export function LoginPage() {
     setSubmitting(true)
     setAccessError(null)
     try {
-      const response = await login(values)
+      await login(values)
 
-      // El login server-side aceptó el cookie, pero antes de entrar a la consola
-      // verificamos que el usuario tenga rol SUPERADMIN. Si no, cerramos sesión
-      // para limpiar el cookie y mostramos el error in-place — no redirect al gate.
-      if (!hasSuperadminRole(response.staff)) {
+      // El cookie ya quedó seteado por `login()`. La SOURCE OF TRUTH del rol vive
+      // en `/dashboard/auth/status` (el backend devuelve ahí `user.role` con
+      // `highestRole` calculado). Hacemos fetch fresh y verificamos antes de
+      // navegar — más robusto que confiar en el shape del login response.
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ['auth', 'status'],
+        queryFn: authService.getAuthStatus,
+      })
+
+      if (!hasSuperadminRole(fresh.user)) {
         await logout()
         setAccessError(
           'Esta cuenta no tiene permisos de superadmin. Pide a ops que te eleve el rol.',
