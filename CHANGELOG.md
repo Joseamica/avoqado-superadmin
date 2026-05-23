@@ -9,6 +9,30 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Changed
+
+- **Feature-based file tree.** Migrado de tipo-basado (`components/`, `pages/`, `hooks/`, `lib/`, `context/`, `services/`) a feature-based con tres capas:
+  - `src/app/` — wiring (main, App, router, ProtectedRoute, NotFoundPage, index.css).
+  - `src/features/` — módulos de dominio self-contained (`auth/`, `dashboard/`, `activity-log/`, `realtime/`).
+  - `src/shared/` — reusables cross-feature (`ui/`, `components/`, `data-table/`, `layouts/`, `lib/`).
+    Forzadas tres reglas en CLAUDE.md: Three-Level Rule, unidirectional flow (`shared/ ← features/ ← app/`), alias `@/` siempre.
+- **HMR-safe context/provider split**: `AuthContext.tsx` separado en `use-auth.ts` (context + hook) + `AuthProvider.tsx` (componente). Igual para CommandPalette. `DefaultErrorFallback` extraído a `ErrorFallback.tsx`. Cierra el bug `useAuth must be used inside <AuthProvider>` después de un hot reload.
+
+### Fixed
+
+- 7 warnings de lint resueltos:
+  - 4 Fast Refresh warnings cerrados con el context split.
+  - 2 `no-console` (socket.ts debug logs) — eliminados, sólo se queda el `console.warn` de connect_error.
+  - 1 `test/render.tsx` re-export → eslint-disable comentado con la razón (es archivo de test, no entra al bundle).
+- Lint sale 100% limpio: **0 errors, 0 warnings**.
+
+### Added
+
+- Regla en CLAUDE.md: **Pre-deploy verification obligatoria.** Tras terminar una tarea, correr `npm run check && npm run build` antes de declararla finalizada. Política "green or not done".
+- Sección en CLAUDE.md: **Por qué NO duplicamos el login en el backend** — el endpoint `/api/v1/dashboard/auth/*` está endurecido, el desastre del web-dashboard está en su frontend.
+
+## [Unreleased-previous-batch]
+
 ### Added
 
 - `DataTable` reutilizable basado en TanStack Table con sorting asc/desc por

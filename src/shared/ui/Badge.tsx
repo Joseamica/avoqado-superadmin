@@ -1,0 +1,30 @@
+import type { HTMLAttributes } from 'react'
+import { cn } from '@/shared/lib/utils'
+
+type Tone = 'muted' | 'success' | 'warn' | 'danger' | 'info' | 'accent'
+
+interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
+  tone?: Tone
+}
+
+const toneStyles: Record<Tone, string> = {
+  muted: 'bg-[var(--canvas-sunken)] text-[var(--ink-muted)] border-[var(--line-strong)]',
+  success: 'bg-[var(--success-faint)] text-[var(--success)] border-[var(--success)]/30',
+  warn: 'bg-[var(--warn-faint)] text-[var(--warn)] border-[var(--warn)]/30',
+  danger: 'bg-[var(--danger-faint)] text-[var(--danger)] border-[var(--danger)]/30',
+  info: 'bg-[var(--info-faint)] text-[var(--info)] border-[var(--info)]/30',
+  accent: 'bg-[var(--accent-faint)] text-[var(--accent)] border-[var(--accent-line)]',
+}
+
+export function Badge({ className, tone = 'muted', ...props }: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-5 items-center rounded-[4px] border px-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]',
+        toneStyles[tone],
+        className,
+      )}
+      {...props}
+    />
+  )
+}

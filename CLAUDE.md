@@ -142,6 +142,56 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 
 ---
 
+## File tree — feature-based
+
+```
+src/
+├── app/                          # App-level wiring. Sólo cargado al boot.
+│   ├── main.tsx                  # entry
+│   ├── App.tsx
+│   ├── providers.tsx (futuro)
+│   ├── router.tsx
+│   ├── ProtectedRoute.tsx
+│   ├── NotFoundPage.tsx
+│   └── index.css
+├── features/                     # Módulos de dominio. Self-contained.
+│   ├── auth/
+│   │   ├── api.ts                # Wrappers sobre /dashboard/auth/*
+│   │   ├── use-auth.ts           # Context + hook (HMR-safe, .ts)
+│   │   ├── AuthProvider.tsx      # Provider component (.tsx)
+│   │   └── LoginPage.tsx
+│   ├── dashboard/
+│   ├── activity-log/
+│   └── realtime/
+├── shared/                       # Reusables cross-feature.
+│   ├── ui/                       # Atomic primitives (Button, Badge, …)
+│   ├── components/               # Cross-feature components (Brandmark, CommandPalette, ErrorBoundary, …)
+│   ├── data-table/               # DataTable + ExportDialog
+│   ├── layouts/                  # AppLayout
+│   └── lib/                      # api, datetime, csv, utils
+└── test/                         # Vitest setup + MSW handlers + render helper
+```
+
+### Reglas de la estructura (forzadas en code review)
+
+1. **Three-Level Rule.** Máximo 3 niveles de profundidad bajo `src/`. Si llegas a 4 (`src/features/auth/components/forms/Input.tsx`), o subes el archivo o repensaste el agrupamiento.
+
+2. **Unidirectional flow.** `shared/` ← `features/` ← `app/`. Nunca al revés.
+   - `shared/` nunca importa de `features/` ni de `app/`.
+   - `features/<X>` nunca importa de `features/<Y>` directo — si dos features lo necesitan, súbelo a `shared/`.
+   - `app/` puede importar de todo.
+
+3. **HMR-safe context split.** Cuando un módulo combina un Context + un Provider component:
+   - El **context object + hook** vive en `.ts` (ej. `use-auth.ts`, `use-command-palette.ts`).
+   - El **provider component** vive en `.tsx` (ej. `AuthProvider.tsx`).
+   - **Nunca** mezclar `createContext` + hook + componentes JSX en el mismo archivo: rompe Fast Refresh y crea el bug `useAuth must be used inside <AuthProvider>` después de un hot reload.
+
+4. **Explicit imports.** Usa el alias `@/` siempre (`@/shared/ui/Button`), no relativos hacia arriba (`../../shared/ui/Button`). Excepción: imports en el mismo folder (`./mock`, `./ErrorFallback`) son OK.
+
+5. **Colocation.** Tests (`*.test.ts`), mocks (`*.mock.ts`, o `mock.ts` dentro del feature) y types viven junto al código que sirven.
+
+---
+
 ## File / code conventions
 
 - **TypeScript strict** — no `any` salvo con comentario justificando. Prefiere `unknown` + narrow.
@@ -168,6 +218,27 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 ---
 
 ## Workflow expectations
+
+### Verificación pre-deploy obligatoria
+
+**Tras terminar una tarea, ANTES de decir "listo" al usuario:**
+
+```bash
+npm run check       # lint + typecheck + tests
+npm run build       # build de producción
+```
+
+Si alguno falla, NO se reporta como completada. El usuario no debería tener que descubrir warnings o errores con su propio `npm run lint`. La regla es **"green or not done"**.
+
+El pre-push hook ya corre `check`, pero esa red de seguridad llega tarde — si el build falla en CI, el ciclo de feedback es de minutos. Corrr `check + build` local antes de declarar finalizada cualquier tarea no trivial.
+
+### Por qué NO duplicamos el login en el backend
+
+`avoqado-server` tiene `/api/v1/dashboard/auth/*` endurecido con años de incidentes reales (CSRF, session fixation, JWT rotation, OAuth callback). El "desastre" de `avoqado-web-dashboard` está en su **frontend** (AuthContext con live demo, multi-venue, white-label, pendingInvitations, etc.). Nuestro `AuthContext` (124 líneas) ya es la versión mínima.
+
+**Prohibido**: crear `/api/v1/superadmin/auth/*` paralelo. Duplica Staff table, JWT signing, Google OAuth, cookie config, refresh token logic — todo para reinventar lo que ya funciona. Consume los endpoints existentes.
+
+### Workflow normal
 
 - **Antes de pushear:** `npm run check` (lint + typecheck + tests). El `pre-push` hook lo corre automáticamente.
 - **Antes de commitear:** `lint-staged` corre Prettier + ESLint sobre los archivos staged (automático vía Husky `pre-commit`).
@@ -198,19 +269,26 @@ Sólo se exenta de esto: cambios puramente de comentarios o renames internos sin
 
 ## Quick reference
 
-| What                | Where                                              |
-| ------------------- | -------------------------------------------------- |
-| API client          | `src/lib/api.ts`                                   |
-| Auth service        | `src/services/auth.service.ts`                     |
-| Auth context        | `src/context/AuthContext.tsx`                      |
-| Datetime helpers    | `src/lib/datetime.ts`                              |
-| Class merge `cn()`  | `src/lib/utils.ts`                                 |
-| Layout (sidebar)    | `src/components/layouts/AppLayout.tsx`             |
-| Command Palette     | `src/components/CommandPalette.tsx`                |
-| Error Boundary      | `src/components/ErrorBoundary.tsx`                 |
-| Routes              | `src/router/index.tsx`                             |
-| Design context      | `.impeccable.md`                                   |
-| Test setup          | `src/test/setup.ts` + `src/test/mocks/handlers.ts` |
-| Test render wrapper | `src/test/render.tsx`                              |
-| E2E specs           | `e2e/*.spec.ts`                                    |
-| CI workflow         | `.github/workflows/ci.yml`                         |
+| What                | Where                                                |
+| ------------------- | ---------------------------------------------------- |
+| API client (axios)  | `src/shared/lib/api.ts`                              |
+| Auth service        | `src/features/auth/api.ts`                           |
+| Auth context + hook | `src/features/auth/use-auth.ts`                      |
+| Auth provider       | `src/features/auth/AuthProvider.tsx`                 |
+| Datetime helpers    | `src/shared/lib/datetime.ts`                         |
+| CSV helpers         | `src/shared/lib/csv.ts`                              |
+| Class merge `cn()`  | `src/shared/lib/utils.ts`                            |
+| Layout (sidebar)    | `src/shared/layouts/AppLayout.tsx`                   |
+| Command Palette     | `src/shared/components/CommandPalette.tsx`           |
+| Error Boundary      | `src/shared/components/ErrorBoundary.tsx`            |
+| DataTable           | `src/shared/data-table/DataTable.tsx`                |
+| ExportDialog        | `src/shared/data-table/ExportDialog.tsx`             |
+| Routes              | `src/app/router.tsx`                                 |
+| Protected route     | `src/app/ProtectedRoute.tsx`                         |
+| Realtime socket     | `src/features/realtime/socket.ts`                    |
+| Realtime hook       | `src/features/realtime/use-realtime-invalidation.ts` |
+| Design context      | `.impeccable.md`                                     |
+| Test setup          | `src/test/setup.ts` + `src/test/mocks/handlers.ts`   |
+| Test render wrapper | `src/test/render.tsx`                                |
+| E2E specs           | `e2e/*.spec.ts`                                      |
+| CI workflow         | `.github/workflows/ci.yml`                           |
