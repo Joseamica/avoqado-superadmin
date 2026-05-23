@@ -10,6 +10,7 @@ import {
   timezoneShort,
 } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
+import { QueryError } from '@/shared/components/QueryError'
 import { useActivityLog } from './use-activity-log'
 import {
   actorDisplayName,
@@ -205,15 +206,13 @@ export function ActivityLogPage() {
       </header>
 
       {query.isError && (
-        <div
-          role="alert"
-          className="mb-5 rounded-[6px] border border-[var(--danger)]/40 bg-[var(--danger-faint)] px-3.5 py-3 text-[13px] text-[var(--danger)]"
-        >
-          <p className="font-semibold">No pudimos cargar el activity log</p>
-          <p className="mt-0.5 text-[var(--ink-muted)]">
-            Revisa que el backend esté corriendo (VITE_API_URL) y reintenta.
-          </p>
-        </div>
+        <QueryError
+          className="mb-5"
+          error={query.error}
+          context="cargar el activity log"
+          onRetry={() => query.refetch()}
+          isRetrying={query.isFetching}
+        />
       )}
 
       <DataTable

@@ -14,6 +14,7 @@ import {
   humanizeEntity,
   severityFor,
 } from '@/features/activity-log/types'
+import { QueryError } from '@/shared/components/QueryError'
 import { useDashboardSummary } from './use-dashboard-summary'
 import type { DashboardSummary } from './types'
 
@@ -121,16 +122,13 @@ export function DashboardPage() {
       </header>
 
       {summaryQuery.isError && (
-        <div
-          role="alert"
-          className="mb-7 rounded-[6px] border border-[var(--danger)]/40 bg-[var(--danger-faint)] px-3.5 py-3 text-[13px] text-[var(--danger)]"
-        >
-          <p className="font-semibold">No pudimos obtener el resumen</p>
-          <p className="mt-0.5 text-[var(--ink-muted)]">
-            Verifica que <code className="font-mono">VITE_API_URL</code> apunte a un{' '}
-            <code className="font-mono">avoqado-server</code> corriendo.
-          </p>
-        </div>
+        <QueryError
+          className="mb-7"
+          error={summaryQuery.error}
+          context="cargar el resumen"
+          onRetry={() => summaryQuery.refetch()}
+          isRetrying={summaryQuery.isFetching}
+        />
       )}
 
       <section

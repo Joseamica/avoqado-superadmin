@@ -85,6 +85,17 @@ Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende to
 4. **Numerals are data, not decoration.** `tabular-nums` siempre; montos a la derecha; status pills semánticas (tint 8 % + border 30 %). Sparklines sólo si el trend es información esencial — nunca como garnish.
 5. **Empty states teach the interface.** "No hay KYC pendientes. Última revisión hace 3 h" en vez de "Nothing here". Cada vacío explica qué hace la pantalla, qué espera, y qué pasó por última vez.
 
+### Error handling — nunca un "No pudimos" genérico
+
+Todo error de TanStack Query (o de cualquier `await api.*`) que se muestre en UI debe pasar por:
+
+1. **`inspectApiError(error, context?)`** en [`src/shared/lib/api-error.ts`](src/shared/lib/api-error.ts) — categoriza el error (network / 401 / 403 / 404 / 422 / 5xx / unknown) y devuelve `{ kind, title, description, serverMessage? }`.
+2. **`<QueryError error={...} context="cargar el resumen" onRetry={() => query.refetch()} />`** en [`src/shared/components/QueryError.tsx`](src/shared/components/QueryError.tsx) — UI consistente con título específico, descripción accionable, detalle técnico expandible y botón "Reintentar".
+
+**Prohibido**: escribir un `<div role="alert">No pudimos…</div>` ad-hoc. Esto fuerza que cada error diga **qué pasó** (sin conexión vs 500 vs 403 vs validación) y **qué puede hacer el usuario** (recargar, esperar, escribir a ops, reportar).
+
+Para **errores de mutations** (clicks de botón), usa `toast.error(title, { description })` alimentado por `inspectApiError`.
+
 ### Hard rules
 
 - **Dark theme es el default.** Las variables de `:root` son dark. La paleta light queda en la clase `.light` por si en el futuro necesitamos toggle — hoy NO está expuesta en UI. Si tu cambio asume light, lo más probable es que esté mal.
