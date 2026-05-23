@@ -150,6 +150,24 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 - **Lock al TZ**: `process.env.TZ = 'America/Mexico_City'` ya está en `src/test/setup.ts`. Si necesitas un TZ distinto, hazlo dentro del test con `vi.stubEnv('TZ', '...')` y restaura en `afterEach`.
 - Coverage threshold: 60 % lines / functions / statements, 55 % branches. Si el cambio baja la cobertura, **agrega tests** (no bajes el threshold).
 
+### Verificación en base de datos (cuando aplique)
+
+Esta app no tiene DB propia: los writes van a **`avoqado-server`** (PostgreSQL vía Prisma). Siempre que puedas — tras implementar o probar un flujo que **persiste datos** (login/sesión, KYC, venues, activity log, etc.) — **confirma en la DB local** que quedó como esperabas, además de los tests automatizados.
+
+```bash
+export DATABASE_URL="postgresql://postgres:exitosoy777@localhost:5432/av-db-25"
+
+# Ejemplos (ajusta tablas/columnas al feature)
+psql "$DATABASE_URL" -c 'SELECT id, email FROM "Staff" WHERE email = '\''ops@example.com'\'' LIMIT 5;'
+psql "$DATABASE_URL" -c 'SELECT id, "actionType", "createdAt" FROM "ActivityLog" ORDER BY "createdAt" DESC LIMIT 10;'
+```
+
+Reglas:
+
+- Usa `psql` (o una query puntual) **después** de reproducir el flujo en la UI o en E2E — no sustituye Vitest/Playwright, los complementa.
+- Valida filas creadas/actualizadas, FKs, enums y timestamps (`createdAt`, `venueId`, etc.) según el caso.
+- Si el test es sólo UI sin backend real (MSW), no hace falta psql; si tocaste **`avoqado-server`** o probaste contra API local, **sí**.
+
 ---
 
 ## File tree — feature-based

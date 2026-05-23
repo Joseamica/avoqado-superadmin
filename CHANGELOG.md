@@ -9,6 +9,28 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard y Activity Log conectados al backend real.** Adiós a los mocks.
+  - `src/features/activity-log/{types,api,use-activity-log}.ts`: consume
+    `GET /api/v1/superadmin/activity-log` con TanStack Query. Mapping del
+    shape del server (`SuperadminActivityLogEntry` con `staff`, `venue`,
+    `entity`, `entityId`, `data`, `ipAddress`) a la UI. Categoría + severidad
+    se derivan client-side desde `action` + `entity` (helpers en `types.ts`).
+  - `src/features/dashboard/{types,api,use-dashboard-summary}.ts`: consume
+    `GET /api/v1/superadmin/dashboard/summary` (endpoint nuevo, aditivo en
+    avoqado-server) con KPIs reales: venues × estado, terminals × estado,
+    KYC × verification status, staff total, pagos 24h con volumen y fallidos,
+    activity log 24h.
+- `MOCK_ACTIVITY` y `src/features/activity-log/mock.ts` borrados.
+- `DashboardPage` ahora muestra cards "Necesita atención" derivadas del estado
+  real (sólo se renderizan si hay KYC pendientes, pagos fallidos o TPVs por
+  activar — empty state correcto cuando todo está OK).
+- Loading/error states en ambas páginas (skeleton de KPIs + alert si el server
+  no responde).
+
+## [Unreleased-previous-batches]
+
 ### Changed
 
 - **Typography swap: IBM Plex Sans para todo.** Reemplazadas Bricolage Grotesque

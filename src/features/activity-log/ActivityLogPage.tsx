@@ -10,19 +10,23 @@ import {
   timezoneShort,
 } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
+import { useActivityLog } from './use-activity-log'
 import {
-  MOCK_ACTIVITY,
+  actorDisplayName,
+  categorizeEntry,
+  humanizeAction,
+  severityFor,
   type ActivityCategory,
-  type ActivityEntry,
+  type ActivityLogEntry,
   type ActivitySeverity,
-} from './mock'
+} from './types'
 
 const CATEGORY_LABEL: Record<ActivityCategory, string> = {
+  auth: 'Auth',
   kyc: 'KYC',
   venue: 'Venue',
   terminal: 'Terminal',
   payment: 'Pago',
-  auth: 'Auth',
   config: 'Config',
 }
 
@@ -42,38 +46,38 @@ const SEVERITY_LABEL: Record<ActivitySeverity, string> = {
 
 const CATEGORIES: (ActivityCategory | 'all')[] = [
   'all',
+  'auth',
   'kyc',
   'venue',
   'terminal',
   'payment',
-  'auth',
   'config',
 ]
 
 export function ActivityLogPage() {
   const [category, setCategory] = useState<ActivityCategory | 'all'>('all')
 
-  const filtered = useMemo(() => {
-    if (category === 'all') return MOCK_ACTIVITY
-    return MOCK_ACTIVITY.filter((e) => e.category === category)
-  }, [category])
+  const query = useActivityLog({ page: 1, pageSize: 100 })
 
-  const columns = useMemo<ColumnDef<ActivityEntry, unknown>[]>(
+  const entries = useMemo(() => {
+    const logs = query.data?.logs ?? []
+    if (category === 'all') return logs
+    return logs.filter((log) => categorizeEntry(log) === category)
+  }, [query.data, category])
+
+  const columns = useMemo<ColumnDef<ActivityLogEntry, unknown>[]>(
     () => [
       {
-        id: 'occurredAt',
+        id: 'createdAt',
         header: 'Cuándo',
-        accessorFn: (row) => new Date(row.occurredAt).getTime(),
+        accessorFn: (row) => new Date(row.createdAt).getTime(),
         cell: ({ row }) => {
           const e = row.original
-          const tz = e.venue?.timezone ?? DEFAULT_TIMEZONE
           return (
             <>
-              <p className="tabular text-[12.5px] text-[var(--ink)]">
-                {formatRelative(e.occurredAt, tz)}
-              </p>
-              <p className="tabular mt-0.5 text-[10.5px] text-[var(--ink-faint)]">
-                {formatDateTime(e.occurredAt, tz)}
+              <p className="tabular text-[13px] text-[var(--ink)]">{formatRelative(e.createdAt)}</p>
+              <p className="tabular mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                {formatDateTime(e.createdAt)}
               </p>
             </>
           )
@@ -84,68 +88,73 @@ export function ActivityLogPage() {
       {
         id: 'actor',
         header: 'Actor',
-        accessorFn: (row) => row.actor.name,
-        cell: ({ row }) => (
-          <>
-            <p className="text-[12.5px] font-medium text-[var(--ink)]">{row.original.actor.name}</p>
-            <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">{row.original.actor.email}</p>
-          </>
-        ),
+        accessorFn: (row) => actorDisplayName(row.staff),
+        cell: ({ row }) => {
+          const e = row.original
+          return (
+            <>
+              <p className="text-[13px] font-medium text-[var(--ink)]">
+                {actorDisplayName(e.staff)}
+              </p>
+              {e.venueName && (
+                <p className="mt-0.5 text-[11.5px] text-[var(--ink-faint)]">{e.venueName}</p>
+              )}
+            </>
+          )
+        },
         meta: { headerClassName: 'w-[180px]' },
       },
       {
         id: 'category',
         header: 'Categoría',
-        accessorFn: (row) => CATEGORY_LABEL[row.category],
-        cell: ({ row }) => (
-          <Badge tone={SEVERITY_TONE[row.original.severity]}>
-            {CATEGORY_LABEL[row.original.category]}
-            <span className="sr-only"> ({SEVERITY_LABEL[row.original.severity]})</span>
-          </Badge>
-        ),
+        accessorFn: (row) => CATEGORY_LABEL[categorizeEntry(row)],
+        cell: ({ row }) => {
+          const e = row.original
+          const cat = categorizeEntry(e)
+          const sev = severityFor(e.action)
+          return (
+            <Badge tone={SEVERITY_TONE[sev]}>
+              {CATEGORY_LABEL[cat]}
+              <span className="sr-only"> ({SEVERITY_LABEL[sev]})</span>
+            </Badge>
+          )
+        },
         meta: { headerClassName: 'w-[120px]' },
       },
       {
         id: 'action',
         header: 'Acción',
         accessorFn: (row) =>
-          [row.action, row.target?.label, row.venue?.name].filter(Boolean).join(' '),
-        cell: ({ row }) => (
-          <>
-            <p className="text-[14px] leading-snug text-[var(--ink)]">{row.original.action}</p>
-            {row.original.target && (
-              <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-                {row.original.target.href ? (
-                  <a
-                    href={row.original.target.href}
-                    className="border-b border-dashed border-[var(--ink-faint)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                  >
-                    {row.original.target.label}
-                  </a>
-                ) : (
-                  row.original.target.label
-                )}
+          [row.action, row.entity, row.entityId, row.organizationName].filter(Boolean).join(' '),
+        cell: ({ row }) => {
+          const e = row.original
+          return (
+            <>
+              <p className="text-[13.5px] leading-snug text-[var(--ink)]">
+                {humanizeAction(e.action)}
               </p>
-            )}
-          </>
-        ),
+              {(e.entity || e.entityId) && (
+                <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
+                  {e.entity && <span className="font-mono">{e.entity}</span>}
+                  {e.entity && e.entityId && <span className="mx-1 opacity-40">·</span>}
+                  {e.entityId && <span className="font-mono break-all">{e.entityId}</span>}
+                </p>
+              )}
+            </>
+          )
+        },
         enableSorting: false,
       },
       {
         id: 'source',
         header: 'Origen',
-        accessorFn: (row) => row.source.ip,
+        accessorFn: (row) => row.ipAddress ?? '',
         cell: ({ row }) => (
-          <>
-            <p className="font-mono tabular text-[11.5px] text-[var(--ink-muted)]">
-              {row.original.source.ip}
-            </p>
-            <p className="mt-0.5 text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-              {row.original.source.device}
-            </p>
-          </>
+          <p className="font-mono tabular text-[12px] text-[var(--ink-muted)]">
+            {row.original.ipAddress ?? '—'}
+          </p>
         ),
-        meta: { headerClassName: 'w-[180px]' },
+        meta: { headerClassName: 'w-[160px]' },
       },
       {
         id: 'actions',
@@ -168,6 +177,9 @@ export function ActivityLogPage() {
     [],
   )
 
+  const total = query.data?.pagination.total ?? 0
+  const loaded = query.data?.logs.length ?? 0
+
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
       <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
@@ -176,21 +188,39 @@ export function ActivityLogPage() {
           <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)] sm:text-[34px]">
             Activity log
           </h1>
-          <p className="mt-2 text-[14.5px] text-[var(--ink-muted)]">
-            Cada acción registrada por el equipo y los procesos del sistema, en tiempo real.
+          <p className="mt-2 text-[14px] text-[var(--ink-muted)]">
+            Cada acción registrada por el equipo y los procesos del sistema.
             <span className="tabular ml-2 text-[var(--ink-faint)]">
               · zona base {timezoneShort(DEFAULT_TIMEZONE)}
+              {total > 0 && (
+                <>
+                  {' '}
+                  · {loaded} de {total} cargados
+                </>
+              )}
             </span>
           </p>
         </div>
       </header>
 
+      {query.isError && (
+        <div
+          role="alert"
+          className="mb-5 rounded-[6px] border border-[var(--danger)]/40 bg-[var(--danger-faint)] px-3.5 py-3 text-[13px] text-[var(--danger)]"
+        >
+          <p className="font-semibold">No pudimos cargar el activity log</p>
+          <p className="mt-0.5 text-[var(--ink-muted)]">
+            Revisa que el backend esté corriendo (VITE_API_URL) y reintenta.
+          </p>
+        </div>
+      )}
+
       <DataTable
-        data={filtered}
+        data={entries}
         columns={columns}
         searchPlaceholder="Buscar acción, actor, venue…"
-        caption={`Eventos registrados. ${filtered.length} de ${MOCK_ACTIVITY.length} visibles.`}
-        initialSorting={[{ id: 'occurredAt', desc: true }]}
+        caption={`Eventos registrados. ${entries.length} visibles.`}
+        initialSorting={[{ id: 'createdAt', desc: true }]}
         pageSize={20}
         toolbar={
           <div
@@ -208,7 +238,7 @@ export function ActivityLogPage() {
                   aria-pressed={isActive}
                   onClick={() => setCategory(c)}
                   className={cn(
-                    'h-9 shrink-0 rounded-[4px] px-3 text-[11.5px] font-medium uppercase tracking-[0.06em] transition-colors',
+                    'h-9 shrink-0 rounded-[4px] px-3 text-[12px] font-medium uppercase tracking-[0.06em] transition-colors',
                     isActive
                       ? 'bg-[var(--ink)] text-[var(--canvas)]'
                       : 'text-[var(--ink-muted)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]',
@@ -221,23 +251,37 @@ export function ActivityLogPage() {
           </div>
         }
         emptyState={{
-          title: 'Sin coincidencias',
-          description: 'Ajusta el filtro o limpia la búsqueda para volver a ver todo el log.',
+          title: query.isLoading ? 'Cargando…' : 'Sin coincidencias',
+          description: query.isLoading
+            ? 'Pidiendo eventos al servidor.'
+            : 'Ajusta el filtro o limpia la búsqueda para volver a ver todo el log.',
         }}
         exportable={{
           filename: 'avoqado-activity-log',
-          dateAccessor: (row) => row.occurredAt,
+          dateAccessor: (row) => row.createdAt,
           columns: [
-            { key: 'occurredAt', header: 'Cuándo (UTC)', accessor: (r) => r.occurredAt },
-            { key: 'actorName', header: 'Actor', accessor: (r) => r.actor.name },
-            { key: 'actorEmail', header: 'Email del actor', accessor: (r) => r.actor.email },
-            { key: 'category', header: 'Categoría', accessor: (r) => CATEGORY_LABEL[r.category] },
-            { key: 'severity', header: 'Severidad', accessor: (r) => SEVERITY_LABEL[r.severity] },
+            { key: 'createdAt', header: 'Cuándo (UTC)', accessor: (r) => r.createdAt },
+            { key: 'actor', header: 'Actor', accessor: (r) => actorDisplayName(r.staff) },
+            {
+              key: 'category',
+              header: 'Categoría',
+              accessor: (r) => CATEGORY_LABEL[categorizeEntry(r)],
+            },
+            {
+              key: 'severity',
+              header: 'Severidad',
+              accessor: (r) => SEVERITY_LABEL[severityFor(r.action)],
+            },
             { key: 'action', header: 'Acción', accessor: (r) => r.action },
-            { key: 'target', header: 'Objetivo', accessor: (r) => r.target?.label ?? '' },
-            { key: 'venue', header: 'Venue', accessor: (r) => r.venue?.name ?? '' },
-            { key: 'sourceIp', header: 'IP', accessor: (r) => r.source.ip },
-            { key: 'sourceDevice', header: 'Dispositivo', accessor: (r) => r.source.device },
+            { key: 'entity', header: 'Entity', accessor: (r) => r.entity ?? '' },
+            { key: 'entityId', header: 'Entity ID', accessor: (r) => r.entityId ?? '' },
+            { key: 'venue', header: 'Venue', accessor: (r) => r.venueName ?? '' },
+            {
+              key: 'organization',
+              header: 'Organización',
+              accessor: (r) => r.organizationName ?? '',
+            },
+            { key: 'ip', header: 'IP', accessor: (r) => r.ipAddress ?? '' },
           ],
         }}
       />
