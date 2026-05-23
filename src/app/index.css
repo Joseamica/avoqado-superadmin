@@ -12,11 +12,10 @@
 */
 :root {
   /*
-    Neutrales tintados azul-pizarra (H=245°) en lugar del verde anterior (130°).
-    Chroma sube un poco (0.015-0.022) para que el tinte se note sin caer en
-    "Discord blue" o "cyan-on-dark" (que están en la lista negra del skill).
-    El accent se queda en olivo (130°) — el contraste azul + olivo es complementario
-    y le da identidad visual sin perder la firma Avoqado.
+    Neutrales tintados azul-pizarra (H=245°). Chroma 0.015-0.024 para tinte
+    visible sin caer en "Discord blue" / "cyan-on-dark".
+    Accent: indigo (H=270°), estilo Stripe / Linear. El indigo sobre slate-blue
+    es analógico (mismo lado del color wheel) — coherente y premium.
   */
   --canvas: oklch(0.155 0.018 245);
   --canvas-sunken: oklch(0.125 0.022 245);
@@ -27,10 +26,10 @@
   --line: oklch(0.28 0.02 245);
   --line-strong: oklch(0.36 0.024 245);
 
-  --accent: oklch(0.74 0.14 130);
-  --accent-hover: oklch(0.82 0.13 130);
-  --accent-faint: oklch(0.26 0.07 130);
-  --accent-line: oklch(0.38 0.1 130);
+  --accent: oklch(0.62 0.22 270);
+  --accent-hover: oklch(0.68 0.22 270);
+  --accent-faint: oklch(0.28 0.1 270);
+  --accent-line: oklch(0.42 0.16 270);
 
   --success: oklch(0.74 0.16 145);
   --success-faint: oklch(0.24 0.06 145);
@@ -41,7 +40,7 @@
   --info: oklch(0.74 0.12 230);
   --info-faint: oklch(0.24 0.06 230);
 
-  --ring: oklch(0.74 0.14 130 / 0.45);
+  --ring: oklch(0.62 0.22 270 / 0.5);
   --radius: 8px;
 
   /*
@@ -67,10 +66,10 @@
   --line: oklch(0.92 0.005 130);
   --line-strong: oklch(0.86 0.006 130);
 
-  --accent: oklch(0.55 0.12 130);
-  --accent-hover: oklch(0.48 0.13 130);
-  --accent-faint: oklch(0.96 0.04 130);
-  --accent-line: oklch(0.82 0.08 130);
+  --accent: oklch(0.5 0.22 270);
+  --accent-hover: oklch(0.42 0.22 270);
+  --accent-faint: oklch(0.96 0.04 270);
+  --accent-line: oklch(0.82 0.1 270);
 
   --success: oklch(0.58 0.14 145);
   --success-faint: oklch(0.96 0.04 145);
@@ -81,7 +80,7 @@
   --info: oklch(0.55 0.1 230);
   --info-faint: oklch(0.96 0.03 230);
 
-  --ring: oklch(0.55 0.12 130 / 0.35);
+  --ring: oklch(0.5 0.22 270 / 0.4);
 
   color-scheme: light;
 }
