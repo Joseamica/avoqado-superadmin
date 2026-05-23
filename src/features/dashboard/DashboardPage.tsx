@@ -48,11 +48,11 @@ export function DashboardPage() {
   const recent = MOCK_ACTIVITY.slice(0, 5)
 
   return (
-    <div className="mx-auto max-w-[1200px] px-10 py-10">
-      <header className="mb-9 flex items-end justify-between gap-8">
+    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
+      <header className="mb-7 flex flex-col gap-4 sm:mb-9 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
         <div>
           <p className="eyebrow">Operaciones</p>
-          <h1 className="mt-1.5 font-display text-[40px] font-semibold leading-[1.05] tracking-[-0.028em] text-[var(--ink)]">
+          <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-[1.05] tracking-[-0.028em] text-[var(--ink)] sm:text-[34px] lg:text-[40px]">
             Resumen de la plataforma
           </h1>
           <p className="mt-2 text-[13.5px] text-[var(--ink-muted)]">
@@ -61,7 +61,7 @@ export function DashboardPage() {
             <span className="text-[var(--ink-faint)]">({timezoneShort(DEFAULT_TIMEZONE)})</span>.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] px-2.5 py-1.5">
+        <div className="flex w-fit items-center gap-2 rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] px-2.5 py-1.5">
           <span
             aria-hidden
             className="h-1.5 w-1.5 rounded-full bg-[var(--success)] shadow-[0_0_0_3px_var(--success-faint)]"
