@@ -15,6 +15,7 @@ import {
   actorDisplayName,
   categorizeEntry,
   humanizeAction,
+  humanizeEntity,
   severityFor,
   type ActivityCategory,
   type ActivityLogEntry,
@@ -135,7 +136,7 @@ export function ActivityLogPage() {
               </p>
               {(e.entity || e.entityId) && (
                 <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-                  {e.entity && <span className="font-mono">{e.entity}</span>}
+                  {e.entity && <span>{humanizeEntity(e.entity)}</span>}
                   {e.entity && e.entityId && <span className="mx-1 opacity-40">·</span>}
                   {e.entityId && <span className="font-mono break-all">{e.entityId}</span>}
                 </p>

@@ -9,6 +9,18 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Fixed
+
+- **Bug crítico en `/api/v1/superadmin/dashboard/summary`** (server): el conteo de pagos fallidos usaba `PaymentStatus` (PENDING, PARTIAL) cuando `Payment.status` en realidad está tipado contra `TransactionStatus` (COMPLETED, FAILED, PENDING, PROCESSING, REFUNDED). Prisma rechazaba con `Invalid value for argument 'in'`. Cambiado a `TransactionStatus.FAILED`.
+
+### Added
+
+- **Traducciones al español de actions y entities del activity log.** Las acciones que el backend almacena en SCREAMING_SNAKE_CASE (`INVENTORY_DEDUCTED_FOR_SALE`, `RESERVATION_CREATED`, `VENUE_UPDATED`, `PAYMENT_LINK_CREATED`, etc.) ahora se renderizan en español ("Inventario descontado por venta", "Reservación creada", etc.) vía el mapa `ACTION_LABELS` en `src/features/activity-log/types.ts`. Entities (`Venue`, `Terminal`, `Staff`, `Order`, `PaymentLink`, `permission`, etc.) usan `ENTITY_LABELS` con el mismo patrón. Cualquier valor sin mapeo cae al fallback humanize (capitalize). El reglamento es: cuando aparezca un action nuevo en el backend, agrégalo aquí.
+
+### Changed
+
+- **Dark theme con tinte azul-pizarra.** Los neutrales pasaron de hue 130° (verde olivo) a **245° (slate-blue)**. Chroma sube ligeramente (0.018-0.024) para que el azul se note sin caer en "cyan-on-dark" (que está en la blacklist de impeccable). El accent se queda en olivo (130°) — la combinación azul-pizarra + accent olivo es complementaria, le da identidad visual al dashboard sin perder la firma de marca.
+
 ### Changed
 
 - **Typography swap (otra vez): IBM Plex Sans → Geist** (de Vercel). IBM Plex

@@ -81,10 +81,104 @@ export function severityFor(action: string): ActivitySeverity {
   return 'info'
 }
 
+/**
+ * Spanish labels para los `action` strings que emite el backend.
+ * Cualquier action sin mapeo cae al fallback humanize (camelize del enum).
+ * Pega aquí los nuevos cuando aparezcan en el server.
+ */
+const ACTION_LABELS: Record<string, string> = {
+  // Auth / permisos
+  PERMISSION_DENIED: 'Permiso denegado',
+  PERMISSION_GRANTED: 'Permiso otorgado',
+  LOGIN: 'Inicio de sesión',
+  LOGIN_FAILED: 'Inicio de sesión fallido',
+  LOGOUT: 'Cierre de sesión',
+  PASSWORD_RESET: 'Contraseña restablecida',
+  USER_PASSWORD_RESET: 'Contraseña de usuario restablecida',
+  // Venue
+  VENUE_CREATED: 'Venue creado',
+  VENUE_UPDATED: 'Venue actualizado',
+  VENUE_DELETED: 'Venue eliminado',
+  VENUE_SUSPENDED: 'Venue suspendido',
+  VENUE_REACTIVATED: 'Venue reactivado',
+  // Settings / features
+  SETTINGS_UPDATED: 'Configuración actualizada',
+  FEATURE_ENABLED_BY_ADMIN: 'Feature habilitado por admin',
+  FEATURE_DISABLED_BY_ADMIN: 'Feature deshabilitado por admin',
+  MODULE_ENABLED: 'Módulo habilitado',
+  MODULE_DISABLED: 'Módulo deshabilitado',
+  // Terminal / TPV
+  TERMINAL_CREATED: 'Terminal creada',
+  TERMINAL_UPDATED: 'Terminal actualizada',
+  TERMINAL_DELETED: 'Terminal eliminada',
+  TPV_CREATED: 'TPV creado',
+  TPV_UPDATED: 'TPV actualizado',
+  TPV_DELETED: 'TPV eliminado',
+  APP_UPDATE_PUBLISHED: 'Update de app publicado',
+  // Inventario
+  INVENTORY_DEDUCTED_FOR_SALE: 'Inventario descontado por venta',
+  INVENTORY_RESTOCKED: 'Inventario repuesto',
+  INVENTORY_ADJUSTED: 'Inventario ajustado',
+  // Reservaciones
+  RESERVATION_CREATED: 'Reservación creada',
+  RESERVATION_UPDATED: 'Reservación actualizada',
+  RESERVATION_CANCELLED: 'Reservación cancelada',
+  RESERVATION_CONFIRMED: 'Reservación confirmada',
+  // Pagos / órdenes
+  PAYMENT_LINK_CREATED: 'Liga de pago creada',
+  PAYMENT_LINK_UPDATED: 'Liga de pago actualizada',
+  PAYMENT_LINK_ARCHIVED: 'Liga de pago archivada',
+  PAYMENT_LINK_DELETED: 'Liga de pago eliminada',
+  PAYMENT_COMPLETED: 'Pago completado',
+  PAYMENT_FAILED: 'Pago fallido',
+  PAYMENT_REFUNDED: 'Pago reembolsado',
+  ORDER_CREATED: 'Orden creada',
+  ORDER_UPDATED: 'Orden actualizada',
+  ORDER_CANCELLED: 'Orden cancelada',
+  // E-commerce
+  ECOMMERCE_MERCHANT_CREATED: 'Merchant e-commerce creado',
+  ECOMMERCE_MERCHANT_UPDATED: 'Merchant e-commerce actualizado',
+  ECOMMERCE_MERCHANT_DELETED: 'Merchant e-commerce eliminado',
+  // KYC
+  KYC_APPROVED: 'KYC aprobado',
+  KYC_REJECTED: 'KYC rechazado',
+  KYC_SUBMITTED: 'KYC enviado',
+  KYC_REVIEW_REQUESTED: 'KYC en revisión',
+  // Personal
+  STAFF_CREATED: 'Personal agregado',
+  STAFF_UPDATED: 'Personal actualizado',
+  STAFF_DELETED: 'Personal eliminado',
+  STAFF_INVITED: 'Personal invitado',
+  STAFF_ROLE_CHANGED: 'Rol de personal modificado',
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  Venue: 'Venue',
+  Terminal: 'Terminal',
+  Staff: 'Personal',
+  Payment: 'Pago',
+  Order: 'Orden',
+  PaymentLink: 'Liga de pago',
+  EcommerceMerchant: 'Merchant',
+  VenueFeature: 'Feature de venue',
+  VenueSettings: 'Configuración de venue',
+  permission: 'Permiso',
+  Reservation: 'Reservación',
+  KycReview: 'KYC',
+  ActivityLog: 'Registro',
+  AppUpdate: 'Update de app',
+}
+
 export function humanizeAction(action: string): string {
-  // SCREAMING_SNAKE_CASE → Sentence case
+  if (ACTION_LABELS[action]) return ACTION_LABELS[action]
+  // Fallback para actions desconocidas: SCREAMING_SNAKE_CASE → "Sentence case".
   const lower = action.toLowerCase().replace(/_/g, ' ')
   return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+export function humanizeEntity(entity: string | null | undefined): string {
+  if (!entity) return ''
+  return ENTITY_LABELS[entity] ?? entity
 }
 
 export function actorDisplayName(staff: ActivityLogStaff | null): string {

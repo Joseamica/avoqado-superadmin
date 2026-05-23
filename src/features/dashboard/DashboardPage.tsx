@@ -8,7 +8,12 @@ import {
   timezoneShort,
 } from '@/shared/lib/datetime'
 import { useActivityLog } from '@/features/activity-log/use-activity-log'
-import { actorDisplayName, humanizeAction, severityFor } from '@/features/activity-log/types'
+import {
+  actorDisplayName,
+  humanizeAction,
+  humanizeEntity,
+  severityFor,
+} from '@/features/activity-log/types'
 import { useDashboardSummary } from './use-dashboard-summary'
 import type { DashboardSummary } from './types'
 
@@ -225,7 +230,7 @@ export function DashboardPage() {
                         {entry.entity && entry.venueName && (
                           <span className="mx-1.5 opacity-40">·</span>
                         )}
-                        {entry.entity && <span className="font-mono">{entry.entity}</span>}
+                        {entry.entity && <span>{humanizeEntity(entry.entity)}</span>}
                       </p>
                     )}
                   </div>

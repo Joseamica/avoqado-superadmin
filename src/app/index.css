@@ -11,14 +11,21 @@
   por si necesitamos un toggle (no expuesto en UI hoy).
 */
 :root {
-  --canvas: oklch(0.155 0.008 130);
-  --canvas-sunken: oklch(0.125 0.008 130);
-  --canvas-raised: oklch(0.195 0.009 130);
-  --ink: oklch(0.94 0.005 130);
-  --ink-muted: oklch(0.7 0.008 130);
-  --ink-faint: oklch(0.5 0.008 130);
-  --line: oklch(0.26 0.01 130);
-  --line-strong: oklch(0.34 0.012 130);
+  /*
+    Neutrales tintados azul-pizarra (H=245°) en lugar del verde anterior (130°).
+    Chroma sube un poco (0.015-0.022) para que el tinte se note sin caer en
+    "Discord blue" o "cyan-on-dark" (que están en la lista negra del skill).
+    El accent se queda en olivo (130°) — el contraste azul + olivo es complementario
+    y le da identidad visual sin perder la firma Avoqado.
+  */
+  --canvas: oklch(0.155 0.018 245);
+  --canvas-sunken: oklch(0.125 0.022 245);
+  --canvas-raised: oklch(0.195 0.018 245);
+  --ink: oklch(0.95 0.008 245);
+  --ink-muted: oklch(0.72 0.012 245);
+  --ink-faint: oklch(0.52 0.014 245);
+  --line: oklch(0.28 0.02 245);
+  --line-strong: oklch(0.36 0.024 245);
 
   --accent: oklch(0.74 0.14 130);
   --accent-hover: oklch(0.82 0.13 130);
@@ -34,7 +41,7 @@
   --info: oklch(0.74 0.12 230);
   --info-faint: oklch(0.24 0.06 230);
 
-  --ring: oklch(0.74 0.14 130 / 0.4);
+  --ring: oklch(0.74 0.14 130 / 0.45);
   --radius: 8px;
 
   /*
