@@ -48,7 +48,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         </p>
         <Button
           type="button"
-          variant="secondary"
+          variant="danger"
           disabled={loggingOut}
           className="mt-8"
           onClick={() => void handleLogout()}
