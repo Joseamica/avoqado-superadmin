@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.agents
+playwright-report
+test-results
+*.lock
+*.log
+.env*

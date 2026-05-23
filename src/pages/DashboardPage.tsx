@@ -1,12 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
-import {
-  DEFAULT_TIMEZONE,
-  formatDateTime,
-  formatRelative,
-  timezoneShort,
-} from '@/lib/datetime'
+import { DEFAULT_TIMEZONE, formatDateTime, formatRelative, timezoneShort } from '@/lib/datetime'
 import { MOCK_ACTIVITY } from './ActivityLogPage.mock'
 
 interface Kpi {
@@ -62,8 +57,12 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] px-2.5 py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] shadow-[0_0_0_3px_var(--success-faint)]" />
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full bg-[var(--success)] shadow-[0_0_0_3px_var(--success-faint)]"
+          />
           <span className="text-[11.5px] font-medium text-[var(--ink-muted)]">
+            <span className="sr-only">Estado del API: saludable. </span>
             API · saludable · 124 ms p50
           </span>
         </div>
@@ -143,6 +142,17 @@ export function DashboardPage() {
                   }
                   aria-hidden
                 />
+                <span className="sr-only">
+                  Severidad{' '}
+                  {entry.severity === 'success'
+                    ? 'éxito'
+                    : entry.severity === 'warn'
+                      ? 'advertencia'
+                      : entry.severity === 'danger'
+                        ? 'crítica'
+                        : 'informativa'}
+                  :
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] leading-snug text-[var(--ink)]">
                     <span className="font-medium">{entry.actor.name}</span> · {entry.action}
@@ -222,7 +232,10 @@ function AttentionCard({
 
   return (
     <article className="flex gap-3 rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)] p-3.5">
-      <span aria-hidden className={`mt-1 h-full w-[3px] shrink-0 self-stretch rounded-full ${accentBar}`} />
+      <span
+        aria-hidden
+        className={`mt-1 h-full w-[3px] shrink-0 self-stretch rounded-full ${accentBar}`}
+      />
       <div className="min-w-0 flex-1">
         <Badge tone={badgeTone}>{badgeLabel}</Badge>
         <p className="mt-2 text-[13px] font-medium leading-snug text-[var(--ink)]">{title}</p>

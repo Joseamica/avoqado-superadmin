@@ -39,3 +39,8 @@ coverage/
 
 # Skill cache (impeccable / gstack) — derived from skills-lock.json
 .agents/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/

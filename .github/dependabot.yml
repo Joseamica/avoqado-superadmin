@@ -1,0 +1,47 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/Mexico_City'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+    groups:
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react*'
+      tanstack:
+        patterns:
+          - '@tanstack/*'
+      radix:
+        patterns:
+          - '@radix-ui/*'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - '@testing-library/*'
+          - 'msw'
+          - '@playwright/test'
+          - 'jsdom'
+      lint-format:
+        patterns:
+          - 'eslint*'
+          - 'prettier'
+          - 'typescript-eslint'
+      types:
+        patterns:
+          - '@types/*'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    labels:
+      - 'ci'

@@ -1,4 +1,12 @@
-import { useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -13,6 +21,50 @@ import {
 import { Kbd } from './ui/Kbd'
 import { useAuth } from '@/context/AuthContext'
 
+interface CommandPaletteContextValue {
+  isOpen: boolean
+  open: () => void
+  close: () => void
+  toggle: () => void
+}
+
+const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null)
+
+export function CommandPaletteProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  const open = useCallback(() => setIsOpen(true), [])
+  const close = useCallback(() => setIsOpen(false), [])
+  const toggle = useCallback(() => setIsOpen((o) => !o), [])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        toggle()
+      } else if (event.key === 'Escape' && isOpen) {
+        event.preventDefault()
+        close()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOpen, toggle, close])
+
+  const value = useMemo<CommandPaletteContextValue>(
+    () => ({ isOpen, open, close, toggle }),
+    [isOpen, open, close, toggle],
+  )
+
+  return <CommandPaletteContext.Provider value={value}>{children}</CommandPaletteContext.Provider>
+}
+
+export function useCommandPalette(): CommandPaletteContextValue {
+  const ctx = useContext(CommandPaletteContext)
+  if (!ctx) throw new Error('useCommandPalette must be used inside <CommandPaletteProvider>')
+  return ctx
+}
+
 interface CommandItem {
   id: string
   label: string
@@ -23,22 +75,9 @@ interface CommandItem {
 }
 
 export function CommandPalette() {
-  const [open, setOpen] = useState(false)
+  const { isOpen, close } = useCommandPalette()
   const navigate = useNavigate()
   const { logout } = useAuth()
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setOpen((o) => !o)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
-
-  const close = () => setOpen(false)
 
   const items: CommandItem[] = [
     {
@@ -97,25 +136,27 @@ export function CommandPalette() {
     },
   ]
 
-  if (!open) return null
+  if (!isOpen) return null
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--ink)]/30 px-4 pt-[16vh] backdrop-blur-[2px]"
+      aria-label="Paleta de comandos"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--ink)]/45 px-4 pt-[16vh]"
       onClick={close}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl overflow-hidden rounded-[10px] border border-[var(--line-strong)] bg-[var(--canvas)] shadow-[0_24px_60px_-20px_oklch(0.20_0.012_130_/_0.25)]"
       >
-        <Command label="Command palette" loop>
+        <Command label="Paleta de comandos" loop>
           <div className="flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-3">
-            <Search className="h-4 w-4 text-[var(--ink-faint)]" />
+            <Search className="h-4 w-4 text-[var(--ink-faint)]" aria-hidden />
             <Command.Input
               autoFocus
               placeholder="Buscar venues, ejecutar acciones…"
+              aria-label="Buscar acción o venue"
               className="flex-1 bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none"
             />
             <Kbd>esc</Kbd>
@@ -141,7 +182,7 @@ export function CommandPalette() {
                         className="flex h-9 cursor-pointer items-center justify-between gap-3 rounded-[6px] px-2.5 text-[13px] text-[var(--ink)] aria-selected:bg-[var(--canvas-sunken)] aria-selected:text-[var(--ink)]"
                       >
                         <span className="flex items-center gap-2.5">
-                          <Icon className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                          <Icon className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden />
                           {item.label}
                         </span>
                         {item.shortcut && (
@@ -167,9 +208,7 @@ export function CommandPalette() {
                 seleccionar
               </span>
             </div>
-            <span className="font-mono">
-              avoqado · superadmin
-            </span>
+            <span className="tracking-[0.10em] uppercase">avoqado · superadmin</span>
           </div>
         </Command>
       </div>

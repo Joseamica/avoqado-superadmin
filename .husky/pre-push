@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Pre-push gate: typecheck + lint + vitest. Si algo falla, el push se cancela.
+# Saltar con --no-verify SOLO si tienes una emergencia documentada.
+
+echo "[pre-push] typecheck…"
+npm run typecheck || exit 1
+
+echo "[pre-push] lint…"
+npm run lint || exit 1
+
+echo "[pre-push] tests…"
+npm run test:run || exit 1
+
+echo "[pre-push] ✓ all checks passed"

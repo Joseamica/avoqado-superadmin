@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,16 +8,17 @@ import { Brandmark } from '@/components/Brandmark'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
+import { readApiErrorMessage } from '@/lib/api'
 
 const schema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
+  password: z.string().min(4, 'Mínimo 6 caracteres'),
 })
 
 type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, isAuthenticated, isSuperadmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [submitting, setSubmitting] = useState(false)
@@ -31,16 +32,20 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   })
 
+  if (isAuthenticated && isSuperadmin) {
+    const redirectTo =
+      (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/dashboard'
+    return <Navigate to={redirectTo} replace />
+  }
+
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true)
     try {
-      await login(values.email, values.password)
-      const redirectTo =
-        (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/dashboard'
-      navigate(redirectTo, { replace: true })
+      await login(values)
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       toast.error('No pudimos iniciar sesión', {
-        description: error instanceof Error ? error.message : 'Verifica tus credenciales.',
+        description: readApiErrorMessage(error, 'Verifica tus credenciales.'),
       })
     } finally {
       setSubmitting(false)
@@ -62,7 +67,7 @@ export function LoginPage() {
           </p>
         </div>
         <p className="font-mono text-[11px] text-[var(--ink-faint)]">
-          v0.1 · build {new Date().getFullYear()}
+          v0.1 · {new Date().getFullYear()}
         </p>
       </aside>
 
@@ -103,10 +108,10 @@ export function LoginPage() {
           <p className="mt-8 text-[11px] text-[var(--ink-faint)]">
             ¿Problemas para entrar? Escribe a{' '}
             <a
-              href="mailto:ops@avoqado.io"
+              href="mailto:hola@avoqado.io"
               className="border-b border-dashed border-[var(--ink-faint)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
-              ops@avoqado.io
+              hola@avoqado.io
             </a>
             .
           </p>

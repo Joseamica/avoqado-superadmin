@@ -1,14 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { ArrowUpRight, Filter, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Kbd } from '@/components/ui/Kbd'
-import {
-  DEFAULT_TIMEZONE,
-  formatDateTime,
-  formatRelative,
-  timezoneShort,
-} from '@/lib/datetime'
+import { DEFAULT_TIMEZONE, formatDateTime, formatRelative, timezoneShort } from '@/lib/datetime'
 import { cn } from '@/lib/utils'
 import {
   MOCK_ACTIVITY,
@@ -26,14 +21,18 @@ const CATEGORY_LABEL: Record<ActivityCategory, string> = {
   config: 'Config',
 }
 
-const SEVERITY_TONE: Record<
-  ActivitySeverity,
-  'muted' | 'success' | 'warn' | 'danger' | 'info'
-> = {
+const SEVERITY_TONE: Record<ActivitySeverity, 'muted' | 'success' | 'warn' | 'danger' | 'info'> = {
   info: 'info',
   success: 'success',
   warn: 'warn',
   danger: 'danger',
+}
+
+const SEVERITY_LABEL: Record<ActivitySeverity, string> = {
+  info: 'informativo',
+  success: 'éxito',
+  warn: 'advertencia',
+  danger: 'crítico',
 }
 
 const CATEGORIES: (ActivityCategory | 'all')[] = [
@@ -49,6 +48,7 @@ const CATEGORIES: (ActivityCategory | 'all')[] = [
 export function ActivityLogPage() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<ActivityCategory | 'all'>('all')
+  const searchId = useId()
 
   const entries = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -88,36 +88,55 @@ export function ActivityLogPage() {
 
       <div className="mb-5 flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[260px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-faint)]" />
+          <label htmlFor={searchId} className="sr-only">
+            Buscar en el activity log
+          </label>
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-faint)]"
+            aria-hidden
+          />
           <input
+            id={searchId}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar acción, actor, venue…"
             className="h-9 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] pl-9 pr-3 text-[13px] placeholder:text-[var(--ink-faint)] focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           />
         </div>
-        <div className="flex items-center gap-1.5 rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-0.5">
-          <Filter className="mx-1.5 h-3.5 w-3.5 text-[var(--ink-faint)]" />
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              className={cn(
-                'h-7 rounded-[4px] px-2 text-[11.5px] font-medium uppercase tracking-[0.06em] transition-colors',
-                category === c
-                  ? 'bg-[var(--ink)] text-[var(--canvas)]'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink)]',
-              )}
-            >
-              {c === 'all' ? 'Todo' : CATEGORY_LABEL[c]}
-            </button>
-          ))}
+        <div
+          role="group"
+          aria-label="Filtrar por categoría"
+          className="flex items-center gap-1.5 rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-0.5"
+        >
+          <Filter className="mx-1.5 h-3.5 w-3.5 text-[var(--ink-faint)]" aria-hidden />
+          {CATEGORIES.map((c) => {
+            const isActive = category === c
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setCategory(c)}
+                className={cn(
+                  'h-8 rounded-[4px] px-2.5 text-[11.5px] font-medium uppercase tracking-[0.06em] transition-colors',
+                  isActive
+                    ? 'bg-[var(--ink)] text-[var(--canvas)]'
+                    : 'text-[var(--ink-muted)] hover:text-[var(--ink)]',
+                )}
+              >
+                {c === 'all' ? 'Todo' : CATEGORY_LABEL[c]}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)]">
-        <table className="w-full border-collapse text-[13px]">
+      <section className="overflow-x-auto rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)]">
+        <table className="w-full min-w-[820px] border-collapse text-[13px]">
+          <caption className="sr-only">
+            Eventos registrados en la plataforma. {entries.length} de {MOCK_ACTIVITY.length}{' '}
+            visibles.
+          </caption>
           <thead>
             <tr className="border-b border-[var(--line-strong)] bg-[var(--canvas-sunken)]">
               <Th className="w-[140px]">Cuándo</Th>
@@ -125,7 +144,9 @@ export function ActivityLogPage() {
               <Th className="w-[110px]">Categoría</Th>
               <Th>Acción</Th>
               <Th className="w-[180px]">Origen</Th>
-              <Th className="w-[40px]"></Th>
+              <Th className="w-[40px]">
+                <span className="sr-only">Acciones de fila</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
@@ -152,7 +173,7 @@ export function ActivityLogPage() {
         <span className="tabular">
           {entries.length} de {MOCK_ACTIVITY.length} eventos
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5" aria-hidden>
           <Kbd>K</Kbd>
           <span>anterior</span>
           <span className="mx-1.5 opacity-50">·</span>
@@ -164,13 +185,7 @@ export function ActivityLogPage() {
   )
 }
 
-function Th({
-  children,
-  className,
-}: {
-  children?: React.ReactNode
-  className?: string
-}) {
+function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <th
       scope="col"
@@ -204,7 +219,10 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">{entry.actor.email}</p>
       </td>
       <td className="px-4 py-3 align-top">
-        <Badge tone={SEVERITY_TONE[entry.severity]}>{CATEGORY_LABEL[entry.category]}</Badge>
+        <Badge tone={SEVERITY_TONE[entry.severity]}>
+          {CATEGORY_LABEL[entry.category]}
+          <span className="sr-only"> ({SEVERITY_LABEL[entry.severity]})</span>
+        </Badge>
       </td>
       <td className="px-4 py-3 align-top">
         <p className="text-[13px] leading-snug text-[var(--ink)]">{entry.action}</p>
@@ -224,9 +242,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         )}
       </td>
       <td className="px-4 py-3 align-top">
-        <p className="font-mono text-[11.5px] tabular text-[var(--ink-muted)]">
-          {entry.source.ip}
-        </p>
+        <p className="font-mono text-[11.5px] tabular text-[var(--ink-muted)]">{entry.source.ip}</p>
         <p className="mt-0.5 text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
           {entry.source.device}
         </p>
@@ -234,10 +250,10 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
       <td className="px-4 py-3 align-top text-right">
         <button
           type="button"
-          aria-label="Ver detalle"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)] group-hover:opacity-100"
+          aria-label={`Ver detalle del evento ${entry.id}`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)] focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <ArrowUpRight className="h-3.5 w-3.5" />
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
         </button>
       </td>
     </tr>
