@@ -139,7 +139,7 @@ export function CommandPalette() {
               autoFocus
               placeholder="Buscar venues, ejecutar acciones…"
               aria-label="Buscar acción o venue"
-              className="flex-1 bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none"
+              className="flex-1 bg-transparent text-[14.5px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none"
             />
             <Kbd>esc</Kbd>
           </div>
@@ -161,7 +161,7 @@ export function CommandPalette() {
                       <Command.Item
                         key={item.id}
                         onSelect={item.run}
-                        className="flex h-9 cursor-pointer items-center justify-between gap-3 rounded-[6px] px-2.5 text-[13px] text-[var(--ink)] aria-selected:bg-[var(--canvas-sunken)] aria-selected:text-[var(--ink)]"
+                        className="flex h-9 cursor-pointer items-center justify-between gap-3 rounded-[6px] px-2.5 text-[14px] text-[var(--ink)] aria-selected:bg-[var(--canvas-sunken)] aria-selected:text-[var(--ink)]"
                       >
                         <span className="flex items-center gap-2.5">
                           <Icon className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden />

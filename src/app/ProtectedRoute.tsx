@@ -43,7 +43,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         <h1 className="mt-3 font-display text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)]">
           Tu cuenta no tiene permiso de superadmin.
         </h1>
-        <p className="mt-2 max-w-[420px] text-[13.5px] text-[var(--ink-muted)]">
+        <p className="mt-2 max-w-[420px] text-[14.5px] text-[var(--ink-muted)]">
           Inicia sesión con una cuenta autorizada o pide a ops que te eleve el rol.
         </p>
         <Button

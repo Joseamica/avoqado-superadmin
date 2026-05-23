@@ -55,7 +55,7 @@ export function DashboardPage() {
           <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-[1.05] tracking-[-0.028em] text-[var(--ink)] sm:text-[34px] lg:text-[40px]">
             Resumen de la plataforma
           </h1>
-          <p className="mt-2 text-[13.5px] text-[var(--ink-muted)]">
+          <p className="mt-2 text-[14.5px] text-[var(--ink-muted)]">
             Datos en vivo de la flota Avoqado. Última actualización{' '}
             <span className="tabular text-[var(--ink)]">{formatDateTime(now)}</span>{' '}
             <span className="text-[var(--ink-faint)]">({timezoneShort(DEFAULT_TIMEZONE)})</span>.
@@ -159,7 +159,7 @@ export function DashboardPage() {
                   :
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] leading-snug text-[var(--ink)]">
+                  <p className="text-[14px] leading-snug text-[var(--ink)]">
                     <span className="font-medium">{entry.actor.name}</span> · {entry.action}
                   </p>
                   {entry.target && (
@@ -243,7 +243,7 @@ function AttentionCard({
       />
       <div className="min-w-0 flex-1">
         <Badge tone={badgeTone}>{badgeLabel}</Badge>
-        <p className="mt-2 text-[13px] font-medium leading-snug text-[var(--ink)]">{title}</p>
+        <p className="mt-2 text-[14px] font-medium leading-snug text-[var(--ink)]">{title}</p>
         <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">{meta}</p>
         <Link
           to={ctaTo}

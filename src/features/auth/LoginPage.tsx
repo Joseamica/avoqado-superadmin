@@ -86,7 +86,7 @@ export function LoginPage() {
           <h2 className="mt-3 font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.026em] text-[var(--ink)]">
             Consola interna de operaciones para el equipo Avoqado.
           </h2>
-          <p className="mt-3 max-w-[380px] text-[13.5px] leading-relaxed text-[var(--ink-muted)]">
+          <p className="mt-3 max-w-[380px] text-[14.5px] leading-relaxed text-[var(--ink-muted)]">
             Acceso solo para personal autorizado. Cada sesión queda registrada en el activity log,
             incluida la IP y el dispositivo de origen.
           </p>
@@ -104,7 +104,7 @@ export function LoginPage() {
           <h1 className="font-display text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)]">
             Iniciar sesión
           </h1>
-          <p className="mt-1.5 text-[13px] text-[var(--ink-muted)]">
+          <p className="mt-1.5 text-[14px] text-[var(--ink-muted)]">
             Usa tu correo corporativo Avoqado.
           </p>
 

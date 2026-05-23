@@ -11,6 +11,15 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Changed
 
+- **Typography swap: IBM Plex Sans para todo.** Reemplazadas Bricolage Grotesque
+  (display) y Plus Jakarta Sans (body) por **IBM Plex Sans Variable** (display +
+  body) y **IBM Plex Mono** (IDs/códigos). Diseñada por IBM para UIs técnicas y
+  data-heavy — mucho más legible que la combo anterior, sobre todo en tamaños
+  chicos y dark theme. Una sola familia = coherencia + carga ligeramente menor.
+- **Body 13px → 14px** (line-height 1.55) — el tamaño anterior estaba bajo el
+  mínimo que recomienda impeccable:typeset. La "dificultad de leer" reportada
+  era principalmente size, no la fuente.
+
 - **Feature-based file tree.** Migrado de tipo-basado (`components/`, `pages/`, `hooks/`, `lib/`, `context/`, `services/`) a feature-based con tres capas:
   - `src/app/` — wiring (main, App, router, ProtectedRoute, NotFoundPage, index.css).
   - `src/features/` — módulos de dominio self-contained (`auth/`, `dashboard/`, `activity-log/`, `realtime/`).

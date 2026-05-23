@@ -22,7 +22,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(
           ref={ref}
           id={fieldId}
           className={cn(
-            'h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 text-[13px]',
+            'h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 text-[14px]',
             'placeholder:text-[var(--ink-faint)]',
             'focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
             'transition-colors',

@@ -93,7 +93,7 @@ export function DataTable<TData>({
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             placeholder={searchPlaceholder}
-            className="h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] pl-9 pr-3 text-[13px] placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className="h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] pl-9 pr-3 text-[14px] placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           />
         </div>
         {toolbar}
@@ -108,7 +108,7 @@ export function DataTable<TData>({
       </div>
 
       <div className="overflow-x-auto rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)]">
-        <table className="w-full border-collapse text-[13px]" style={{ minWidth }}>
+        <table className="w-full border-collapse text-[14px]" style={{ minWidth }}>
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (

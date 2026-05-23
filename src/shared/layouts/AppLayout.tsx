@@ -152,7 +152,7 @@ function AppLayoutShell() {
                       disabled
                       aria-disabled="true"
                       aria-label={`${label} — próximamente`}
-                      className="flex w-full cursor-not-allowed items-center justify-between gap-2 rounded-[6px] px-2 py-2 text-[13px] text-[var(--ink-faint)]"
+                      className="flex w-full cursor-not-allowed items-center justify-between gap-2 rounded-[6px] px-2 py-2 text-[14px] text-[var(--ink-faint)]"
                     >
                       <span className="flex items-center gap-2">
                         <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -167,7 +167,7 @@ function AppLayoutShell() {
                       to={to}
                       className={({ isActive }) =>
                         cn(
-                          'flex items-center gap-2 rounded-[6px] px-2 py-2 text-[13px] font-medium transition-colors',
+                          'flex items-center gap-2 rounded-[6px] px-2 py-2 text-[14px] font-medium transition-colors',
                           isActive
                             ? 'bg-[var(--accent-faint)] text-[var(--accent)]'
                             : 'text-[var(--ink-muted)] hover:bg-[var(--canvas)] hover:text-[var(--ink)]',

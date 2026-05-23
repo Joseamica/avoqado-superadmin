@@ -13,7 +13,7 @@ export function DefaultErrorFallback({ error, onReset }: ErrorFallbackProps) {
       <h1 className="mt-3 font-display text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)]">
         Algo se rompió en la interfaz.
       </h1>
-      <p className="mt-2 max-w-[480px] text-[13.5px] text-[var(--ink-muted)]">
+      <p className="mt-2 max-w-[480px] text-[14.5px] text-[var(--ink-muted)]">
         El equipo no fue notificado todavía (Sentry pendiente). Mientras tanto, copia este detalle y
         mándalo a <code className="font-mono text-[var(--ink)]">hola@avoqado.io</code>:
       </p>
@@ -23,7 +23,7 @@ export function DefaultErrorFallback({ error, onReset }: ErrorFallbackProps) {
       <button
         type="button"
         onClick={onReset}
-        className="mt-6 inline-flex h-9 items-center rounded-[6px] bg-[var(--accent)] px-4 text-[13px] font-medium text-[var(--canvas)] hover:bg-[var(--accent-hover)]"
+        className="mt-6 inline-flex h-9 items-center rounded-[6px] bg-[var(--accent)] px-4 text-[14px] font-medium text-[var(--canvas)] hover:bg-[var(--accent-hover)]"
       >
         Reintentar
       </button>

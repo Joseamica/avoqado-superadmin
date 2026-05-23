@@ -75,6 +75,16 @@ Whenever you implement a write operation that mutates state of value (creates a 
 
 The repo has a `.impeccable.md` at the root that defines the design system, palette, typography, and the aesthetic commitments ("Editorial Operations Terminal"). **You must read it before designing any new screen or component.**
 
+### Design Principles
+
+Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende todas, vuelve a empezar. La versión larga (target audience, use cases, anti-patterns, differentiation) vive en [.impeccable.md](.impeccable.md).
+
+1. **Operative speed beats first impression.** Power user 6+ h/día. `⌘K`, density tipográfica y legibilidad tabular ganan sobre hero animations. Touch targets ≥ 36 px y drawer < md porque ops también opera desde móvil.
+2. **Editorial density, never Bloomberg ugliness.** La tipografía conduce el layout — Bricolage en KPIs es nuestra firma B2B. Ritmo variado: secciones respiran, tablas compactan; "mismo padding everywhere" es flat.
+3. **Warm precision, not cold tech.** OKLCH tintado verde (`130°`) + olivo con parsimonia. Sin purple-to-blue, sin cyan-on-dark, sin neón, sin glassmorphism. El undertone cálido viene del producto (payments en México), no del tooling.
+4. **Numerals are data, not decoration.** `tabular-nums` siempre; montos a la derecha; status pills semánticas (tint 8 % + border 30 %). Sparklines sólo si el trend es información esencial — nunca como garnish.
+5. **Empty states teach the interface.** "No hay KYC pendientes. Última revisión hace 3 h" en vez de "Nothing here". Cada vacío explica qué hace la pantalla, qué espera, y qué pasó por última vez.
+
 ### Hard rules
 
 - **Dark theme es el default.** Las variables de `:root` son dark. La paleta light queda en la clase `.light` por si en el futuro necesitamos toggle — hoy NO está expuesta en UI. Si tu cambio asume light, lo más probable es que esté mal.
@@ -90,7 +100,7 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
 - **`impeccable:polish`** is the skill to run as the final pass before shipping a page to production (or before review).
-- **Never invent fonts.** Only the three families declared in `.impeccable.md` (Bricolage Grotesque variable, Plus Jakarta Sans variable, JetBrains Mono) — added via `@fontsource-variable/*`.
+- **Never invent fonts.** Only the three families declared in `.impeccable.md` (IBM Plex Sans variable, IBM Plex Sans variable, JetBrains Mono) — added via `@fontsource-variable/*`.
 - **Never use** the AI slop patterns enumerated in `.impeccable.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
 - **Tabular numerals** on every numeric / date cell (`font-variant-numeric: tabular-nums`). Right-align monetary amounts.
 - **Empty states teach** the interface (`"No hay KYC pendientes. Última revisión: hace 3h"`), not "Nothing here".

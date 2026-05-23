@@ -5,7 +5,7 @@ export function Brandmark({ className }: { className?: string }) {
     <div className={cn('flex items-center gap-2.5 select-none', className)}>
       <span
         aria-hidden
-        className="grid h-6 w-6 place-items-center rounded-[4px] bg-[var(--accent)] text-[var(--canvas)] font-display text-[13px] font-bold leading-none"
+        className="grid h-6 w-6 place-items-center rounded-[4px] bg-[var(--accent)] text-[var(--canvas)] font-display text-[14px] font-bold leading-none"
       >
         A
       </span>

@@ -112,7 +112,7 @@ export function ActivityLogPage() {
           [row.action, row.target?.label, row.venue?.name].filter(Boolean).join(' '),
         cell: ({ row }) => (
           <>
-            <p className="text-[13px] leading-snug text-[var(--ink)]">{row.original.action}</p>
+            <p className="text-[14px] leading-snug text-[var(--ink)]">{row.original.action}</p>
             {row.original.target && (
               <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
                 {row.original.target.href ? (
@@ -176,7 +176,7 @@ export function ActivityLogPage() {
           <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)] sm:text-[34px]">
             Activity log
           </h1>
-          <p className="mt-2 text-[13.5px] text-[var(--ink-muted)]">
+          <p className="mt-2 text-[14.5px] text-[var(--ink-muted)]">
             Cada acción registrada por el equipo y los procesos del sistema, en tiempo real.
             <span className="tabular ml-2 text-[var(--ink-faint)]">
               · zona base {timezoneShort(DEFAULT_TIMEZONE)}

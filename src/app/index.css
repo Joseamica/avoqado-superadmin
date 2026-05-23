@@ -1,7 +1,7 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/bricolage-grotesque';
-@import '@fontsource-variable/plus-jakarta-sans';
-@import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/ibm-plex-sans';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/600.css';
 
 @custom-variant light (&:is(.light *));
 
@@ -38,9 +38,12 @@
   --ring: oklch(0.74 0.14 130 / 0.4);
   --radius: 8px;
 
-  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* IBM Plex para todo: display + body + mono.
+     Diseñada por IBM para UIs técnicas y data-heavy. Una sola familia → coherencia.
+     Display usa weight 600/700; body 400/500; mono para IDs/códigos. */
+  --font-display: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: dark;
 }
@@ -114,7 +117,8 @@
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-body);
-    font-feature-settings: 'ss01', 'cv11';
+    font-size: 14px;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -170,6 +174,6 @@
 
 @utility display {
   font-family: var(--font-display);
-  font-feature-settings: 'ss01';
-  letter-spacing: -0.018em;
+  font-weight: 600;
+  letter-spacing: -0.012em;
 }

@@ -8,7 +8,7 @@ export function NotFoundPage() {
       <h1 className="mt-4 font-display text-[clamp(56px,9vw,108px)] font-semibold leading-none tracking-[-0.032em] text-[var(--ink)]">
         No la encontramos.
       </h1>
-      <p className="mt-4 max-w-[420px] text-[13.5px] leading-relaxed text-[var(--ink-muted)]">
+      <p className="mt-4 max-w-[420px] text-[14.5px] leading-relaxed text-[var(--ink-muted)]">
         La ruta que escribiste no existe o fue movida. Si llegaste aquí desde un enlace dentro de la
         consola, repórtalo al equipo.
       </p>
