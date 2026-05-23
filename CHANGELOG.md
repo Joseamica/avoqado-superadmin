@@ -9,6 +9,11 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Added
+
+- **Página `/system-logs` con stream en vivo de Render.** El superadmin ya no tiene que entrar al Render Dashboard para ver errores — los logs (stdout / stderr / build / request) se muestran directo en la consola. Se construyó como proxy server-side (`GET /api/v1/superadmin/system-logs`) que llama a la Render API con `RENDER_API_KEY` server-side; el browser nunca ve la key. Auto-refresh cada 10s cuando la pestaña tiene foco. Filtros por nivel (info/warning/error) y tipo (app/request/build/deploy). Búsqueda por mensaje. Cada fila expande para ver el log completo. Cuando las env vars no están configuradas la UI muestra un empty state amable explicando qué falta.
+- **Patrón decidido**: usamos Render API en vez de tabla DB. Razones: (1) cero preocupación por storage en la DB (Render lo retiene), (2) captura más cosas (build, deploy, crashes pre-Express, jobs), (3) menos código que mantener. Trade-off: retención de ~7 días en free tier, ~30 días en paid. Si en el futuro necesitamos auditoría histórica más larga o filtros por endpoint/staff/correlationId estructurados, agregamos una tabla `SystemLog` complementaria.
+
 ### Fixed
 
 - **Bug crítico en `/api/v1/superadmin/dashboard/summary`** (server): el conteo de pagos fallidos usaba `PaymentStatus` (PENDING, PARTIAL) cuando `Payment.status` en realidad está tipado contra `TransactionStatus` (COMPLETED, FAILED, PENDING, PROCESSING, REFUNDED). Prisma rechazaba con `Invalid value for argument 'in'`. Cambiado a `TransactionStatus.FAILED`.

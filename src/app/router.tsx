@@ -13,6 +13,9 @@ const DashboardPage = lazy(() =>
 const ActivityLogPage = lazy(() =>
   import('@/features/activity-log/ActivityLogPage').then((m) => ({ default: m.ActivityLogPage })),
 )
+const SystemLogsPage = lazy(() =>
+  import('@/features/system-logs/SystemLogsPage').then((m) => ({ default: m.SystemLogsPage })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -32,6 +35,7 @@ export function AppRoutes() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/activity-log" element={<ActivityLogPage />} />
+          <Route path="/system-logs" element={<SystemLogsPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

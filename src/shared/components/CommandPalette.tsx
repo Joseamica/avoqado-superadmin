@@ -5,6 +5,7 @@ import {
   Activity,
   LayoutDashboard,
   LogOut,
+  ScrollText,
   Search,
   Store,
   ShieldCheck,
@@ -81,6 +82,17 @@ export function CommandPalette() {
       shortcut: 'G A',
       run: () => {
         navigate('/activity-log')
+        close()
+      },
+    },
+    {
+      id: 'nav-system-logs',
+      label: 'Ir a Logs del sistema',
+      icon: ScrollText,
+      group: 'Navegación',
+      shortcut: 'G L',
+      run: () => {
+        navigate('/system-logs')
         close()
       },
     },
