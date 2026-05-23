@@ -41,7 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: authService.login,
     onSuccess: () => {
       writeSessionHint(true)
-      void queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
+      // NO invalidamos `['auth', 'status']` aquí — el caller (LoginPage) hace
+      // el fetch fresh manualmente y setea el resultado con `setQueryData`.
+      // Invalidar acá creaba un race entre el refetch automático y el fetch
+      // del caller, y el cancelado tiraba CancelledError → toast confuso aunque
+      // el login funcionara.
     },
   })
 

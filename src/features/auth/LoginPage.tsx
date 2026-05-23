@@ -49,14 +49,15 @@ export function LoginPage() {
     try {
       await login(values)
 
-      // El cookie ya quedó seteado por `login()`. La SOURCE OF TRUTH del rol vive
-      // en `/dashboard/auth/status` (el backend devuelve ahí `user.role` con
-      // `highestRole` calculado). Hacemos fetch fresh y verificamos antes de
-      // navegar — más robusto que confiar en el shape del login response.
-      const fresh = await queryClient.fetchQuery({
-        queryKey: ['auth', 'status'],
-        queryFn: authService.getAuthStatus,
-      })
+      // El cookie ya quedó seteado por `login()`. La SOURCE OF TRUTH del rol
+      // vive en `/dashboard/auth/status` (el backend devuelve `user.role` con
+      // el `highestRole` calculado). Lo pegamos directo al servicio — no a
+      // través de `queryClient.fetchQuery` — para evitar la race contra el
+      // refetch del provider (esa race tiraba `CancelledError` y mostraba un
+      // toast de error aunque el login funcionara). Después actualizamos la
+      // cache para que ProtectedRoute lo lea fresco sin re-pegarle al server.
+      const fresh = await authService.getAuthStatus()
+      queryClient.setQueryData(['auth', 'status'], fresh)
 
       if (!hasSuperadminRole(fresh.user)) {
         await logout()
