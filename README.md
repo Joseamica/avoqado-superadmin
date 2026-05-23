@@ -8,13 +8,13 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 | ----------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Build / UI**    | Vite 7 + React 18 + TypeScript 5                                                                               |
 | **Estilos**       | Tailwind v4 + tokens OKLCH + tres fuentes variables (Bricolage Grotesque · Plus Jakarta Sans · JetBrains Mono) |
-| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/components/ui/`)                                                 |
+| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/shared/ui/`)                                                     |
 | **Routing**       | React Router v6 con `lazy()` + `<Suspense>` por ruta                                                           |
 | **Server state**  | TanStack Query 5 + devtools                                                                                    |
 | **Tablas**        | TanStack Table 8                                                                                               |
 | **Forms**         | react-hook-form + zod + @hookform/resolvers                                                                    |
 | **HTTP**          | axios (cookies HTTP-only, no headers de bearer)                                                                |
-| **Fechas / TZ**   | luxon, helper único en `src/lib/datetime.ts`                                                                   |
+| **Fechas / TZ**   | luxon, helper único en `src/shared/lib/datetime.ts`                                                            |
 | **Charts**        | recharts                                                                                                       |
 | **Toasts**        | sonner                                                                                                         |
 | **Iconos**        | lucide-react                                                                                                   |
@@ -38,7 +38,7 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 
 ## Realtime
 
-`avoqado-server` ya expone Socket.IO. El cliente lo aprovecha vía [`src/hooks/useRealtimeInvalidation.ts`](src/hooks/useRealtimeInvalidation.ts):
+`avoqado-server` ya expone Socket.IO. El cliente lo aprovecha vía [`src/features/realtime/use-realtime-invalidation.ts`](src/features/realtime/use-realtime-invalidation.ts):
 
 - Conecta sólo cuando hay sesión superadmin activa (autenticación por cookie, mismo flujo que REST).
 - Cada evento del backend se mapea a query keys de TanStack Query → `invalidateQueries`.
@@ -129,7 +129,7 @@ Auth interno: cookies HTTP-only emitidas por `POST /api/v1/dashboard/auth/login`
 - **Backend transmite UTC** (ISO 8601 con sufijo `Z`).
 - **Display default**: `America/Mexico_City`.
 - **Cuando la respuesta incluye `venue.timezone`**: se pasa explícitamente al helper para mostrar en hora del venue.
-- Todas las funciones de fecha viven en [`src/lib/datetime.ts`](src/lib/datetime.ts):
+- Todas las funciones de fecha viven en [`src/shared/lib/datetime.ts`](src/shared/lib/datetime.ts):
   - `formatDateTime(iso, tz?)`, `formatDate`, `formatTime`, `formatDateISO`, `formatRelative`, `timezoneShort`.
 - En headers de tabla siempre se indica el TZ visible (`Creado ({timezoneShort(tz)})`).
 

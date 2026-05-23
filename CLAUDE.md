@@ -19,9 +19,9 @@ Auth uses the **internal session cookies** issued by `avoqado-server` at `/api/v
 
 axios is configured with `withCredentials: true` — **never** add an `Authorization: Bearer` header. **Never** import `firebase/auth`. The optimistic UX hint is a localStorage flag `avoqado_session_hint` that lets us skip the loading flash on reload; it is not a security boundary.
 
-The SUPERADMIN gate happens in [src/router/ProtectedRoute.tsx](src/router/ProtectedRoute.tsx): authenticated users without a SUPERADMIN role on any venue see "acceso denegado" instead of the dashboard.
+The SUPERADMIN gate happens in [src/app/ProtectedRoute.tsx](src/app/ProtectedRoute.tsx): authenticated users without a SUPERADMIN role on any venue see "acceso denegado" instead of the dashboard.
 
-**Login flow rule**: `login()` returns the `LoginResponse` (con `staff`). El caller **debe verificar `hasSuperadminRole(response.staff)` antes de navegar a `/dashboard`**. Si el user no es superadmin, hay que llamar `logout()` para limpiar el cookie y mostrar el error in-place — no dejarlo entrar al ProtectedRoute, eso causaría un flash de "acceso denegado" después del navigate. Ver [src/pages/LoginPage.tsx](src/pages/LoginPage.tsx) como referencia.
+**Login flow rule**: `login()` returns the `LoginResponse` (con `staff`). El caller **debe verificar `hasSuperadminRole(response.staff)` antes de navegar a `/dashboard`**. Si el user no es superadmin, hay que llamar `logout()` para limpiar el cookie y mostrar el error in-place — no dejarlo entrar al ProtectedRoute, eso causaría un flash de "acceso denegado" después del navigate. Ver [src/features/auth/LoginPage.tsx](src/features/auth/LoginPage.tsx) como referencia.
 
 **Multi-tab sync**: el AuthContext usa `BroadcastChannel('avoqado-superadmin-auth')` para sincronizar login/logout entre tabs. Si cierras sesión en un tab, los otros tabs se cierran solos.
 
@@ -30,7 +30,7 @@ The SUPERADMIN gate happens in [src/router/ProtectedRoute.tsx](src/router/Protec
 `avoqado-server` ya tiene Socket.IO montado. Aprovechamos para refrescar la consola en tiempo real **sin que el cliente reciba datos por socket**:
 
 1. El backend emite eventos chiquitos (`{ type, id }`) cuando algo cambia (KYC nuevo, payment fail, terminal disconnect, etc.).
-2. El cliente escucha vía [`src/hooks/useRealtimeInvalidation.ts`](src/hooks/useRealtimeInvalidation.ts).
+2. El cliente escucha vía [`src/features/realtime/use-realtime-invalidation.ts`](src/features/realtime/use-realtime-invalidation.ts).
 3. El handler **no muta cache directamente**. Sólo llama `queryClient.invalidateQueries(['superadmin', ...])`.
 4. TanStack Query refetch del endpoint REST → cache actualizada → UI re-renderea.
 
@@ -85,7 +85,7 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
   - Texto base ≥ 13 px; nunca uses 10 px para datos críticos.
   - Headers de tabla `eyebrow` quedan en 10.5 px sólo porque están en uppercase + tracking — son OK.
   - Forms en mobile: campos full-width, label encima del input, botón CTA full-width.
-- **DataTable es el componente único para listas**: [src/components/DataTable/DataTable.tsx](src/components/DataTable/DataTable.tsx). Sortable headers, búsqueda global, paginación, export CSV con dialog (rango de fechas + selección de columnas). Cualquier nueva página de listado debe usar este componente — no escribir `<table>` a mano.
+- **DataTable es el componente único para listas**: [src/shared/data-table/DataTable.tsx](src/shared/data-table/DataTable.tsx). Sortable headers, búsqueda global, paginación, export CSV con dialog (rango de fechas + selección de columnas). Cualquier nueva página de listado debe usar este componente — no escribir `<table>` a mano.
 - **Todo `<button>` no-disabled tiene `cursor: pointer`** vía el base layer de `src/index.css` (Tailwind v4 lo quitó del default). No lo agregues por componente.
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
@@ -109,7 +109,7 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
 
 `avoqado-server` transmits all timestamps in **UTC ISO 8601** (`...Z` suffix). The UI never displays raw UTC.
 
-- **Always import from [`src/lib/datetime.ts`](src/lib/datetime.ts).** Never call `new Date().toLocaleString()` or instantiate `luxon` ad-hoc.
+- **Always import from [`src/shared/lib/datetime.ts`](src/shared/lib/datetime.ts).** Never call `new Date().toLocaleString()` or instantiate `luxon` ad-hoc.
 - Default timezone is `America/Mexico_City`. If the data row includes a `venue.timezone`, pass it as the second argument: `formatDateTime(order.createdAt, order.venue.timezone)`.
 - **Table headers must indicate the visible timezone**: `Creado ({timezoneShort(tz)})`.
 - Tests for date-rendering components should pin the timezone explicitly (the test setup ya pinea `America/Mexico_City`).
@@ -128,9 +128,9 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 
 | Tipo                                 | Cuándo                                                                                                  | Ubicación                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **Unit** (Vitest)                    | Helpers puros (`src/lib/datetime.ts`), `cn()`, validadores zod.                                         | Co-localizado: `foo.test.ts` junto a `foo.ts`. |
+| **Unit** (Vitest)                    | Helpers puros (`src/shared/lib/datetime.ts`), `cn()`, validadores zod.                                  | Co-localizado: `foo.test.ts` junto a `foo.ts`. |
 | **Component** (Vitest + RTL)         | UI primitive con lógica visible (`Button`, `Badge`, `Field`).                                           | Co-localizado: `Component.test.tsx`.           |
-| **Integration** (Vitest + RTL + MSW) | Página + datos + auth (`LoginPage`, `DashboardPage`). MSW mockea `/dashboard/auth/*` y `/superadmin/*`. | Co-localizado o en `src/pages/__tests__/`.     |
+| **Integration** (Vitest + RTL + MSW) | Página + datos + auth (`LoginPage`, `DashboardPage`). MSW mockea `/dashboard/auth/*` y `/superadmin/*`. | Co-localizado o en `src/features/<feature>/`.  |
 | **E2E** (Playwright)                 | Flujos completos contra el dev server real.                                                             | `e2e/*.spec.ts`.                               |
 
 ### Conventions
@@ -196,8 +196,8 @@ src/
 
 - **TypeScript strict** — no `any` salvo con comentario justificando. Prefiere `unknown` + narrow.
 - **No barrel files** para componentes o páginas — mantén imports explícitos.
-- **Routes** viven en `src/router/index.tsx`. Nueva page = nuevo archivo bajo `src/pages/` + entry en el router. **Toda nueva ruta debe ser `lazy()` + integrarse al `<Suspense>` ya configurado.**
-- **API hooks** colocados junto a la página que los consume (`src/pages/Venues/useVenues.ts`) salvo que los reusen ≥2 páginas — entonces a `src/hooks/`.
+- **Routes** viven en `src/app/router.tsx`. Nueva page = nuevo archivo bajo `src/features/` + entry en el router. **Toda nueva ruta debe ser `lazy()` + integrarse al `<Suspense>` ya configurado.**
+- **API hooks** colocados junto a la página que los consume (`src/features/venues/use-venues.ts`) salvo que los reusen ≥2 páginas — entonces a `src/shared/hooks/`.
 - **Mock data**: durante scaffolding está OK. Cada archivo debe (a) vivir junto a la página, (b) llamarse `*.mock.ts`, (c) contener un `// TODO(api):` apuntando al endpoint real.
 - **shadcn primitives**: cuando un primitive de Radix matche, instala vía `npx shadcn@latest add` y después **re-estiliza** al design system (nunca dejes el look default — es AI-genérico reconocible).
 - **No `useEffect`** para derived state. Compútalo durante render.
@@ -211,7 +211,7 @@ src/
 - `new Date(...)` seguido de `.toLocaleString()` (usa `datetime.ts`).
 - `console.log` committeado (sólo `console.warn` / `console.error` están permitidos por ESLint).
 - `// eslint-disable` sin un comentario al lado explicando por qué.
-- Mezclar `axios` y `fetch` — solo `api` desde `src/lib/api.ts`.
+- Mezclar `axios` y `fetch` — solo `api` desde `src/shared/lib/api.ts`.
 - Hardcodear URLs de API — solo `VITE_API_URL` vía el `api` client.
 - Saltarse el pre-push hook (`git push --no-verify`) sin razón documentada.
 
