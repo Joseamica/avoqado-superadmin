@@ -40,6 +40,9 @@ coverage/
 # Skill cache (impeccable / gstack) — derived from skills-lock.json
 .agents/
 
+# Local Claude Code settings (per-developer, never in CI)
+.claude/settings.local.json
+
 # Playwright
 playwright-report/
 test-results/

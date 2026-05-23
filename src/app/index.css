@@ -127,10 +127,13 @@
     color: var(--ink);
     font-family: var(--font-body);
     font-size: 14px;
-    line-height: 1.55;
-    /* En dark theme el peso 400 se ve "rasposo". Subimos a 450 (Geist es variable)
-       para que el texto se afirme contra el fondo oscuro sin perder personalidad. */
-    font-weight: 450;
+    line-height: 1.5;
+    font-weight: 400;
+    /* Activar ligaturas requeridas + alternates contextuales para que Geist
+       se vea idéntico a shadcn/ui (que usa Next.js next/font con estos defaults). */
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
