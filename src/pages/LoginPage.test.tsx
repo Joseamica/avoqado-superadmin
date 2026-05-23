@@ -13,7 +13,7 @@ describe('<LoginPage />', () => {
 
   it('shows the support email link', () => {
     renderWithProviders(<LoginPage />)
-    const link = screen.getByRole('link', { name: /ops@avoqado\.io/i })
+    const link = screen.getByRole('link', { name: /hola@avoqado\.io/i })
     expect(link).toHaveAttribute('href', 'mailto:hola@avoqado.io')
   })
 
