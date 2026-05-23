@@ -1,8 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 import { AppLayout } from '@/components/layouts/AppLayout'
-import { LoginPage } from '@/pages/LoginPage'
+import { ActivityLogPage } from '@/pages/ActivityLogPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export function AppRoutes() {
@@ -18,6 +19,7 @@ export function AppRoutes() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/activity-log" element={<ActivityLogPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

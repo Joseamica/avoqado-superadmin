@@ -36,3 +36,6 @@ dist-ssr
 
 # Coverage
 coverage/
+
+# Skill cache (impeccable / gstack) — derived from skills-lock.json
+.agents/

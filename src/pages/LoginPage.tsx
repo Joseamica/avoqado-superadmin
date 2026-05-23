@@ -4,7 +4,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ShieldCheck } from 'lucide-react'
+import { Brandmark } from '@/components/Brandmark'
+import { Button } from '@/components/ui/Button'
+import { Field } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
 
 const schema = z.object({
@@ -46,56 +48,70 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
-        <div className="mb-6 flex items-center gap-2 text-sm font-semibold">
-          <ShieldCheck className="h-5 w-5 text-primary" />
-          Avoqado · Superadmin
+    <div className="grid min-h-screen grid-cols-1 bg-[var(--canvas)] lg:grid-cols-[1fr_520px]">
+      <aside className="hidden flex-col justify-between border-r border-[var(--line)] bg-[var(--canvas-sunken)] p-12 lg:flex">
+        <Brandmark />
+        <div className="max-w-[420px]">
+          <p className="eyebrow text-[var(--accent)]">Restringido</p>
+          <h2 className="mt-3 font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.026em] text-[var(--ink)]">
+            Consola interna de operaciones para el equipo Avoqado.
+          </h2>
+          <p className="mt-3 max-w-[380px] text-[13.5px] leading-relaxed text-[var(--ink-muted)]">
+            Acceso solo para personal autorizado. Cada sesión queda registrada en el activity log,
+            incluida la IP y el dispositivo de origen.
+          </p>
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">Iniciar sesión</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Acceso restringido a personal autorizado.
+        <p className="font-mono text-[11px] text-[var(--ink-faint)]">
+          v0.1 · build {new Date().getFullYear()}
         </p>
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
+      </aside>
+
+      <main className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[360px]">
+          <div className="mb-8 lg:hidden">
+            <Brandmark />
+          </div>
+          <h1 className="font-display text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)]">
+            Iniciar sesión
+          </h1>
+          <p className="mt-1.5 text-[13px] text-[var(--ink-muted)]">
+            Usa tu correo corporativo Avoqado.
+          </p>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-4">
+            <Field
+              label="Email"
               type="email"
               autoComplete="email"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="jose@avoqado.io"
+              error={errors.email?.message}
               {...register('email')}
             />
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="text-sm font-medium">
-              Contraseña
-            </label>
-            <input
-              id="password"
+            <Field
+              label="Contraseña"
               type="password"
               autoComplete="current-password"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="••••••••"
+              error={errors.password?.message}
               {...register('password')}
             />
-            {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground shadow transition hover:bg-primary/90 disabled:opacity-60"
-          >
-            {submitting ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-      </div>
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? 'Entrando…' : 'Entrar a la consola'}
+            </Button>
+          </form>
+
+          <p className="mt-8 text-[11px] text-[var(--ink-faint)]">
+            ¿Problemas para entrar? Escribe a{' '}
+            <a
+              href="mailto:ops@avoqado.io"
+              className="border-b border-dashed border-[var(--ink-faint)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              ops@avoqado.io
+            </a>
+            .
+          </p>
+        </div>
+      </main>
     </div>
   )
 }
