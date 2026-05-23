@@ -1,7 +1,6 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/ibm-plex-sans';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/600.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
 @custom-variant light (&:is(.light *));
 
@@ -38,12 +37,15 @@
   --ring: oklch(0.74 0.14 130 / 0.4);
   --radius: 8px;
 
-  /* IBM Plex para todo: display + body + mono.
-     Diseñada por IBM para UIs técnicas y data-heavy. Una sola familia → coherencia.
-     Display usa weight 600/700; body 400/500; mono para IDs/códigos. */
-  --font-display: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /*
+    Geist (Vercel) — equivalente open-source de Söhne (la que usa Stripe).
+    Diseñada para consolas dev/dashboards: hinting impecable en pantallas,
+    aperturas abiertas, variable weight 100-900. Una sola familia para display
+    + body; Geist Mono matchea para IDs y código.
+  */
+  --font-display: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: dark;
 }
@@ -119,6 +121,9 @@
     font-family: var(--font-body);
     font-size: 14px;
     line-height: 1.55;
+    /* En dark theme el peso 400 se ve "rasposo". Subimos a 450 (Geist es variable)
+       para que el texto se afirme contra el fondo oscuro sin perder personalidad. */
+    font-weight: 450;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

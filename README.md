@@ -4,21 +4,21 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 
 ## Stack
 
-| Capa              | Librería                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| **Build / UI**    | Vite 7 + React 18 + TypeScript 5                                                    |
-| **Estilos**       | Tailwind v4 + tokens OKLCH + tres fuentes variables (IBM Plex Sans · IBM Plex Mono) |
-| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/shared/ui/`)                          |
-| **Routing**       | React Router v6 con `lazy()` + `<Suspense>` por ruta                                |
-| **Server state**  | TanStack Query 5 + devtools                                                         |
-| **Tablas**        | TanStack Table 8                                                                    |
-| **Forms**         | react-hook-form + zod + @hookform/resolvers                                         |
-| **HTTP**          | axios (cookies HTTP-only, no headers de bearer)                                     |
-| **Fechas / TZ**   | luxon, helper único en `src/shared/lib/datetime.ts`                                 |
-| **Charts**        | recharts                                                                            |
-| **Toasts**        | sonner                                                                              |
-| **Iconos**        | lucide-react                                                                        |
-| **Realtime**      | socket.io-client (lazy-cableado cuando se necesite)                                 |
+| Capa              | Librería                                                                 |
+| ----------------- | ------------------------------------------------------------------------ |
+| **Build / UI**    | Vite 7 + React 18 + TypeScript 5                                         |
+| **Estilos**       | Tailwind v4 + tokens OKLCH + tres fuentes variables (Geist · Geist Mono) |
+| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/shared/ui/`)               |
+| **Routing**       | React Router v6 con `lazy()` + `<Suspense>` por ruta                     |
+| **Server state**  | TanStack Query 5 + devtools                                              |
+| **Tablas**        | TanStack Table 8                                                         |
+| **Forms**         | react-hook-form + zod + @hookform/resolvers                              |
+| **HTTP**          | axios (cookies HTTP-only, no headers de bearer)                          |
+| **Fechas / TZ**   | luxon, helper único en `src/shared/lib/datetime.ts`                      |
+| **Charts**        | recharts                                                                 |
+| **Toasts**        | sonner                                                                   |
+| **Iconos**        | lucide-react                                                             |
+| **Realtime**      | socket.io-client (lazy-cableado cuando se necesite)                      |
 
 ## Testing
 

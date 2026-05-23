@@ -100,7 +100,7 @@ Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende to
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
 - **`impeccable:polish`** is the skill to run as the final pass before shipping a page to production (or before review).
-- **Never invent fonts.** Only the three families declared in `.impeccable.md` (IBM Plex Sans variable, IBM Plex Sans variable, JetBrains Mono) — added via `@fontsource-variable/*`.
+- **Never invent fonts.** Only the three families declared in `.impeccable.md` (Geist Variable, Geist Variable, JetBrains Mono) — added via `@fontsource-variable/*`.
 - **Never use** the AI slop patterns enumerated in `.impeccable.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
 - **Tabular numerals** on every numeric / date cell (`font-variant-numeric: tabular-nums`). Right-align monetary amounts.
 - **Empty states teach** the interface (`"No hay KYC pendientes. Última revisión: hace 3h"`), not "Nothing here".

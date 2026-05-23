@@ -9,6 +9,16 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Changed
+
+- **Typography swap (otra vez): IBM Plex Sans → Geist** (de Vercel). IBM Plex
+  se sentía áspera en dark theme; Geist es el equivalente open-source de Söhne
+  (la que usa Stripe) — específicamente diseñada para consolas dev/dashboards,
+  con hinting impecable y aperturas más abiertas.
+- **Body weight 400 → 450** (Geist es variable; 450 da "afirmación" sobre dark
+  sin perder personalidad). Esta combo es lo que usan Vercel, Linear, y los
+  clones premium de Stripe.
+
 ### Added
 
 - **Dashboard y Activity Log conectados al backend real.** Adiós a los mocks.

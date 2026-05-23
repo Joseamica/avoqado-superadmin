@@ -32,8 +32,8 @@
     ]
   },
   "dependencies": {
-    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
-    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist-mono": "^5.2.8",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-avatar": "^1.1.3",
