@@ -21,6 +21,29 @@ axios is configured with `withCredentials: true` — **never** add an `Authoriza
 
 The SUPERADMIN gate happens in [src/router/ProtectedRoute.tsx](src/router/ProtectedRoute.tsx): authenticated users without a SUPERADMIN role on any venue see "acceso denegado" instead of the dashboard.
 
+**Login flow rule**: `login()` returns the `LoginResponse` (con `staff`). El caller **debe verificar `hasSuperadminRole(response.staff)` antes de navegar a `/dashboard`**. Si el user no es superadmin, hay que llamar `logout()` para limpiar el cookie y mostrar el error in-place — no dejarlo entrar al ProtectedRoute, eso causaría un flash de "acceso denegado" después del navigate. Ver [src/pages/LoginPage.tsx](src/pages/LoginPage.tsx) como referencia.
+
+**Multi-tab sync**: el AuthContext usa `BroadcastChannel('avoqado-superadmin-auth')` para sincronizar login/logout entre tabs. Si cierras sesión en un tab, los otros tabs se cierran solos.
+
+### Realtime — Socket.IO con invalidación de queries
+
+`avoqado-server` ya tiene Socket.IO montado. Aprovechamos para refrescar la consola en tiempo real **sin que el cliente reciba datos por socket**:
+
+1. El backend emite eventos chiquitos (`{ type, id }`) cuando algo cambia (KYC nuevo, payment fail, terminal disconnect, etc.).
+2. El cliente escucha vía [`src/hooks/useRealtimeInvalidation.ts`](src/hooks/useRealtimeInvalidation.ts).
+3. El handler **no muta cache directamente**. Sólo llama `queryClient.invalidateQueries(['superadmin', ...])`.
+4. TanStack Query refetch del endpoint REST → cache actualizada → UI re-renderea.
+
+Ventajas: un único path de datos (REST → cache), permisos siguen en la capa REST, dedup automática, escala sin que cada cliente reciba payloads grandes por socket.
+
+Cuando agregues una página/feature nueva al superadmin:
+
+1. Define el evento del backend (ej. `superadmin:venue:updated`).
+2. Mapéalo en `EVENT_INVALIDATIONS` con las query keys afectadas.
+3. El hook se encarga del resto.
+
+El socket sólo conecta cuando hay sesión superadmin activa y se desconecta automáticamente en logout (handled by `AuthContext` + `disconnectSocket`).
+
 ### API evolution policy (read this every time you touch an endpoint)
 
 `avoqado-web-dashboard` also consumes some of these endpoints. To avoid breaking that consumer:
@@ -43,6 +66,8 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
 
 ### Hard rules
 
+- **Dark theme es el default.** Las variables de `:root` son dark. La paleta light queda en la clase `.light` por si en el futuro necesitamos toggle — hoy NO está expuesta en UI. Si tu cambio asume light, lo más probable es que esté mal.
+- **Todo `<button>` no-disabled tiene `cursor: pointer`** vía el base layer de `src/index.css` (Tailwind v4 lo quitó del default). No lo agregues por componente.
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
 - **`impeccable:polish`** is the skill to run as the final pass before shipping a page to production (or before review).

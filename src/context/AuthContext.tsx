@@ -1,16 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as authService from '@/services/auth.service'
-import type { LoginPayload, SessionUser } from '@/services/auth.service'
+import type { LoginPayload, LoginResponse, SessionUser } from '@/services/auth.service'
+import { disconnectSocket } from '@/lib/socket'
 
 const SESSION_HINT_KEY = 'avoqado_session_hint'
+const AUTH_BROADCAST_CHANNEL = 'avoqado-superadmin-auth'
+
+type BroadcastMessage = { type: 'login' } | { type: 'logout' }
 
 interface AuthContextValue {
   user: SessionUser | null
   isAuthenticated: boolean
   isSuperadmin: boolean
   isLoading: boolean
-  login: (payload: LoginPayload) => Promise<void>
+  login: (payload: LoginPayload) => Promise<LoginResponse>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -24,11 +28,13 @@ function readSessionHint(): boolean {
 
 function writeSessionHint(value: boolean): void {
   if (typeof window === 'undefined') return
-  if (value) {
-    window.localStorage.setItem(SESSION_HINT_KEY, 'true')
-  } else {
-    window.localStorage.removeItem(SESSION_HINT_KEY)
-  }
+  if (value) window.localStorage.setItem(SESSION_HINT_KEY, 'true')
+  else window.localStorage.removeItem(SESSION_HINT_KEY)
+}
+
+function createAuthChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null
+  return new BroadcastChannel(AUTH_BROADCAST_CHANNEL)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -54,32 +60,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: authService.logout,
     onSettled: () => {
       writeSessionHint(false)
+      disconnectSocket()
       queryClient.removeQueries({ queryKey: ['auth', 'status'] })
       queryClient.clear()
     },
   })
 
+  // Sync logout across tabs: cuando alguien cierra sesión en otro tab,
+  // este tab también limpia su estado sin hacer la request de logout otra vez.
+  useEffect(() => {
+    const channel = createAuthChannel()
+    if (!channel) return
+
+    const handle = (event: MessageEvent<BroadcastMessage>) => {
+      if (event.data?.type === 'logout') {
+        writeSessionHint(false)
+        disconnectSocket()
+        queryClient.setQueryData(['auth', 'status'], { authenticated: false, user: null })
+        queryClient.clear()
+      } else if (event.data?.type === 'login') {
+        void queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
+      }
+    }
+
+    channel.addEventListener('message', handle)
+    return () => {
+      channel.removeEventListener('message', handle)
+      channel.close()
+    }
+  }, [queryClient])
+
+  // Cuando axios recibe un 401, el interceptor en src/lib/api.ts dispara este evento.
   useEffect(() => {
     const onUnauthorized = () => {
       writeSessionHint(false)
-      queryClient.setQueryData(['auth', 'status'], {
-        authenticated: false,
-        user: null,
-      })
+      disconnectSocket()
+      queryClient.setQueryData(['auth', 'status'], { authenticated: false, user: null })
     }
     window.addEventListener('auth:unauthorized', onUnauthorized)
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized)
   }, [queryClient])
 
   const login = useCallback(
-    async (payload: LoginPayload) => {
-      await loginMutation.mutateAsync(payload)
+    async (payload: LoginPayload): Promise<LoginResponse> => {
+      const response = await loginMutation.mutateAsync(payload)
+      const channel = createAuthChannel()
+      channel?.postMessage({ type: 'login' } satisfies BroadcastMessage)
+      channel?.close()
+      return response
     },
     [loginMutation],
   )
 
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync()
+    const channel = createAuthChannel()
+    channel?.postMessage({ type: 'logout' } satisfies BroadcastMessage)
+    channel?.close()
   }, [logoutMutation])
 
   const refresh = useCallback(async () => {
@@ -90,9 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = statusQuery.data?.user ?? null
   const isAuthenticated = Boolean(statusQuery.data?.authenticated)
   const isSuperadmin = authService.hasSuperadminRole(user)
-
-  // While the first auth-status request is in flight, trust the session hint
-  // so we don't flash the login screen for already-authenticated users.
   const isLoading = statusQuery.isLoading && sessionHint && !statusQuery.data
 
   const value = useMemo<AuthContextValue>(

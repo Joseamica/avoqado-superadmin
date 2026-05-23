@@ -9,19 +9,21 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
 import { readApiErrorMessage } from '@/lib/api'
+import { hasSuperadminRole } from '@/services/auth.service'
 
 const schema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(4, 'Mínimo 6 caracteres'),
+  password: z.string().min(4, 'Mínimo 4 caracteres'),
 })
 
 type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { login, isAuthenticated, isSuperadmin } = useAuth()
+  const { login, logout, isAuthenticated, isSuperadmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [submitting, setSubmitting] = useState(false)
+  const [accessError, setAccessError] = useState<string | null>(null)
 
   const {
     register,
@@ -40,8 +42,21 @@ export function LoginPage() {
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true)
+    setAccessError(null)
     try {
-      await login(values)
+      const response = await login(values)
+
+      // El login server-side aceptó el cookie, pero antes de entrar a la consola
+      // verificamos que el usuario tenga rol SUPERADMIN. Si no, cerramos sesión
+      // para limpiar el cookie y mostramos el error in-place — no redirect al gate.
+      if (!hasSuperadminRole(response.staff)) {
+        await logout()
+        setAccessError(
+          'Esta cuenta no tiene permisos de superadmin. Pide a ops que te eleve el rol.',
+        )
+        return
+      }
+
       navigate('/dashboard', { replace: true })
     } catch (error) {
       toast.error('No pudimos iniciar sesión', {
@@ -82,6 +97,16 @@ export function LoginPage() {
           <p className="mt-1.5 text-[13px] text-[var(--ink-muted)]">
             Usa tu correo corporativo Avoqado.
           </p>
+
+          {accessError && (
+            <div
+              role="alert"
+              className="mt-5 rounded-[6px] border border-[var(--danger)]/40 bg-[var(--danger-faint)] px-3.5 py-3 text-[12.5px] leading-snug text-[var(--danger)]"
+            >
+              <p className="font-semibold">Acceso denegado</p>
+              <p className="mt-0.5 text-[var(--ink-muted)]">{accessError}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-4">
             <Field

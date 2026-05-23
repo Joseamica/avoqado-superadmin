@@ -8,18 +8,12 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const toneStyles: Record<Tone, string> = {
-  muted:
-    'bg-[var(--canvas-sunken)] text-[var(--ink-muted)] border-[var(--line-strong)]',
-  success:
-    'bg-[var(--success-faint)] text-[var(--success)] border-[var(--success)]/25',
-  warn:
-    'bg-[var(--warn-faint)] text-[oklch(0.45_0.12_75)] border-[var(--warn)]/30',
-  danger:
-    'bg-[var(--danger-faint)] text-[var(--danger)] border-[var(--danger)]/25',
-  info:
-    'bg-[var(--info-faint)] text-[var(--info)] border-[var(--info)]/25',
-  accent:
-    'bg-[var(--accent-faint)] text-[var(--accent)] border-[var(--accent-line)]',
+  muted: 'bg-[var(--canvas-sunken)] text-[var(--ink-muted)] border-[var(--line-strong)]',
+  success: 'bg-[var(--success-faint)] text-[var(--success)] border-[var(--success)]/30',
+  warn: 'bg-[var(--warn-faint)] text-[var(--warn)] border-[var(--warn)]/30',
+  danger: 'bg-[var(--danger-faint)] text-[var(--danger)] border-[var(--danger)]/30',
+  info: 'bg-[var(--info-faint)] text-[var(--info)] border-[var(--info)]/30',
+  accent: 'bg-[var(--accent-faint)] text-[var(--accent)] border-[var(--accent-line)]',
 }
 
 export function Badge({ className, tone = 'muted', ...props }: BadgeProps) {

@@ -30,6 +30,21 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 | **A11y assertions**    | axe-core (planeado para wrappers de RTL)                          |
 | **Coverage**           | v8 (60 % lines/functions/statements, 55 % branches)               |
 
+## Theming
+
+- **Dark por default.** La paleta OKLCH del `:root` es dark; la light queda en `.light` como opt-in para un toggle futuro (no expuesto en UI hoy).
+- Sin "mode flicker" en primer paint — `color-scheme: dark` declarado en `:root`.
+- `prefers-reduced-motion: reduce` desactiva animaciones globalmente.
+
+## Realtime
+
+`avoqado-server` ya expone Socket.IO. El cliente lo aprovecha vía [`src/hooks/useRealtimeInvalidation.ts`](src/hooks/useRealtimeInvalidation.ts):
+
+- Conecta sólo cuando hay sesión superadmin activa (autenticación por cookie, mismo flujo que REST).
+- Cada evento del backend se mapea a query keys de TanStack Query → `invalidateQueries`.
+- El cliente NO recibe datos por socket; sólo invalida cache. TanStack Query refetch del endpoint REST y la UI se actualiza.
+- Desconecta automáticamente en logout.
+
 ## DX y guardrails
 
 - **ESLint 9** flat config + **typescript-eslint** + plugin react-hooks/react-refresh + eslint-config-prettier.

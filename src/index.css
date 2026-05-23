@@ -2,19 +2,54 @@
 @import '@fontsource-variable/bricolage-grotesque';
 @import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/jetbrains-mono';
-@plugin 'tailwindcss-animate';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 
 /*
-  Editorial Operations Terminal — palette in OKLCH.
-  Neutrals are tinted ~130° (toward green) for cohesion with the olive accent.
-  No pure white, no pure black.
+  Editorial Operations Terminal — DARK is the default.
+  Neutrals tinted ~130° (toward green) for cohesion with the olive accent.
+  No pure white, no pure black. `.light` queda como opt-in para el futuro
+  por si necesitamos un toggle (no expuesto en UI hoy).
 */
 :root {
+  --canvas: oklch(0.155 0.008 130);
+  --canvas-sunken: oklch(0.125 0.008 130);
+  --canvas-raised: oklch(0.195 0.009 130);
+  --ink: oklch(0.94 0.005 130);
+  --ink-muted: oklch(0.7 0.008 130);
+  --ink-faint: oklch(0.5 0.008 130);
+  --line: oklch(0.26 0.01 130);
+  --line-strong: oklch(0.34 0.012 130);
+
+  --accent: oklch(0.74 0.14 130);
+  --accent-hover: oklch(0.82 0.13 130);
+  --accent-faint: oklch(0.26 0.07 130);
+  --accent-line: oklch(0.38 0.1 130);
+
+  --success: oklch(0.74 0.16 145);
+  --success-faint: oklch(0.24 0.06 145);
+  --warn: oklch(0.82 0.14 75);
+  --warn-faint: oklch(0.26 0.07 75);
+  --danger: oklch(0.72 0.18 27);
+  --danger-faint: oklch(0.26 0.07 27);
+  --info: oklch(0.74 0.12 230);
+  --info-faint: oklch(0.24 0.06 230);
+
+  --ring: oklch(0.74 0.14 130 / 0.4);
+  --radius: 8px;
+
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+.light {
   --canvas: oklch(0.985 0.003 100);
   --canvas-sunken: oklch(0.965 0.004 110);
-  --ink: oklch(0.20 0.012 130);
+  --canvas-raised: oklch(1 0 0);
+  --ink: oklch(0.2 0.012 130);
   --ink-muted: oklch(0.46 0.008 130);
   --ink-faint: oklch(0.68 0.005 130);
   --line: oklch(0.92 0.005 130);
@@ -27,46 +62,22 @@
 
   --success: oklch(0.58 0.14 145);
   --success-faint: oklch(0.96 0.04 145);
-  --warn: oklch(0.74 0.14 75);
+  --warn: oklch(0.62 0.13 75);
   --warn-faint: oklch(0.97 0.05 75);
   --danger: oklch(0.55 0.19 27);
   --danger-faint: oklch(0.96 0.04 27);
-  --info: oklch(0.55 0.10 230);
+  --info: oklch(0.55 0.1 230);
   --info-faint: oklch(0.96 0.03 230);
 
   --ring: oklch(0.55 0.12 130 / 0.35);
-  --radius: 8px;
 
-  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.dark {
-  --canvas: oklch(0.165 0.008 130);
-  --canvas-sunken: oklch(0.135 0.008 130);
-  --ink: oklch(0.94 0.005 130);
-  --ink-muted: oklch(0.72 0.008 130);
-  --ink-faint: oklch(0.52 0.008 130);
-  --line: oklch(0.26 0.010 130);
-  --line-strong: oklch(0.34 0.012 130);
-
-  --accent: oklch(0.74 0.14 130);
-  --accent-hover: oklch(0.82 0.13 130);
-  --accent-faint: oklch(0.26 0.06 130);
-  --accent-line: oklch(0.38 0.10 130);
-
-  --success-faint: oklch(0.26 0.06 145);
-  --warn-faint: oklch(0.28 0.07 75);
-  --danger-faint: oklch(0.28 0.08 27);
-  --info-faint: oklch(0.26 0.05 230);
-
-  --ring: oklch(0.74 0.14 130 / 0.40);
+  color-scheme: light;
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
   --color-canvas-sunken: var(--canvas-sunken);
+  --color-canvas-raised: var(--canvas-raised);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
@@ -99,12 +110,6 @@
   * {
     border-color: var(--line);
   }
-  html {
-    color-scheme: light;
-  }
-  html.dark {
-    color-scheme: dark;
-  }
   body {
     background-color: var(--canvas);
     color: var(--ink);
@@ -122,6 +127,29 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* Tailwind v4 quitó el cursor: pointer por default en buttons. Lo regresamos. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  /* Respeta la preferencia del sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 

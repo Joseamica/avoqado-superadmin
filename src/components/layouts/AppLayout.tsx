@@ -19,6 +19,7 @@ import {
 } from '@/components/CommandPalette'
 import { Kbd } from '@/components/ui/Kbd'
 import { useAuth } from '@/context/AuthContext'
+import { useRealtimeInvalidation } from '@/hooks/useRealtimeInvalidation'
 import type { SessionUser } from '@/services/auth.service'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TIMEZONE, formatTime, timezoneShort } from '@/lib/datetime'
@@ -76,6 +77,9 @@ function AppLayoutShell() {
   const { open: openPalette } = useCommandPalette()
   const navigate = useNavigate()
   const [clock, setClock] = useState(() => new Date().toISOString())
+
+  // Suscribe el socket sólo cuando hay sesión superadmin activa.
+  useRealtimeInvalidation()
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date().toISOString()), 30_000)
