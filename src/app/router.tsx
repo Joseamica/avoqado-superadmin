@@ -22,6 +22,25 @@ const VenuesPage = lazy(() =>
 const VenueDetailPage = lazy(() =>
   import('@/features/venues/VenueDetailPage').then((m) => ({ default: m.VenueDetailPage })),
 )
+const NewVenuePage = lazy(() =>
+  import('@/features/venues/NewVenuePage').then((m) => ({ default: m.NewVenuePage })),
+)
+const VenueResourcePlaceholder = lazy(() =>
+  import('@/features/venues/VenueResourcePlaceholder').then((m) => ({
+    default: m.VenueResourcePlaceholder,
+  })),
+)
+const TerminalsPage = lazy(() =>
+  import('@/features/terminals/TerminalsPage').then((m) => ({ default: m.TerminalsPage })),
+)
+const NewTerminalPage = lazy(() =>
+  import('@/features/terminals/NewTerminalPage').then((m) => ({ default: m.NewTerminalPage })),
+)
+const TerminalSettingsPage = lazy(() =>
+  import('@/features/terminals/TerminalSettingsPage').then((m) => ({
+    default: m.TerminalSettingsPage,
+  })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -43,7 +62,41 @@ export function AppRoutes() {
           <Route path="/activity-log" element={<ActivityLogPage />} />
           <Route path="/system-logs" element={<SystemLogsPage />} />
           <Route path="/venues" element={<VenuesPage />} />
+          {/* `/new` ANTES de `:venueId` para que el matcher de react-router no
+              capture "new" como un venueId. */}
+          <Route path="/venues/new" element={<NewVenuePage />} />
           <Route path="/venues/:venueId" element={<VenueDetailPage />} />
+          {/*
+            Placeholders de las pantallas dedicadas de configuración. Los
+            mini-iconos en `/venues` ya apuntan acá. Cuando construyamos cada
+            pantalla real, sólo se reemplaza el element del Route por el
+            componente verdadero — la URL queda fija. Esto es la forma de
+            "pre-cablear" rutas sin perder UX hoy.
+          */}
+          <Route
+            path="/venues/:venueId/owner"
+            element={<VenueResourcePlaceholder resource="owner" />}
+          />
+          <Route
+            path="/venues/:venueId/kyc"
+            element={<VenueResourcePlaceholder resource="kyc" />}
+          />
+          <Route
+            path="/venues/:venueId/terminals/new"
+            element={<VenueResourcePlaceholder resource="terminal" />}
+          />
+          <Route
+            path="/venues/:venueId/merchant"
+            element={<VenueResourcePlaceholder resource="merchant" />}
+          />
+          <Route
+            path="/venues/:venueId/pricing"
+            element={<VenueResourcePlaceholder resource="pricing" />}
+          />
+          <Route path="/terminals" element={<TerminalsPage />} />
+          {/* `/new` ANTES de `:terminalId` para que no se trate "new" como ID. */}
+          <Route path="/terminals/new" element={<NewTerminalPage />} />
+          <Route path="/terminals/:terminalId/settings" element={<TerminalSettingsPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

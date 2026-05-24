@@ -238,9 +238,7 @@ function DefinitionRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] py-2.5 last:border-b-0">
-      <p className="shrink-0 text-[11.5px] uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-        {label}
-      </p>
+      <p className="shrink-0 label">{label}</p>
       <div className="flex min-w-0 items-center gap-1.5">
         <span
           className={cn(

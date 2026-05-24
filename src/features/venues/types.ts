@@ -31,6 +31,33 @@ export type KycStatus = 'NOT_SUBMITTED' | 'PENDING_REVIEW' | 'IN_REVIEW' | 'VERI
  * desarrollador futuro tenga que decidir explícitamente cuando se vuelvan
  * reales.
  */
+/**
+ * Flags de setup-completeness del venue. Calculados server-side en
+ * `getAllVenuesForSuperadmin`. Permiten al UI mostrar "¿qué tiene
+ * configurado y qué falta?" sin queries adicionales.
+ *
+ * Cada flag es deliberado:
+ * - `hasOwner`: el venue tiene un Staff con rol OWNER o ADMIN.
+ * - `hasTerminal`: ≥1 terminal asignada (compatibilidad con TPV).
+ * - `hasMerchantAccount`: VenuePaymentConfig con primaryAccountId.
+ * - `hasKycDocs`: al menos uno de los docs KYC subidos (INE o RFC doc).
+ *   Es indicador de "está en proceso", no de "está completo".
+ * - `hasPricing`: ≥1 VenuePricingStructure (comisión por método).
+ * - `kycVerified`: `kycStatus === 'VERIFIED'`. Separado del flag de docs
+ *   porque tener docs no implica que fueron aprobados.
+ *
+ * Optional porque venues servidos por endpoints viejos (o legacy data) pueden
+ * no traer el bloque. El UI los trata como "desconocido".
+ */
+export interface VenueCompleteness {
+  hasOwner: boolean
+  hasTerminal: boolean
+  hasMerchantAccount: boolean
+  hasKycDocs: boolean
+  hasPricing: boolean
+  kycVerified: boolean
+}
+
 export interface Venue {
   id: string
   name: string
@@ -50,7 +77,7 @@ export interface Venue {
     email: string
     phone?: string
   }
-  /** Owner = primer Staff con rol ADMIN del venue. Puede no existir si el venue está incompleto. */
+  /** Owner = primer Staff con rol OWNER del venue (fallback a ADMIN para legacy data). Puede no existir si el venue está incompleto. */
   owner: {
     id: string
     firstName: string
@@ -64,6 +91,8 @@ export interface Venue {
   suspensionReason: string | null
   createdAt: string
   updatedAt: string
+  /** Flags de qué tiene configurado el venue. `undefined` si el backend no lo expone (legacy). */
+  completeness?: VenueCompleteness
 }
 
 /* --- Categorías derivadas --- */

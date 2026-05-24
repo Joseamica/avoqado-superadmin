@@ -12,6 +12,7 @@ import {
   VENUE_STATUS_TONE,
   type Venue,
 } from './types'
+import { SetupCounter } from './SetupIcons'
 
 /**
  * Vista alterna al `<DataTable>` plano cuando el superadmin pidió
@@ -198,6 +199,7 @@ function VenueRow({ venue }: { venue: Venue }) {
             ) : (
               <Badge tone="muted">Sin KYC</Badge>
             ))}
+          <SetupCounter venue={venue} />
         </div>
 
         {/* Volumen — sólo visible ≥ sm. En mobile cae a "Sin pagos" / monto en

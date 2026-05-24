@@ -52,6 +52,14 @@ interface SuperadminVenueResponse {
   suspensionReason?: string | null
   createdAt: string
   updatedAt: string
+  completeness?: {
+    hasOwner: boolean
+    hasTerminal: boolean
+    hasMerchantAccount: boolean
+    hasKycDocs: boolean
+    hasPricing: boolean
+    kycVerified: boolean
+  }
 }
 
 /**
@@ -97,6 +105,7 @@ function mapVenue(raw: SuperadminVenueResponse): Venue {
     suspensionReason: raw.suspensionReason ?? null,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
+    completeness: raw.completeness,
   }
 }
 
@@ -119,6 +128,160 @@ export async function fetchVenues(params: FetchVenuesParams = {}): Promise<Venue
   // (legacy puede haber cambiado), mostramos lista vacía en vez de crashear.
   if (!Array.isArray(data?.data)) return []
   return data.data.map(mapVenue)
+}
+
+/* ─── Onboarding wizard (POST /api/v1/superadmin/onboarding/venue) ─── */
+
+export interface OrganizationOption {
+  id: string
+  name: string
+  slug: string
+  email: string
+  /** Cuántos venues ya tiene esta org. Útil para el selector — el operador puede ver de un vistazo si la org está creciendo. */
+  venueCount: number
+  hasPaymentConfig: boolean
+}
+
+export async function fetchOrganizations(): Promise<OrganizationOption[]> {
+  // El namespace nuevo `/superadmin/onboarding/*` NO envuelve en `{ success, data, message }`
+  // como hace el legacy `/dashboard/superadmin/*`. Acá llega `{ data: [...] }` directo.
+  const { data } = await api.get<{
+    data: Array<{
+      id: string
+      name: string
+      slug: string
+      email: string
+      _count: { venues: number }
+      hasPaymentConfig: boolean
+    }>
+  }>('/superadmin/onboarding/organizations')
+  return (data.data ?? []).map((o) => ({
+    id: o.id,
+    name: o.name,
+    slug: o.slug,
+    email: o.email,
+    venueCount: o._count?.venues ?? 0,
+    hasPaymentConfig: o.hasPaymentConfig,
+  }))
+}
+
+/**
+ * Espejo del enum `VenueType` de `avoqado-server/prisma/schema.prisma`.
+ * El backend acepta 35+ valores agrupados en 5 categorías (FOOD_SERVICE,
+ * RETAIL, SERVICES, HOSPITALITY, ENTERTAINMENT). El wizard del superadmin
+ * los agrupa visualmente en 4 grupos para simplificar la elección.
+ */
+export type VenueType =
+  // FOOD_SERVICE
+  | 'RESTAURANT'
+  | 'BAR'
+  | 'CAFE'
+  | 'BAKERY'
+  | 'FOOD_TRUCK'
+  | 'FAST_FOOD'
+  | 'CATERING'
+  | 'CLOUD_KITCHEN'
+  // RETAIL
+  | 'RETAIL_STORE'
+  | 'JEWELRY'
+  | 'CLOTHING'
+  | 'ELECTRONICS'
+  | 'PHARMACY'
+  | 'CONVENIENCE_STORE'
+  | 'SUPERMARKET'
+  | 'LIQUOR_STORE'
+  | 'FURNITURE'
+  | 'HARDWARE'
+  | 'BOOKSTORE'
+  | 'PET_STORE'
+  | 'TELECOMUNICACIONES'
+  // SERVICES (excl. beauty/spa — los movemos al grupo "Estéticas y spas" en el UI)
+  | 'CLINIC'
+  | 'VETERINARY'
+  | 'FITNESS'
+  | 'AUTO_SERVICE'
+  | 'LAUNDRY'
+  | 'REPAIR_SHOP'
+  // Estéticas / spas (subset visual de SERVICES)
+  | 'SALON'
+  | 'SPA'
+  // HOSPITALITY
+  | 'HOTEL'
+  | 'HOSTEL'
+  | 'RESORT'
+  // ENTERTAINMENT
+  | 'CINEMA'
+  | 'ARCADE'
+  | 'EVENT_VENUE'
+  | 'NIGHTCLUB'
+  | 'BOWLING'
+  | 'OTHER'
+export type EntityType = 'PERSONA_FISICA' | 'PERSONA_MORAL'
+
+export interface PlatformFeature {
+  id: string
+  code: string
+  name: string
+  description: string
+  category: string
+  basePrice?: number
+  /** Features `isCore: true` se pre-seleccionan por default al crear venue — son los que casi todo venue necesita (pagos, etc.). */
+  isCore: boolean
+}
+
+export async function fetchFeatures(): Promise<PlatformFeature[]> {
+  // Endpoint legacy — viene envuelto en `{ success, data, message }`.
+  const { data } = await api.get<SuperadminEnvelope<PlatformFeature[]>>(
+    '/dashboard/superadmin/features',
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data
+}
+
+export interface CreateVenuePayload {
+  organization:
+    | { mode: 'existing'; id: string }
+    | { mode: 'new'; name: string; email: string; phone: string }
+  venue: {
+    name: string
+    slug?: string
+    venueType: VenueType
+    entityType?: EntityType
+    rfc?: string
+    legalName?: string
+    timezone?: string
+    currency?: string
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    phone?: string
+    email?: string
+  }
+  team?: {
+    owner: { email: string; firstName: string; lastName: string; role?: string }
+  }
+  features?: string[]
+}
+
+interface WizardResponse {
+  venueId: string
+  organizationId: string
+  steps: Array<{ step: string; status: 'success' | 'skipped' | 'error'; message?: string }>
+}
+
+export async function createVenueWizard(payload: CreateVenuePayload): Promise<WizardResponse> {
+  const { data } = await api.post<{ data: WizardResponse }>('/superadmin/onboarding/venue', payload)
+  return data.data
+}
+
+/**
+ * Aprobar KYC + activar el venue inmediatamente después de crearlo.
+ * El backend ya registra esto en ActivityLog (per el controlador `approveVenue`)
+ * con `staffId + timestamp + IP`. No le pedimos justificación al operador.
+ */
+export async function approveVenueAfterCreate(venueId: string): Promise<void> {
+  await api.post(`/dashboard/superadmin/venues/${encodeURIComponent(venueId)}/approve`)
 }
 
 export async function fetchVenueDetail(venueId: string): Promise<Venue | null> {

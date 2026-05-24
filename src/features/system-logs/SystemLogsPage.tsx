@@ -166,16 +166,16 @@ export function SystemLogsPage() {
           return (
             <p className="break-words text-[13px] leading-snug text-[var(--ink)]">
               {source && (
-                <span className="mr-1.5 inline-flex items-center rounded-[3px] border border-[var(--line-strong)] bg-[var(--canvas-sunken)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
+                <Badge size="sm" tone="muted" className="mr-1.5">
                   {humanizeRequestSource(source)}
-                </span>
+                </Badge>
               )}
               {summary}
               {parsed.json !== null && (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-[3px] border border-[var(--accent-line)] bg-[var(--accent-faint)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
+                <Badge size="sm" tone="accent" className="ml-1.5">
                   <Braces className="h-2.5 w-2.5" aria-hidden />
                   json
-                </span>
+                </Badge>
               )}
             </p>
           )
@@ -403,7 +403,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
   if (isWholeMessageJson) {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+        <div className="flex items-center gap-2 text-[10.5px] text-[var(--ink-faint)]">
           <Braces className="h-3 w-3" aria-hidden />
           <span>Payload JSON</span>
         </div>
@@ -416,7 +416,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
   if (hasJson) {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+        <div className="flex items-center gap-2 text-[10.5px] text-[var(--ink-faint)]">
           <span>{showJson ? 'Payload JSON' : 'Mensaje completo'}</span>
           <button
             type="button"
@@ -441,7 +441,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
   // Caso 3: sólo texto.
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+      <div className="flex items-center gap-2 text-[10.5px] text-[var(--ink-faint)]">
         <span>Mensaje completo</span>
       </div>
       <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[4px] border border-[var(--line)] bg-[var(--canvas)] p-2 font-mono text-[11.5px] leading-relaxed text-[var(--ink)]">

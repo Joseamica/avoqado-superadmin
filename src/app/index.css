@@ -1,86 +1,89 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/inter';
 
 @custom-variant light (&:is(.light *));
 
-/*
-  Editorial Operations Terminal — DARK is the default.
-  Neutrals tinted ~130° (toward green) for cohesion with the olive accent.
-  No pure white, no pure black. `.light` queda como opt-in para el futuro
-  por si necesitamos un toggle (no expuesto en UI hoy).
-*/
 :root {
-  /*
-    Neutrales tintados azul-pizarra (H=245°). Chroma 0.015-0.024 para tinte
-    visible sin caer en "Discord blue" / "cyan-on-dark".
-    Accent: indigo (H=270°), estilo Stripe / Linear. El indigo sobre slate-blue
-    es analógico (mismo lado del color wheel) — coherente y premium.
-  */
-  --canvas: oklch(0.155 0.018 245);
-  --canvas-sunken: oklch(0.125 0.022 245);
-  --canvas-raised: oklch(0.195 0.018 245);
-  --ink: oklch(0.95 0.008 245);
-  --ink-muted: oklch(0.72 0.012 245);
-  --ink-faint: oklch(0.52 0.014 245);
-  --line: oklch(0.28 0.02 245);
-  --line-strong: oklch(0.36 0.024 245);
+  --canvas: #0d1117;
+  --canvas-sunken: #010409;
+  --canvas-raised: #161b22;
+  --ink: #e6edf3;
+  --ink-muted: #848d97;
+  --ink-faint: #6e7681;
+  --line: #21262d;
+  --line-strong: #30363d;
 
-  --accent: oklch(0.62 0.22 270);
-  --accent-hover: oklch(0.68 0.22 270);
-  --accent-faint: oklch(0.28 0.1 270);
-  --accent-line: oklch(0.42 0.16 270);
+  /* Acento NEUTRO / monocromo (no hue) — el azul quedó sólo para --info.
+     Active states = tinte blanco + texto/borde blanco. "Herramienta, no producto". */
+  --accent: #e6edf3;
+  --accent-hover: #ffffff;
+  --accent-faint: rgba(230, 237, 243, 0.06);
+  --accent-line: #6e7681;
 
-  --success: oklch(0.74 0.16 145);
-  --success-faint: oklch(0.24 0.06 145);
-  --warn: oklch(0.82 0.14 75);
-  --warn-faint: oklch(0.26 0.07 75);
-  --danger: oklch(0.72 0.18 27);
-  --danger-faint: oklch(0.26 0.07 27);
-  --info: oklch(0.74 0.12 230);
-  --info-faint: oklch(0.24 0.06 230);
+  --success: #3fb950;
+  --success-faint: #12261e;
+  --warn: #d29922;
+  --warn-faint: #231c0d;
+  --danger: #f85149;
+  --danger-faint: #251312;
+  --info: #58a6ff;
+  --info-faint: #121d2f;
 
-  --ring: oklch(0.62 0.22 270 / 0.5);
+  /* Semantic surfaces — usados por <Button variant="primary"> y CTAs. */
+  /* NUNCA escribas `bg-white` inline: cambia este token y todos los CTAs siguen. */
+  --surface-primary: #ffffff;
+  --surface-primary-hover: #f0f3f6;
+  --on-surface-primary: var(--canvas);
+
+  --ring: #e6edf380;
   --radius: 8px;
 
-  /*
-    Geist (Vercel) — equivalente open-source de Söhne (la que usa Stripe).
-    Diseñada para consolas dev/dashboards: hinting impecable en pantallas,
-    aperturas abiertas, variable weight 100-900. Una sola familia para display
-    + body; Geist Mono matchea para IDs y código.
-  */
-  --font-display: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Sistema de fuentes espejo de avoqado-web-dashboard:
+     Inter = contenido (default global → llega también a overlays portaleados: drawer,
+     dialog, popover, command palette, toasts), Geist = shell/sidebar (override local),
+     Geist Mono = numerales/código.
+     --font-sans cascadea: cambiarlo en un wrapper reescribe toda la tipografía del subárbol. */
+  --font-geist: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-inter: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
 
   color-scheme: dark;
 }
 
 .light {
-  --canvas: oklch(0.985 0.003 100);
-  --canvas-sunken: oklch(0.965 0.004 110);
-  --canvas-raised: oklch(1 0 0);
-  --ink: oklch(0.2 0.012 130);
-  --ink-muted: oklch(0.46 0.008 130);
-  --ink-faint: oklch(0.68 0.005 130);
-  --line: oklch(0.92 0.005 130);
-  --line-strong: oklch(0.86 0.006 130);
+  --canvas: #ffffff;
+  --canvas-sunken: #f6f8fa;
+  --canvas-raised: #ffffff;
+  --ink: #1f2328;
+  --ink-muted: #656d76;
+  --ink-faint: #848d97;
+  --line: #d0d7de;
+  --line-strong: #d0d7de;
 
-  --accent: oklch(0.5 0.22 270);
-  --accent-hover: oklch(0.42 0.22 270);
-  --accent-faint: oklch(0.96 0.04 270);
-  --accent-line: oklch(0.82 0.1 270);
+  --accent: #1f2328;
+  --accent-hover: #000000;
+  --accent-faint: rgba(31, 35, 40, 0.06);
+  --accent-line: #656d76;
 
-  --success: oklch(0.58 0.14 145);
-  --success-faint: oklch(0.96 0.04 145);
-  --warn: oklch(0.62 0.13 75);
-  --warn-faint: oklch(0.97 0.05 75);
-  --danger: oklch(0.55 0.19 27);
-  --danger-faint: oklch(0.96 0.04 27);
-  --info: oklch(0.55 0.1 230);
-  --info-faint: oklch(0.96 0.03 230);
+  --success: #1a7f37;
+  --success-faint: #dafbe1;
+  --warn: #9a6700;
+  --warn-faint: #fff8c5;
+  --danger: #cf222e;
+  --danger-faint: #ffebe9;
+  --info: #0969da;
+  --info-faint: #ddf4ff;
 
-  --ring: oklch(0.5 0.22 270 / 0.4);
+  --surface-primary: #1f2328;
+  --surface-primary-hover: #2c3138;
+  --on-surface-primary: #ffffff;
+
+  --ring: #1f232880;
 
   color-scheme: light;
 }
@@ -106,14 +109,20 @@
   --color-danger-faint: var(--danger-faint);
   --color-info: var(--info);
   --color-info-faint: var(--info-faint);
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-primary-hover: var(--surface-primary-hover);
+  --color-on-surface-primary: var(--on-surface-primary);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-body);
-  --font-display: var(--font-display);
+  /* Las utilidades font-sans / font-display / font-mono apuntan a la sans activa
+     (--font-sans cascadea), salvo mono. Así los headings heredan Inter en el contenido
+     y Geist dentro del sidebar, igual que el dashboard. */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-sans);
   --font-mono: var(--font-mono);
 }
 
@@ -124,7 +133,7 @@
   body {
     background-color: var(--canvas);
     color: var(--ink);
-    font-family: var(--font-body);
+    font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
     font-weight: 400;
@@ -177,17 +186,26 @@
 }
 
 @utility eyebrow {
-  font-family: var(--font-body);
-  font-size: 11px;
-  line-height: 1;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  line-height: 1.2;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Label de campo (dt / label sobre un valor o input). Sentence case, mutado.
+   El color por default es ink-faint; sólo overridéalo cuando el contexto lo
+   exija (fondo accent, etc.). El tamaño vive AQUÍ — no inline. */
+@utility label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
   color: var(--ink-faint);
 }
 
 @utility display {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-weight: 600;
   letter-spacing: -0.012em;
 }

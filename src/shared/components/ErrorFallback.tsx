@@ -1,3 +1,5 @@
+import { Button } from '@/shared/ui/Button'
+
 interface ErrorFallbackProps {
   error: Error
   onReset: () => void
@@ -20,13 +22,9 @@ export function DefaultErrorFallback({ error, onReset }: ErrorFallbackProps) {
       <pre className="mt-4 max-w-[640px] overflow-auto rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas-sunken)] p-3 text-left font-mono text-[11px] text-[var(--ink-muted)]">
         {error.name}: {error.message}
       </pre>
-      <button
-        type="button"
-        onClick={onReset}
-        className="mt-6 inline-flex h-9 items-center rounded-[6px] bg-[var(--accent)] px-4 text-[14px] font-medium text-[var(--canvas)] hover:bg-[var(--accent-hover)]"
-      >
+      <Button type="button" onClick={onReset} className="mt-6">
         Reintentar
-      </button>
+      </Button>
     </div>
   )
 }

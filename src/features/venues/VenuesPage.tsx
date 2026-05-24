@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
-import { Button } from '@/shared/ui/Button'
+import { buttonVariants } from '@/shared/ui/button-variants'
 import { DataTable } from '@/shared/data-table/DataTable'
 import {
   FilterPill,
@@ -16,6 +16,7 @@ import { QueryError } from '@/shared/components/QueryError'
 import { DEFAULT_TIMEZONE, formatDate, formatRelative, timezoneShort } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
 import { useVenues } from './use-venues'
+import { SetupIcons } from './SetupIcons'
 import { VenuesByOrgList } from './VenuesByOrgList'
 import {
   humanizeKycStatus,
@@ -26,7 +27,6 @@ import {
   KYC_STATUS_TONE,
   ONBOARDING_STATUSES,
   OPERATIONAL_STATUSES,
-  SUSPENDED_STATUSES,
   VENUE_STATUS_TONE,
   type KycStatus,
   type Venue,
@@ -114,50 +114,84 @@ function formatActiveLabel<V extends string>(
   return `${labels[0]}, ${labels[1]} +${labels.length - 2}`
 }
 
+/**
+ * Una KPI tile. `tone` define peso visual — la `actionable` ocupa más ancho
+ * y queda con border-l accent (es la que el operador DEBE mirar primero).
+ * Las `default` son referencia, no urgencia.
+ */
 interface KpiTile {
   label: string
   value: string
+  /** Footnote sólo cuando hay STORY que contar — no decoración. */
   footnote?: string
+  /** "actionable" = requiere atención del operador; "default" = informativo. */
+  tone: 'actionable' | 'default'
 }
 
-function buildKpis(venues: Venue[]): KpiTile[] {
+interface KpiData {
+  /** El que el operador debería mirar primero. Único, ocupa 2 cols. */
+  focus: KpiTile
+  /** El resto, peso visual uniforme. */
+  rest: KpiTile[]
+}
+
+function buildKpis(venues: Venue[]): KpiData {
   // Producción = excluye LIVE_DEMO + TRIAL. El operador piensa en métricas
   // de la flota real; los demos son ruido si los contamos parejo.
   const production = venues.filter((v) => !isDemoVenue(v))
   const active = production.filter((v) => OPERATIONAL_STATUSES.includes(v.status)).length
   const onboarding = production.filter((v) => ONBOARDING_STATUSES.includes(v.status)).length
-  const suspended = production.filter((v) => SUSPENDED_STATUSES.includes(v.status)).length
+  const suspendedVoluntary = production.filter((v) => v.status === 'SUSPENDED').length
+  const suspendedAdmin = production.filter((v) => v.status === 'ADMIN_SUSPENDED').length
   const kycPending = production.filter(
     (v) => v.kycStatus !== null && KYC_PENDING_STATUSES.includes(v.kycStatus),
   ).length
 
-  return [
-    {
-      label: 'Producción',
-      value: NUM.format(production.length),
-      footnote: `${venues.length - production.length} demos excluidos`,
-    },
-    {
-      label: 'Activos',
-      value: NUM.format(active),
-      footnote: 'Recibiendo pagos hoy',
-    },
-    {
-      label: 'En onboarding',
-      value: NUM.format(onboarding),
-      footnote: 'Onboarding + esperando activación',
-    },
-    {
-      label: 'KYC en cola',
-      value: NUM.format(kycPending),
-      footnote: kycPending > 0 ? 'Requieren tu revisión' : 'Nada en cola',
-    },
-    {
-      label: 'Suspendidos',
-      value: NUM.format(suspended),
-      footnote: 'Voluntarios + por Avoqado',
-    },
-  ]
+  // El "focus" se elige por urgencia: KYC en cola > Onboarding > Total.
+  // Sólo el focus tiene footnote — los demás son datos, no story.
+  const focus: KpiTile =
+    kycPending > 0
+      ? {
+          label: 'KYC en cola',
+          value: NUM.format(kycPending),
+          footnote: 'Requieren revisión del superadmin',
+          tone: 'actionable',
+        }
+      : onboarding > 0
+        ? {
+            label: 'En onboarding',
+            value: NUM.format(onboarding),
+            footnote: 'Pendientes de activación',
+            tone: 'actionable',
+          }
+        : {
+            label: 'Total producción',
+            value: NUM.format(production.length),
+            tone: 'default',
+          }
+
+  return {
+    focus,
+    rest: [
+      // Si el focus no es ya "total", lo agregamos aquí como referencia.
+      ...(focus.label === 'Total producción'
+        ? []
+        : [{ label: 'Total', value: NUM.format(production.length), tone: 'default' as const }]),
+      { label: 'Activos', value: NUM.format(active), tone: 'default' as const },
+      // Separamos voluntary vs admin — son operacionalmente distintos.
+      // ADMIN_SUSPENDED es alarma; SUSPENDED voluntario no.
+      ...(suspendedAdmin > 0
+        ? [
+            {
+              label: 'Susp. por Avoqado',
+              value: NUM.format(suspendedAdmin),
+              tone: 'actionable' as const,
+            },
+          ]
+        : []),
+      { label: 'Pausados', value: NUM.format(suspendedVoluntary), tone: 'default' as const },
+    ].slice(0, 4),
+  }
 }
 
 export function VenuesPage() {
@@ -239,6 +273,27 @@ export function VenuesPage() {
           )
         },
         meta: { headerClassName: 'w-[160px]' },
+      },
+      {
+        id: 'setup',
+        header: 'Setup',
+        // Accessor para sort: cuenta de flags `true`. Permite ordenar la
+        // tabla por "más / menos completos" — útil para spot venues que
+        // necesitan atención.
+        accessorFn: (row) => {
+          const c = row.completeness
+          if (!c) return -1 // unknown queda al final
+          return [
+            c.hasOwner,
+            c.kycVerified,
+            c.hasTerminal,
+            c.hasMerchantAccount,
+            c.hasPricing,
+          ].filter(Boolean).length
+        },
+        cell: ({ row }) => <SetupIcons venue={row.original} />,
+        sortingFn: 'basic',
+        meta: { headerClassName: 'w-[200px]' },
       },
       {
         id: 'monthlyRevenue',
@@ -364,7 +419,7 @@ export function VenuesPage() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
       <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-        <div>
+        <div className="min-w-0">
           <p className="eyebrow">Catálogo</p>
           <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)] sm:text-[34px]">
             Venues
@@ -377,12 +432,10 @@ export function VenuesPage() {
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" size="md" disabled title="Próximamente">
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            Nuevo venue
-          </Button>
-        </div>
+        <Link to="/venues/new" className={buttonVariants({ size: 'lg', className: 'shrink-0' })}>
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          Nuevo venue
+        </Link>
       </header>
 
       {query.isError && (
@@ -395,24 +448,7 @@ export function VenuesPage() {
         />
       )}
 
-      <section
-        aria-label="Indicadores de venues"
-        className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--line)] sm:grid-cols-3 lg:grid-cols-5"
-      >
-        {(kpis ?? skeletonKpis()).map((kpi, idx) => (
-          <article key={kpi.label || idx} className="bg-[var(--canvas)] p-4">
-            <p className="eyebrow">{kpi.label}</p>
-            <p className="mt-3 font-display tabular text-[24px] font-semibold leading-none tracking-[-0.02em] text-[var(--ink)]">
-              {kpis ? kpi.value : <span className="opacity-30">—</span>}
-            </p>
-            {kpi.footnote && (
-              <p className="mt-3 border-t border-[var(--line)] pt-2 text-[11px] text-[var(--ink-faint)]">
-                {kpi.footnote}
-              </p>
-            )}
-          </article>
-        ))}
-      </section>
+      {kpis && <KpiStrip data={kpis} />}
 
       {/*
         Toolbar de filtros + groupBy. Vive fuera del DataTable porque también
@@ -478,7 +514,7 @@ export function VenuesPage() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="ml-1 shrink-0 whitespace-nowrap text-[12px] font-medium text-[var(--danger)] hover:underline"
+                className="ml-1 shrink-0 whitespace-nowrap text-[12px] font-medium text-[var(--ink-muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
               >
                 Borrar filtros
               </button>
@@ -609,22 +645,69 @@ export function VenuesPage() {
           />
         )
       })()}
-
-      <p className={cn('mt-3 text-[11.5px] text-[var(--ink-faint)]')}>
-        Las métricas de volumen, pagos y AOV se calculan sobre el mes en curso (Mexico City).
-        Algunos campos del backend (plan, comisión, features) están pendientes de migración a datos
-        reales — se mostrarán cuando estén listos.
-      </p>
     </div>
   )
 }
 
-function skeletonKpis(): KpiTile[] {
-  return [
-    { label: 'Producción', value: '—' },
-    { label: 'Activos', value: '—' },
-    { label: 'En onboarding', value: '—' },
-    { label: 'KYC en cola', value: '—' },
-    { label: 'Suspendidos', value: '—' },
-  ]
+/**
+ * KPI strip con jerarquía asimétrica.
+ *
+ * El KPI `focus` ocupa más ancho (col-span-2) y trae footnote — es la
+ * historia que el operador debe leer al entrar a la página. Los `rest`
+ * son referencias secundarias sin footnote — números puros que el
+ * operador 6h/día ya conoce de memoria.
+ *
+ * Cuando el focus es `actionable` (KYC en cola, ADMIN_SUSPENDED, etc.),
+ * el tile recibe un border-l accent que llama la atención sin gritar.
+ */
+function KpiStrip({ data }: { data: KpiData }) {
+  const focusActionable = data.focus.tone === 'actionable'
+  return (
+    <section
+      aria-label="Indicadores de venues"
+      // Flex en vez de grid fijo de 5 cols — el `rest.length` varía entre 2-4
+      // dependiendo del estado (si hay ADMIN_SUSPENDED arriba de 0, si el focus
+      // es Total vs KYC en cola, etc.). Grid-cols-5 dejaba slots vacíos grises;
+      // flex con `flex-[2]` y `flex-1` se adapta sin huecos.
+      className="mb-8 flex flex-col gap-px overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--line)] sm:flex-row"
+    >
+      <article
+        className={cn(
+          'flex-[2] bg-[var(--canvas)] p-5',
+          // Border-l accent SÓLO cuando el focus es accionable. Si todo
+          // está tranquilo, se ve neutral — no inflamamos urgencia falsa.
+          focusActionable && 'border-l-2 border-l-[var(--accent)]',
+        )}
+      >
+        <p className="eyebrow">{data.focus.label}</p>
+        <p className="mt-2.5 font-display tabular text-[32px] font-semibold leading-none tracking-[-0.022em] text-[var(--ink)]">
+          {data.focus.value}
+        </p>
+        {data.focus.footnote && (
+          <p className="mt-3 text-[12px] text-[var(--ink-muted)]">{data.focus.footnote}</p>
+        )}
+      </article>
+      {data.rest.map((kpi) => (
+        <article
+          key={kpi.label}
+          className={cn(
+            'flex-1 bg-[var(--canvas)] p-4',
+            // Tiles secundarios que también son accionables (ej. Susp. por
+            // Avoqado > 0) reciben acento sutil — sin footnote, sin border-l.
+            kpi.tone === 'actionable' && 'bg-[var(--warn-faint)]',
+          )}
+        >
+          <p className="eyebrow">{kpi.label}</p>
+          <p
+            className={cn(
+              'mt-2.5 font-display tabular text-[22px] font-semibold leading-none tracking-[-0.018em]',
+              kpi.tone === 'actionable' ? 'text-[var(--warn)]' : 'text-[var(--ink)]',
+            )}
+          >
+            {kpi.value}
+          </p>
+        </article>
+      ))}
+    </section>
+  )
 }

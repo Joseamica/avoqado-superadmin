@@ -80,8 +80,8 @@ The repo has a `.impeccable.md` at the root that defines the design system, pale
 Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende todas, vuelve a empezar. La versión larga (target audience, use cases, anti-patterns, differentiation) vive en [.impeccable.md](.impeccable.md).
 
 1. **Operative speed beats first impression.** Power user 6+ h/día. `⌘K`, density tipográfica y legibilidad tabular ganan sobre hero animations. Touch targets ≥ 36 px y drawer < md porque ops también opera desde móvil.
-2. **Editorial density, never Bloomberg ugliness.** La tipografía conduce el layout — Bricolage en KPIs es nuestra firma B2B. Ritmo variado: secciones respiran, tablas compactan; "mismo padding everywhere" es flat.
-3. **Warm precision, not cold tech.** OKLCH tintado verde (`130°`) + olivo con parsimonia. Sin purple-to-blue, sin cyan-on-dark, sin neón, sin glassmorphism. El undertone cálido viene del producto (payments en México), no del tooling.
+2. **Editorial density, never Bloomberg ugliness.** La tipografía conduce el layout y espeja al dashboard principal: **Inter** en el contenido (default global, incluidos overlays portaleados), **Geist** en el shell/sidebar (override de `--font-sans` en el `<aside>`), **Geist Mono** para datos. La jerarquía sale del peso/tamaño y del contraste sans-vs-mono, no de una fuente display. Ritmo variado: secciones respiran, tablas compactan; "mismo padding everywhere" es flat.
+3. **GitHub Dark, not corporate.** Paleta GitHub Dark (`#0d1117` canvas, acento **neutro `#e6edf3`** sin hue; azul `#58a6ff` reservado a `--info`). Botón primario = `bg-white text-black`. Badges pill-shaped sin bordes. Sin gradientes, sin neón, sin glassmorphism. Se siente herramienta personal, no producto enterprise.
 4. **Numerals are data, not decoration.** `tabular-nums` siempre; montos a la derecha; status pills semánticas (tint 8 % + border 30 %). Sparklines sólo si el trend es información esencial — nunca como garnish.
 5. **Empty states teach the interface.** "No hay KYC pendientes. Última revisión hace 3 h" en vez de "Nothing here". Cada vacío explica qué hace la pantalla, qué espera, y qué pasó por última vez.
 
@@ -104,15 +104,21 @@ Para **errores de mutations** (clicks de botón), usa `toast.error(title, { desc
   - El sidebar fijo desaparece en `< md`; usa el `MobileTopBar` + drawer del `AppLayout`.
   - Las tablas viven dentro de un `overflow-x-auto`; nunca rompen viewport.
   - Texto base ≥ 13 px; nunca uses 10 px para datos críticos.
-  - Headers de tabla `eyebrow` quedan en 10.5 px sólo porque están en uppercase + tracking — son OK.
+  - Para labels pequeños / headers usa los **utilities tipográficos** (`eyebrow`, `label` en `src/app/index.css`), no px inline; para pills/etiquetas usa el componente **`<Badge size="sm">`**. El tamaño/forma/casing vive en el primitive — un solo lugar. NO hardcodees `text-[10.5px] uppercase tracking-[…]` a mano; eso fue justo el smell que se eliminó. Sentence case por default (sin `uppercase` salvo wordmarks de marca).
   - Forms en mobile: campos full-width, label encima del input, botón CTA full-width.
+- **Reuse-or-promote — no hardcodees patrones recurrentes.** Antes de escribir markup/estilos inline para algo que se repite (label, badge, botón, card, sección, empty state): ¿ya existe un primitive? → componente en [src/shared/ui/](src/shared/ui/) (`Button`, `Badge`, `Combobox`, `Drawer`, `DataTable`…) o `@utility` en [src/app/index.css](src/app/index.css) (`eyebrow`, `label`, `display`, `tabular`) → **úsalo**. ¿Patrón nuevo que aparece ≥2 veces? → **promuévelo** a primitive (componente o `@utility`), no lo dejes inline en cada página. Magic numbers de tamaño/spacing/color inline (`text-[10.5px]`, `tracking-[…]`, etc.) = **rechazo en review** — el tamaño/forma/casing vive en el primitive, en un solo lugar. Las reglas de abajo (Button / DataTable / Combobox / Drawer únicos) son casos concretos de este principio.
+- **Button es el componente único para CUALQUIER CTA / acción**: [src/shared/ui/Button.tsx](src/shared/ui/Button.tsx). **NUNCA** escribas clases inline tipo `bg-white text-[var(--canvas)] hover:bg-white/90 ...` ni `bg-[var(--surface-primary)] ...` a mano. Si necesitas un look diferente, **agrega una variant al componente** — no inline. Cuando el elemento debe ser un `<Link>` de react-router (navegación, no click handler), usa `buttonVariants({ size, variant, className })` de [src/shared/ui/button-variants.ts](src/shared/ui/button-variants.ts): `<Link to="/x" className={buttonVariants({ size: 'lg' })}>`. Los tokens semánticos `--surface-primary` / `--surface-primary-hover` / `--on-surface-primary` viven en [src/app/index.css](src/app/index.css) — si el primario un día deja de ser blanco, cambias un token y todos los CTAs siguen. Test de regresión: `grep -rn "bg-white" src/` debe devolver SOLO comentarios.
+- **Badge es el componente único para CUALQUIER pill / etiqueta**: [src/shared/ui/Badge.tsx](src/shared/ui/Badge.tsx). Status ("Activo"), tipo ("TPV Android"), micro-tags ("Se encolará"), indicadores ("Live") — todos `<Badge tone={…} size="sm"|"md">`. **Siempre pill (`rounded-full`), sin borde**, tint del tono. NUNCA armes un badge inline con `rounded-[3px]/[4px]`, `border` + `bg-[…]` a mano — eso fue justo el desorden que se centralizó. Acepta icono como child (`gap-1` ya separado). Test de regresión: no debe haber `<span>` con `rounded-[3px]`/`rounded-[4px]` + `bg-[var(--*-faint)]` que sea un badge.
 - **DataTable es el componente único para listas**: [src/shared/data-table/DataTable.tsx](src/shared/data-table/DataTable.tsx). Sortable headers, búsqueda global, paginación, export CSV con dialog (rango de fechas + selección de columnas). Cualquier nueva página de listado debe usar este componente — no escribir `<table>` a mano.
+- **Combobox es el componente único para CUALQUIER dropdown / single-select del repo**: [src/shared/ui/Combobox.tsx](src/shared/ui/Combobox.tsx). **NUNCA** uses `<select>` HTML nativo, ni `<option>`, ni `<optgroup>`. Tampoco armes dropdowns custom con div+button. Aplica incluso para 2 opciones (binarios como Persona Física/Moral) — consistencia visual gana sobre minimalismo de markup. Reglas no-negociables: (1) trigger visiblemente padre — borde sólido, indica claramente que abre; (2) **search siempre visible** en el popover, sin búsqueda no es Combobox; (3) **scroll vertical** del list con `max-h-[260px]` y `overflow-y-auto`; (4) empty state explícito; (5) `allowCustomValue` opcional para versions/slugs/IDs futuros (el typed text se acepta tal cual con un banner accent "Usar `valor`"); (6) `description` por opción cuando aporta contexto (categoría, venueCount, environment, etc.); (7) `searchTokens` cuando quieres que un término secundario matchee la búsqueda (ej. "tienda" matcheando todos los retail types). Construido sobre `cmdk` + Radix Popover.
+- **Multi-select**: para sets de valores múltiples (filtros con check-checks), usar `FilterPill` + `MultiSelectFilterContent` en [src/shared/filters/](src/shared/filters/). NO armar multi-selects custom.
+- **Drawer es el componente único para overlays laterales**: [src/shared/ui/Drawer.tsx](src/shared/ui/Drawer.tsx). 640px de default, full-screen en mobile. Para forms largos o acciones secundarias sobre una entidad (acciones de terminal, etc.). NO uses `Dialog` modal cuando el contexto debe preservarse — el drawer mantiene la lista atrás visible.
 - **Todo `<button>` no-disabled tiene `cursor: pointer`** vía el base layer de `src/index.css` (Tailwind v4 lo quitó del default). No lo agregues por componente.
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
 - **`impeccable:polish`** is the skill to run as the final pass before shipping a page to production (or before review).
-- **Never invent fonts.** Only the three families declared in `.impeccable.md` (Geist Variable, Geist Variable, JetBrains Mono) — added via `@fontsource-variable/*`.
-- **Never use** the AI slop patterns enumerated in `.impeccable.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
+- **Never invent fonts.** Only the three families declared in `.impeccable.md` (Geist Variable, Inter Variable, Geist Mono Variable) — added via `@fontsource-variable/*`. Inter = contenido (default global, incluidos overlays portaleados), Geist = shell (override de `--font-sans` en el `<aside>` del `AppLayout`), Geist Mono = datos.
+- **Never use** the AI slop patterns enumerated in `.impeccable.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, indigo/purple accents, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
 - **Tabular numerals** on every numeric / date cell (`font-variant-numeric: tabular-nums`). Right-align monetary amounts.
 - **Empty states teach** the interface (`"No hay KYC pendientes. Última revisión: hace 3h"`), not "Nothing here".
 
@@ -253,6 +259,8 @@ src/
 - Mezclar `axios` y `fetch` — solo `api` desde `src/shared/lib/api.ts`.
 - Hardcodear URLs de API — solo `VITE_API_URL` vía el `api` client.
 - Saltarse el pre-push hook (`git push --no-verify`) sin razón documentada.
+- Escribir clases de botón inline (`bg-white`, `bg-[var(--surface-primary)]`, `bg-[var(--accent)] text-white`, etc.) en lugar de usar `<Button>` o `buttonVariants()`. Si necesitas un look nuevo, agrega una variant — no duplique clases.
+- Usar `bg-white` literal en cualquier archivo `.tsx` (debe ser `var(--surface-primary)` o pasar por `<Button>`).
 
 ---
 
@@ -317,6 +325,8 @@ Sólo se exenta de esto: cambios puramente de comentarios o renames internos sin
 | Datetime helpers    | `src/shared/lib/datetime.ts`                         |
 | CSV helpers         | `src/shared/lib/csv.ts`                              |
 | Class merge `cn()`  | `src/shared/lib/utils.ts`                            |
+| Button (component)  | `src/shared/ui/Button.tsx`                           |
+| `buttonVariants()`  | `src/shared/ui/button-variants.ts` (para `<Link>`)   |
 | Layout (sidebar)    | `src/shared/layouts/AppLayout.tsx`                   |
 | Command Palette     | `src/shared/components/CommandPalette.tsx`           |
 | Error Boundary      | `src/shared/components/ErrorBoundary.tsx`            |

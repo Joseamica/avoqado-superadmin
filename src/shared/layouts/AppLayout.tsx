@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import {
   Activity,
   CreditCard,
@@ -17,6 +18,7 @@ import {
 import { Brandmark } from '@/shared/components/Brandmark'
 import { CommandPalette, CommandPaletteProvider } from '@/shared/components/CommandPalette'
 import { useCommandPalette } from '@/shared/components/use-command-palette'
+import { Badge } from '@/shared/ui/Badge'
 import { Kbd } from '@/shared/ui/Kbd'
 import { useAuth } from '@/features/auth/use-auth'
 import { useRealtimeInvalidation } from '@/features/realtime/use-realtime-invalidation'
@@ -54,7 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Catálogo',
     items: [
       { to: '/venues', label: 'Venues', icon: Store },
-      { to: '/terminals', label: 'TPVs', icon: Terminal, disabled: true },
+      { to: '/terminals', label: 'TPVs', icon: Terminal },
       { to: '/merchants', label: 'Merchant accounts', icon: CreditCard, disabled: true },
     ],
   },
@@ -160,9 +162,7 @@ function AppLayoutShell() {
                         <Icon className="h-3.5 w-3.5" aria-hidden />
                         {label}
                       </span>
-                      <span className="text-[9.5px] uppercase tracking-[0.12em] text-[var(--ink-faint)]/70">
-                        pronto
-                      </span>
+                      <span className="text-[10px] text-[var(--ink-faint)]/70">Pronto</span>
                     </button>
                   ) : (
                     <NavLink
@@ -205,9 +205,9 @@ function AppLayoutShell() {
           <span className="font-mono tabular">
             {formatTime(clock)} {timezoneShort(DEFAULT_TIMEZONE)}
           </span>
-          <span className="rounded-[4px] border border-[var(--success)]/25 bg-[var(--success-faint)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.10em] text-[var(--success)]">
-            live
-          </span>
+          <Badge size="sm" tone="success">
+            Live
+          </Badge>
         </div>
         <div className="rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-2.5">
           <p className="truncate text-[12px] font-medium text-[var(--ink)]">
@@ -264,9 +264,12 @@ function AppLayoutShell() {
         />
       )}
 
+      {/* El shell (sidebar) usa Geist; el resto del app —contenido y overlays
+          portaleados— hereda Inter del default global. Espejo del dashboard. */}
       <aside
         id="mobile-sidebar"
         aria-label="Navegación principal"
+        style={{ '--font-sans': 'var(--font-geist)' } as CSSProperties}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-[var(--line)] bg-[var(--canvas-sunken)] transition-transform duration-200 ease-out',
           'md:static md:z-auto md:w-[244px] md:translate-x-0',

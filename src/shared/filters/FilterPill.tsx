@@ -1,5 +1,6 @@
 import { ChevronDown, CirclePlus, CircleX } from 'lucide-react'
 import { cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react'
+import { buttonVariants } from '@/shared/ui/button-variants'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/Popover'
 import { cn } from '@/shared/lib/utils'
 
@@ -131,9 +132,7 @@ interface FilterPopoverHeaderProps {
 export function FilterPopoverHeader({ title, action }: FilterPopoverHeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-        {title}
-      </p>
+      <p className="eyebrow">{title}</p>
       {action && <div>{action}</div>}
     </header>
   )
@@ -168,7 +167,7 @@ export function FilterPopoverFooter({
       <button
         type="button"
         onClick={onApply}
-        className="h-8 flex-1 rounded-[4px] bg-[var(--accent)] px-3 text-[12px] font-semibold text-white hover:bg-[var(--accent)]/90"
+        className={buttonVariants({ size: 'sm', className: 'h-8 flex-1' })}
       >
         {applyLabel}
       </button>

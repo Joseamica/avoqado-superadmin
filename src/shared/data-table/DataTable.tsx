@@ -170,7 +170,7 @@ export function DataTable<TData>({
                       key={header.id}
                       scope="col"
                       className={cn(
-                        'px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]',
+                        'px-4 py-2.5 text-left eyebrow',
                         header.column.columnDef.meta?.headerClassName,
                       )}
                       aria-sort={

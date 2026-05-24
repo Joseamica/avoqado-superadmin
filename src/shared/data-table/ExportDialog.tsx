@@ -127,7 +127,7 @@ export function ExportDialog<T>({
 
         <div className="rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
-            <p className="text-[11.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+            <p className="eyebrow">
               Columnas ({selected.size}/{columns.length})
             </p>
             <div className="flex items-center gap-3 text-[11.5px]">
