@@ -53,7 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Catálogo',
     items: [
-      { to: '/venues', label: 'Venues', icon: Store, disabled: true },
+      { to: '/venues', label: 'Venues', icon: Store },
       { to: '/terminals', label: 'TPVs', icon: Terminal, disabled: true },
       { to: '/merchants', label: 'Merchant accounts', icon: CreditCard, disabled: true },
     ],

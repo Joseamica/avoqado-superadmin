@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Filter, RefreshCw } from 'lucide-react'
+import { Braces, Pause, Play, RefreshCw } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { DataTable } from '@/shared/data-table/DataTable'
+import { HighlightedJson } from '@/shared/components/HighlightedJson'
+import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
 import { QueryError } from '@/shared/components/QueryError'
 import {
   DEFAULT_TIMEZONE,
@@ -13,16 +17,57 @@ import {
 import { cn } from '@/shared/lib/utils'
 import { useSystemLogs } from './use-system-logs'
 import {
+  extractRequestSource,
   humanizeLevel,
+  humanizeRequestSource,
   humanizeType,
   LEVEL_TONE,
-  stripAnsi,
+  parseLogMessage,
+  summarizeMessage,
+  type RequestSource,
+  type SystemLogEntry,
   type SystemLogLevel,
   type SystemLogType,
 } from './types'
 
-const LEVELS: (SystemLogLevel | 'all')[] = ['all', 'error', 'warning', 'info']
-const TYPES: (SystemLogType | 'all')[] = ['all', 'app', 'request', 'build', 'deploy']
+const LEVEL_OPTIONS: MultiSelectOption<SystemLogLevel>[] = [
+  { value: 'error', label: 'Error' },
+  { value: 'warning', label: 'Advertencia' },
+  { value: 'info', label: 'Info' },
+]
+
+const TYPE_OPTIONS: MultiSelectOption<SystemLogType>[] = [
+  { value: 'app', label: 'App' },
+  { value: 'request', label: 'Request' },
+  { value: 'build', label: 'Build' },
+  { value: 'deploy', label: 'Deploy' },
+]
+
+// Orden por frecuencia esperada en tráfico real: dashboard manda el grueso
+// de requests, TPV y superadmin son segundos, el resto cae a "Otros".
+const SOURCE_OPTIONS: MultiSelectOption<RequestSource>[] = [
+  { value: 'dashboard', label: 'Dashboard' },
+  { value: 'tpv', label: 'TPV' },
+  { value: 'superadmin', label: 'Superadmin' },
+  { value: 'mobile-pos', label: 'POS móvil' },
+  { value: 'consumer', label: 'Consumer' },
+  { value: 'webhook', label: 'Webhooks' },
+  { value: 'sdk', label: 'SDK' },
+  { value: 'sync', label: 'POS-Sync' },
+  { value: 'health', label: 'Salud' },
+  { value: 'other', label: 'Otros' },
+]
+
+function formatActiveLabel<V extends string>(
+  selected: Set<V>,
+  options: readonly MultiSelectOption<V>[],
+): string | null {
+  if (selected.size === 0) return null
+  const labels = options.filter((o) => selected.has(o.value)).map((o) => o.label)
+  if (labels.length === 1) return labels[0]
+  if (labels.length === 2) return labels.join(', ')
+  return `${labels[0]}, ${labels[1]} +${labels.length - 2}`
+}
 
 const TYPE_TONE: Record<SystemLogType, 'info' | 'muted' | 'accent' | 'success'> = {
   app: 'info',
@@ -32,34 +77,122 @@ const TYPE_TONE: Record<SystemLogType, 'info' | 'muted' | 'accent' | 'success'> 
 }
 
 export function SystemLogsPage() {
-  const [level, setLevel] = useState<SystemLogLevel | 'all'>('all')
-  const [type, setType] = useState<SystemLogType | 'all'>('all')
-  const [search, setSearch] = useState('')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [levels, setLevels] = useState<Set<SystemLogLevel>>(new Set())
+  const [types, setTypes] = useState<Set<SystemLogType>>(new Set())
+  const [sources, setSources] = useState<Set<RequestSource>>(new Set())
+  // El polling arranca en "live". Cuando el operador necesita leer un log
+  // específico sin que la tabla cambie debajo, pausa con el toggle y
+  // refresca manualmente con el botón de al lado.
+  const [isLive, setIsLive] = useState(true)
+
+  // Si hay UN solo level seleccionado, lo mandamos al server como filter
+  // (Render lo aplica más barato que filtrar 100 entries en cliente). Con
+  // dos o más, fetch wide y filtrar localmente.
+  const serverLevel = levels.size === 1 ? [...levels][0] : undefined
+  const serverType = types.size === 1 ? [...types][0] : undefined
 
   const query = useSystemLogs(
-    {
-      level: level === 'all' ? undefined : level,
-      type: type === 'all' ? undefined : type,
-      limit: 100,
-    },
-    { refetchEverySeconds: 10 },
+    { level: serverLevel, type: serverType, limit: 100 },
+    { refetchEverySeconds: isLive ? 10 : false },
   )
 
   const filteredLogs = useMemo(() => {
-    const logs = query.data?.logs ?? []
-    if (!search.trim()) return logs
-    const needle = search.toLowerCase()
-    return logs.filter((l) => l.message.toLowerCase().includes(needle))
-  }, [query.data, search])
+    let logs = query.data?.logs ?? []
+    if (levels.size > 1) logs = logs.filter((l) => l.level && levels.has(l.level))
+    if (types.size > 1) logs = logs.filter((l) => l.type && types.has(l.type))
+    // Origen sólo aplica a logs con path detectable. Si el operador escogió
+    // "TPV" o "Dashboard", los logs app/build/deploy sin URL caen del view —
+    // ese es el punto del filtro (enfocar tráfico de un cliente específico).
+    if (sources.size > 0) {
+      logs = logs.filter((l) => {
+        const src = extractRequestSource(l.message)
+        return src !== null && sources.has(src)
+      })
+    }
+    return logs
+  }, [query.data, levels, types, sources])
 
-  const toggleExpanded = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const columns = useMemo<ColumnDef<SystemLogEntry, unknown>[]>(
+    () => [
+      {
+        id: 'timestamp',
+        header: 'Cuándo',
+        accessorFn: (row) => new Date(row.timestamp).getTime(),
+        cell: ({ row }) => (
+          <>
+            <p className="tabular text-[12.5px] text-[var(--ink)]">
+              {formatRelative(row.original.timestamp)}
+            </p>
+            <p className="tabular mt-0.5 text-[10.5px] text-[var(--ink-faint)]">
+              {formatDateTime(row.original.timestamp)}
+            </p>
+          </>
+        ),
+        sortingFn: 'basic',
+        meta: { headerClassName: 'w-[150px]' },
+      },
+      {
+        id: 'level',
+        header: 'Nivel',
+        accessorFn: (row) => row.level ?? 'zzz',
+        cell: ({ row }) =>
+          row.original.level ? (
+            <Badge tone={LEVEL_TONE[row.original.level]}>{humanizeLevel(row.original.level)}</Badge>
+          ) : (
+            <span className="text-[11px] text-[var(--ink-faint)]">—</span>
+          ),
+        meta: { headerClassName: 'w-[110px]' },
+      },
+      {
+        id: 'type',
+        header: 'Tipo',
+        accessorFn: (row) => row.type ?? 'zzz',
+        cell: ({ row }) =>
+          row.original.type ? (
+            <Badge tone={TYPE_TONE[row.original.type]}>{humanizeType(row.original.type)}</Badge>
+          ) : (
+            <span className="text-[11px] text-[var(--ink-faint)]">—</span>
+          ),
+        meta: { headerClassName: 'w-[100px]' },
+      },
+      {
+        id: 'message',
+        header: 'Mensaje',
+        accessorFn: (row) => row.message,
+        cell: ({ row }) => {
+          const parsed = parseLogMessage(row.original.message)
+          const summary = summarizeMessage(row.original.message)
+          const source = extractRequestSource(row.original.message)
+          return (
+            <p className="break-words text-[13px] leading-snug text-[var(--ink)]">
+              {source && (
+                <span className="mr-1.5 inline-flex items-center rounded-[3px] border border-[var(--line-strong)] bg-[var(--canvas-sunken)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
+                  {humanizeRequestSource(source)}
+                </span>
+              )}
+              {summary}
+              {parsed.json !== null && (
+                <span className="ml-1.5 inline-flex items-center gap-1 rounded-[3px] border border-[var(--accent-line)] bg-[var(--accent-faint)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
+                  <Braces className="h-2.5 w-2.5" aria-hidden />
+                  json
+                </span>
+              )}
+            </p>
+          )
+        },
+        enableSorting: false,
+      },
+    ],
+    [],
+  )
+
+  const hasActiveFilters = levels.size > 0 || types.size > 0 || sources.size > 0
+
+  const resetAllFilters = () => {
+    setLevels(new Set())
+    setTypes(new Set())
+    setSources(new Set())
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
@@ -72,30 +205,59 @@ export function SystemLogsPage() {
           <p className="mt-2 text-[14px] text-[var(--ink-muted)]">
             Stream en vivo de stdout / stderr / build / requests directo desde Render.
             <span className="tabular ml-2 text-[var(--ink-faint)]">
-              · zona base {timezoneShort(DEFAULT_TIMEZONE)} · auto-refresh cada 10s
+              · zona base {timezoneShort(DEFAULT_TIMEZONE)} ·{' '}
+              {isLive ? 'auto-refresh cada 10s' : 'auto-refresh pausado'}
             </span>
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] px-2.5 py-1.5">
+          <div
+            className="flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] px-2.5"
+            aria-live="polite"
+          >
             <span
               aria-hidden
               className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                query.isFetching
-                  ? 'bg-[var(--accent)] shadow-[0_0_0_3px_var(--accent-faint)]'
-                  : 'bg-[var(--success)] shadow-[0_0_0_3px_var(--success-faint)]',
+                'h-1.5 w-1.5 shrink-0 rounded-full',
+                !isLive
+                  ? 'bg-[var(--ink-faint)] shadow-[0_0_0_3px_var(--line)]'
+                  : query.isFetching
+                    ? 'bg-[var(--accent)] shadow-[0_0_0_3px_var(--accent-faint)]'
+                    : 'bg-[var(--success)] shadow-[0_0_0_3px_var(--success-faint)]',
               )}
             />
+            {/*
+              `inline-block min-w-[88px]` reserva ancho para el texto más largo
+              ("Actualizando…") — así la pildora no se contrae cuando vuelve a
+              "En vivo", y el tiempo nunca cae a la siguiente línea aunque
+              estemos en una pantalla angosta.
+            */}
             <span className="tabular text-[12px] text-[var(--ink-muted)]">
-              {query.isFetching ? 'Actualizando…' : 'En vivo'}
+              <span className="inline-block min-w-[88px]">
+                {!isLive ? 'Pausado' : query.isFetching ? 'Actualizando…' : 'En vivo'}
+              </span>
               {query.dataUpdatedAt > 0 && (
-                <span className="ml-1.5 text-[var(--ink-faint)]">
+                <span className="text-[var(--ink-faint)]">
                   · {formatTime(new Date(query.dataUpdatedAt).toISOString())}
                 </span>
               )}
             </span>
           </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={() => setIsLive((v) => !v)}
+            aria-pressed={!isLive}
+            title={isLive ? 'Pausar el auto-refresh' : 'Reanudar el auto-refresh'}
+          >
+            {isLive ? (
+              <Pause className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <Play className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {isLive ? 'Pausar' : 'Reanudar'}
+          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -135,208 +297,156 @@ export function SystemLogsPage() {
         </div>
       )}
 
-      <div className="mb-5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-2.5">
-        <div className="relative min-w-[260px] flex-1">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar en el mensaje…"
-            aria-label="Buscar en los logs"
-            className="h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 text-[13px] placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          />
-        </div>
-        <FilterPills
-          label="Nivel"
-          value={level}
-          options={LEVELS}
-          formatLabel={(v) => (v === 'all' ? 'Todo' : humanizeLevel(v as SystemLogLevel))}
-          onChange={setLevel}
-        />
-        <FilterPills
-          label="Tipo"
-          value={type}
-          options={TYPES}
-          formatLabel={(v) => (v === 'all' ? 'Todo' : humanizeType(v as SystemLogType))}
-          onChange={setType}
-        />
-      </div>
-
-      <section className="overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)]">
-        <table className="w-full border-collapse text-[13px]">
-          <caption className="sr-only">
-            Logs en vivo del servicio. {filteredLogs.length} visibles.
-          </caption>
-          <thead>
-            <tr className="border-b border-[var(--line-strong)] bg-[var(--canvas-sunken)]">
-              <th scope="col" className="w-[40px] px-2 py-2.5"></th>
-              <th
-                scope="col"
-                className="w-[160px] px-3 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]"
+      <DataTable
+        data={filteredLogs}
+        columns={columns}
+        searchPlaceholder="Buscar en el mensaje…"
+        caption={`Logs en vivo del servicio. ${filteredLogs.length} visibles.`}
+        initialSorting={[{ id: 'timestamp', desc: true }]}
+        pageSize={20}
+        toolbar={
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterPill
+              label="Nivel"
+              activeLabel={formatActiveLabel(levels, LEVEL_OPTIONS)}
+              activeCount={levels.size}
+              onClear={() => setLevels(new Set())}
+            >
+              <MultiSelectFilterContent
+                title="Nivel del log"
+                options={LEVEL_OPTIONS}
+                selected={levels}
+                onApply={setLevels}
+              />
+            </FilterPill>
+            <FilterPill
+              label="Tipo"
+              activeLabel={formatActiveLabel(types, TYPE_OPTIONS)}
+              activeCount={types.size}
+              onClear={() => setTypes(new Set())}
+            >
+              <MultiSelectFilterContent
+                title="Tipo de log"
+                options={TYPE_OPTIONS}
+                selected={types}
+                onApply={setTypes}
+              />
+            </FilterPill>
+            <FilterPill
+              label="Origen"
+              activeLabel={formatActiveLabel(sources, SOURCE_OPTIONS)}
+              activeCount={sources.size}
+              onClear={() => setSources(new Set())}
+            >
+              <MultiSelectFilterContent
+                title="Cliente que originó el request"
+                options={SOURCE_OPTIONS}
+                selected={sources}
+                onApply={setSources}
+                searchable
+                searchPlaceholder="Buscar origen…"
+              />
+            </FilterPill>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="ml-1 shrink-0 whitespace-nowrap text-[12px] font-medium text-[var(--danger)] hover:underline"
               >
-                Cuándo
-              </th>
-              <th
-                scope="col"
-                className="w-[110px] px-3 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]"
-              >
-                Nivel
-              </th>
-              <th
-                scope="col"
-                className="w-[100px] px-3 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]"
-              >
-                Tipo
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[var(--ink-faint)]"
-              >
-                Mensaje
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLogs.length === 0 && !query.isLoading && (
-              <tr>
-                <td colSpan={5} className="px-5 py-14 text-center">
-                  <p className="font-display text-[15px] font-semibold text-[var(--ink)]">
-                    {query.data?.enabled === false ? 'Render no configurado' : 'Sin logs visibles'}
-                  </p>
-                  <p className="mt-1 text-[12.5px] text-[var(--ink-faint)]">
-                    {query.data?.enabled === false
-                      ? 'Configura RENDER_API_KEY y RENDER_SERVICE_ID arriba.'
-                      : 'Ajusta los filtros o espera que Render emita algo.'}
-                  </p>
-                </td>
-              </tr>
+                Borrar filtros
+              </button>
             )}
-            {query.isLoading && (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-5 py-14 text-center text-[12.5px] text-[var(--ink-faint)]"
-                >
-                  Pidiendo logs a Render…
-                </td>
-              </tr>
-            )}
-            {filteredLogs.map((log) => {
-              const isOpen = expanded.has(log.id)
-              const cleanMessage = stripAnsi(log.message)
-              const firstLine = cleanMessage.split('\n')[0] ?? cleanMessage
-              const hasMore = cleanMessage.length > firstLine.length
-              return (
-                <tr
-                  key={log.id}
-                  className="border-b border-[var(--line)] transition-colors last:border-b-0 hover:bg-[var(--canvas-sunken)]/40"
-                >
-                  <td className="px-2 py-2.5 align-top">
-                    {hasMore ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(log.id)}
-                        aria-label={isOpen ? 'Contraer' : 'Expandir'}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-[4px] text-[var(--ink-faint)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
-                      >
-                        {isOpen ? (
-                          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                        )}
-                      </button>
-                    ) : (
-                      <span className="inline-block h-6 w-6" />
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 align-top">
-                    <p className="tabular text-[12.5px] text-[var(--ink)]">
-                      {formatRelative(log.timestamp)}
-                    </p>
-                    <p className="tabular mt-0.5 text-[10.5px] text-[var(--ink-faint)]">
-                      {formatDateTime(log.timestamp)}
-                    </p>
-                  </td>
-                  <td className="px-3 py-2.5 align-top">
-                    {log.level ? (
-                      <Badge tone={LEVEL_TONE[log.level]}>{humanizeLevel(log.level)}</Badge>
-                    ) : (
-                      <span className="text-[11px] text-[var(--ink-faint)]">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 align-top">
-                    {log.type ? (
-                      <Badge tone={TYPE_TONE[log.type]}>{humanizeType(log.type)}</Badge>
-                    ) : (
-                      <span className="text-[11px] text-[var(--ink-faint)]">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 align-top">
-                    <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-snug text-[var(--ink)]">
-                      {isOpen ? cleanMessage : firstLine}
-                    </pre>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </section>
+          </div>
+        }
+        emptyState={{
+          title:
+            query.data?.enabled === false
+              ? 'Render no configurado'
+              : query.isLoading
+                ? 'Pidiendo logs…'
+                : 'Sin logs visibles',
+          description:
+            query.data?.enabled === false
+              ? 'Configura RENDER_API_KEY y RENDER_SERVICE_ID arriba.'
+              : query.isLoading
+                ? 'Esto puede tardar unos segundos en cold starts.'
+                : 'Ajusta los filtros o espera que Render emita algo.',
+        }}
+        renderExpandedRow={(log) => <LogDetail log={log} />}
+      />
 
-      <footer className="mt-3 flex flex-col gap-2 text-[11.5px] text-[var(--ink-faint)] sm:flex-row sm:items-center sm:justify-between">
-        <span className="tabular">
-          {filteredLogs.length} de {query.data?.logs.length ?? 0} logs visibles
-          {query.data?.hasMore && (
-            <span className="ml-1.5 text-[var(--ink-muted)]">· Render tiene más, sube `limit`</span>
-          )}
-        </span>
-        <span>
-          Retención del free tier de Render: ~7 días. Para auditoría histórica, configura DB
-          persistence (Phase 2).
-        </span>
-      </footer>
+      <p className="mt-3 text-[11.5px] text-[var(--ink-faint)]">
+        Retención de logs en Render: ~7 días (free tier), 30 días (paid). Para auditoría histórica
+        más larga, considera persistencia en DB.
+      </p>
     </div>
   )
 }
 
-function FilterPills<T extends string>({
-  label,
-  value,
-  options,
-  formatLabel,
-  onChange,
-}: {
-  label: string
-  value: T
-  options: readonly T[]
-  formatLabel: (v: T) => string
-  onChange: (v: T) => void
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={`Filtrar por ${label.toLowerCase()}`}
-      className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-1 sm:mx-0"
-    >
-      <Filter className="mx-1.5 h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)]" aria-hidden />
-      {options.map((o) => {
-        const isActive = value === o
-        return (
+/**
+ * Detalle expandido de una fila. Tres comportamientos según el shape del
+ * mensaje:
+ *  - Si TODA la línea es JSON: muestra el JSON con syntax highlighting (sin
+ *    toggle — no hay otra cosa que ver).
+ *  - Si hay JSON trailing en un mensaje de texto: muestra el texto por
+ *    default y un botón "Ver JSON" para ver el payload coloreado.
+ *  - Si no hay JSON: muestra el mensaje completo en texto plano.
+ */
+function LogDetail({ log }: { log: SystemLogEntry }) {
+  const parsed = useMemo(() => parseLogMessage(log.message), [log.message])
+  const [showJson, setShowJson] = useState(false)
+  const hasJson = parsed.json !== null
+  const isWholeMessageJson =
+    hasJson && (parsed.fullMessage.startsWith('{') || parsed.fullMessage.startsWith('['))
+
+  // Caso 1: toda la línea es JSON → highlighted view directo.
+  if (isWholeMessageJson) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+          <Braces className="h-3 w-3" aria-hidden />
+          <span>Payload JSON</span>
+        </div>
+        <HighlightedJson value={parsed.json} />
+      </div>
+    )
+  }
+
+  // Caso 2: texto + JSON trailing → toggle entre texto y JSON.
+  if (hasJson) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+          <span>{showJson ? 'Payload JSON' : 'Mensaje completo'}</span>
           <button
-            key={o}
             type="button"
-            aria-pressed={isActive}
-            onClick={() => onChange(o)}
-            className={cn(
-              'h-9 shrink-0 rounded-[4px] px-3 text-[12px] font-medium uppercase tracking-[0.06em] transition-colors',
-              isActive
-                ? 'bg-[var(--ink)] text-[var(--canvas)]'
-                : 'text-[var(--ink-muted)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]',
-            )}
+            onClick={() => setShowJson((v) => !v)}
+            className="inline-flex h-6 items-center gap-1 rounded-[3px] border border-[var(--line-strong)] bg-[var(--canvas-sunken)] px-1.5 text-[10px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
           >
-            {formatLabel(o)}
+            <Braces className="h-2.5 w-2.5" aria-hidden />
+            {showJson ? 'Ver mensaje' : 'Ver JSON'}
           </button>
-        )
-      })}
+        </div>
+        {showJson ? (
+          <HighlightedJson value={parsed.json} />
+        ) : (
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[4px] border border-[var(--line)] bg-[var(--canvas)] p-2 font-mono text-[11.5px] leading-relaxed text-[var(--ink)]">
+            {parsed.fullMessage}
+          </pre>
+        )}
+      </div>
+    )
+  }
+
+  // Caso 3: sólo texto.
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.10em] text-[var(--ink-faint)]">
+        <span>Mensaje completo</span>
+      </div>
+      <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[4px] border border-[var(--line)] bg-[var(--canvas)] p-2 font-mono text-[11.5px] leading-relaxed text-[var(--ink)]">
+        {parsed.fullMessage}
+      </pre>
     </div>
   )
 }

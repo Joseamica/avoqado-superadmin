@@ -16,6 +16,12 @@ const ActivityLogPage = lazy(() =>
 const SystemLogsPage = lazy(() =>
   import('@/features/system-logs/SystemLogsPage').then((m) => ({ default: m.SystemLogsPage })),
 )
+const VenuesPage = lazy(() =>
+  import('@/features/venues/VenuesPage').then((m) => ({ default: m.VenuesPage })),
+)
+const VenueDetailPage = lazy(() =>
+  import('@/features/venues/VenueDetailPage').then((m) => ({ default: m.VenueDetailPage })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -36,6 +42,8 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/activity-log" element={<ActivityLogPage />} />
           <Route path="/system-logs" element={<SystemLogsPage />} />
+          <Route path="/venues" element={<VenuesPage />} />
+          <Route path="/venues/:venueId" element={<VenueDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -1,16 +1,18 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type ExpandedState,
   type SortingState,
 } from '@tanstack/react-table'
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsUpDown, ChevronUp, Search } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 import { ExportDialog } from './ExportDialog'
 import type { CSVColumn } from '@/shared/lib/csv'
@@ -38,6 +40,12 @@ export interface DataTableProps<TData> {
   minWidth?: number
   /** Caption sr-only para a11y de la tabla. */
   caption?: string
+  /**
+   * Si se pasa, cada fila se vuelve expandible: aparece una columna de chevron
+   * al principio y el callback decide qué se muestra en la zona expandida
+   * (puede ocupar el ancho completo de la tabla).
+   */
+  renderExpandedRow?: (row: TData) => ReactNode
 }
 
 export function DataTable<TData>({
@@ -51,26 +59,64 @@ export function DataTable<TData>({
   pageSize,
   minWidth = 720,
   caption,
+  renderExpandedRow,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [expanded, setExpanded] = useState<ExpandedState>({})
+
+  // Cuando hay renderExpandedRow, prepend una columna de chevron antes de las
+  // del consumidor. Useamos useMemo para que la referencia sea estable y la
+  // tabla no se re-instancie.
+  const finalColumns = useMemo<ColumnDef<TData, unknown>[]>(() => {
+    if (!renderExpandedRow) return columns
+    const expandColumn: ColumnDef<TData, unknown> = {
+      id: '__expand',
+      header: () => <span className="sr-only">Expandir</span>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            row.toggleExpanded()
+          }}
+          aria-label={row.getIsExpanded() ? 'Contraer fila' : 'Expandir fila'}
+          aria-expanded={row.getIsExpanded()}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
+        >
+          {row.getIsExpanded() ? (
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+          )}
+        </button>
+      ),
+      meta: { headerClassName: 'w-[40px]', cellClassName: 'p-2' },
+    }
+    return [expandColumn, ...columns]
+  }, [columns, renderExpandedRow])
 
   const table = useReactTable({
     data,
-    columns,
+    columns: finalColumns,
     state: {
       sorting,
       globalFilter,
       columnFilters,
+      expanded,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
+    onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: pageSize ? getPaginationRowModel() : undefined,
+    getExpandedRowModel: renderExpandedRow ? getExpandedRowModel() : undefined,
+    getRowCanExpand: renderExpandedRow ? () => true : undefined,
     initialState: pageSize ? { pagination: { pageIndex: 0, pageSize } } : undefined,
   })
 
@@ -158,7 +204,7 @@ export function DataTable<TData>({
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-5 py-14 text-center">
+                <td colSpan={finalColumns.length} className="px-5 py-14 text-center">
                   <p className="font-display text-[15px] font-semibold text-[var(--ink)]">
                     {emptyState?.title ?? 'Sin resultados'}
                   </p>
@@ -171,22 +217,28 @@ export function DataTable<TData>({
               </tr>
             ) : (
               visibleRows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="group border-b border-[var(--line)] transition-colors last:border-b-0 hover:bg-[var(--canvas-sunken)]/60"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      className={cn(
-                        'px-4 py-3 align-top',
-                        cell.column.columnDef.meta?.cellClassName,
-                      )}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
+                <Fragment key={row.id}>
+                  <tr className="group border-b border-[var(--line)] transition-colors hover:bg-[var(--canvas-sunken)]/60">
+                    {row.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        className={cn(
+                          'px-4 py-3 align-top',
+                          cell.column.columnDef.meta?.cellClassName,
+                        )}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {renderExpandedRow && row.getIsExpanded() && (
+                    <tr className="border-b border-[var(--line)] bg-[var(--canvas-sunken)]/50">
+                      <td colSpan={row.getVisibleCells().length} className="px-4 pb-4 pt-1">
+                        {renderExpandedRow(row.original)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))
             )}
           </tbody>

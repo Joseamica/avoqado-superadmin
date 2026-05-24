@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
-import { ArrowUpRight, Filter } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
 import { DataTable } from '@/shared/data-table/DataTable'
+import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
+import { QueryError } from '@/shared/components/QueryError'
 import {
   DEFAULT_TIMEZONE,
   formatDateTime,
   formatRelative,
   timezoneShort,
 } from '@/shared/lib/datetime'
-import { cn } from '@/shared/lib/utils'
-import { QueryError } from '@/shared/components/QueryError'
 import { useActivityLog } from './use-activity-log'
 import {
   actorDisplayName,
@@ -46,26 +46,36 @@ const SEVERITY_LABEL: Record<ActivitySeverity, string> = {
   danger: 'crítico',
 }
 
-const CATEGORIES: (ActivityCategory | 'all')[] = [
-  'all',
-  'auth',
-  'kyc',
-  'venue',
-  'terminal',
-  'payment',
-  'config',
+const CATEGORY_OPTIONS: MultiSelectOption<ActivityCategory>[] = [
+  { value: 'auth', label: 'Auth' },
+  { value: 'kyc', label: 'KYC' },
+  { value: 'venue', label: 'Venue' },
+  { value: 'terminal', label: 'Terminal' },
+  { value: 'payment', label: 'Pago' },
+  { value: 'config', label: 'Config' },
 ]
 
+function formatActiveLabel<V extends string>(
+  selected: Set<V>,
+  options: readonly MultiSelectOption<V>[],
+): string | null {
+  if (selected.size === 0) return null
+  const labels = options.filter((o) => selected.has(o.value)).map((o) => o.label)
+  if (labels.length === 1) return labels[0]
+  if (labels.length === 2) return labels.join(', ')
+  return `${labels[0]}, ${labels[1]} +${labels.length - 2}`
+}
+
 export function ActivityLogPage() {
-  const [category, setCategory] = useState<ActivityCategory | 'all'>('all')
+  const [categories, setCategories] = useState<Set<ActivityCategory>>(new Set())
 
   const query = useActivityLog({ page: 1, pageSize: 100 })
 
   const entries = useMemo(() => {
     const logs = query.data?.logs ?? []
-    if (category === 'all') return logs
-    return logs.filter((log) => categorizeEntry(log) === category)
-  }, [query.data, category])
+    if (categories.size === 0) return logs
+    return logs.filter((log) => categories.has(categorizeEntry(log)))
+  }, [query.data, categories])
 
   const columns = useMemo<ColumnDef<ActivityLogEntry, unknown>[]>(
     () => [
@@ -223,31 +233,20 @@ export function ActivityLogPage() {
         initialSorting={[{ id: 'createdAt', desc: true }]}
         pageSize={20}
         toolbar={
-          <div
-            role="group"
-            aria-label="Filtrar por categoría"
-            className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-1 sm:mx-0"
-          >
-            <Filter className="mx-1.5 h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)]" aria-hidden />
-            {CATEGORIES.map((c) => {
-              const isActive = category === c
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => setCategory(c)}
-                  className={cn(
-                    'h-9 shrink-0 rounded-[4px] px-3 text-[12px] font-medium uppercase tracking-[0.06em] transition-colors',
-                    isActive
-                      ? 'bg-[var(--ink)] text-[var(--canvas)]'
-                      : 'text-[var(--ink-muted)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]',
-                  )}
-                >
-                  {c === 'all' ? 'Todo' : CATEGORY_LABEL[c]}
-                </button>
-              )
-            })}
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterPill
+              label="Categoría"
+              activeLabel={formatActiveLabel(categories, CATEGORY_OPTIONS)}
+              activeCount={categories.size}
+              onClear={() => setCategories(new Set())}
+            >
+              <MultiSelectFilterContent
+                title="Categoría de acción"
+                options={CATEGORY_OPTIONS}
+                selected={categories}
+                onApply={setCategories}
+              />
+            </FilterPill>
           </div>
         }
         emptyState={{

@@ -8,8 +8,12 @@ interface UseSystemLogsOptions extends Omit<
   UseQueryOptions<SystemLogsResponse>,
   'queryKey' | 'queryFn'
 > {
-  /** Auto-refetch interval in ms while the tab is focused. Default 10s. */
-  refetchEverySeconds?: number
+  /**
+   * Auto-refetch interval in seconds while the tab is focused. Default 10.
+   * Pasa `false` para pausar el polling (el caller puede seguir disparando
+   * refetches manuales con `query.refetch()`).
+   */
+  refetchEverySeconds?: number | false
 }
 
 export function useSystemLogs(
@@ -21,7 +25,7 @@ export function useSystemLogs(
     queryKey: [...SYSTEM_LOGS_QUERY_KEY, params],
     queryFn: () => fetchSystemLogs(params),
     staleTime: 5_000,
-    refetchInterval: refetchEverySeconds * 1000,
+    refetchInterval: refetchEverySeconds === false ? false : refetchEverySeconds * 1000,
     refetchIntervalInBackground: false,
     ...rest,
   })
