@@ -168,3 +168,42 @@ export const KYC_STATUS_TONE: Record<KycStatus, Tone> = {
 export function ownerFullName(owner: Venue['owner']): string {
   return [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim() || owner.email
 }
+
+/**
+ * Resultado de inspeccionar el owner — distingue entre owner real, fallback
+ * "Unknown Owner" del backend (cuando no hay Staff ADMIN en el venue), y
+ * email sintético interno (placeholder que el backend genera para owners
+ * de terminales, con la forma `*@internal.avoqado.io`).
+ *
+ * En el UI, sólo el `kind: 'real'` debería mostrarse con nombre + email
+ * tappeable. Los otros casos se muestran muteados — el operador NO debe
+ * tratar de contactar ese email.
+ */
+export type OwnerStatus =
+  | { kind: 'real'; name: string; email: string }
+  | { kind: 'missing'; reason: 'unknown' | 'synthetic-email' }
+
+const SYNTHETIC_EMAIL_DOMAIN = '@internal.avoqado.io'
+
+export function inspectOwner(owner: Venue['owner']): OwnerStatus {
+  // El backend retorna este objeto como fallback cuando no encuentra un
+  // Staff ADMIN asociado al venue. La triple coincidencia de fields es la
+  // signature exacta del fallback en `getAllVenuesForSuperadmin`.
+  if (
+    owner.firstName === 'Unknown' &&
+    owner.lastName === 'Owner' &&
+    owner.email === 'unknown@email.com'
+  ) {
+    return { kind: 'missing', reason: 'unknown' }
+  }
+  // Emails generados por el backend para venues sin ownership humano.
+  // El operador NO debe intentar contactar a este buzón.
+  if (owner.email.endsWith(SYNTHETIC_EMAIL_DOMAIN)) {
+    return { kind: 'missing', reason: 'synthetic-email' }
+  }
+  return {
+    kind: 'real',
+    name: ownerFullName(owner),
+    email: owner.email,
+  }
+}

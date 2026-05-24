@@ -20,7 +20,11 @@ export function Badge({ className, tone = 'muted', ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex h-5 items-center rounded-[4px] border px-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]',
+        // `whitespace-nowrap` evita que tonos como "KYC · VERIFICADO" envuelvan
+        // su segundo word a una nueva línea dentro del pill cuando la columna
+        // de la tabla está apretada. El badge prefiere overflow horizontal
+        // (que la columna acomode) que partir el texto a 2 renglones.
+        'inline-flex h-5 items-center whitespace-nowrap rounded-[4px] border px-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]',
         toneStyles[tone],
         className,
       )}

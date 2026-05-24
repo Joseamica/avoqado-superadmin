@@ -16,15 +16,16 @@ import { QueryError } from '@/shared/components/QueryError'
 import { DEFAULT_TIMEZONE, formatDate, formatRelative, timezoneShort } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
 import { useVenues } from './use-venues'
+import { VenuesByOrgList } from './VenuesByOrgList'
 import {
   humanizeKycStatus,
   humanizeVenueStatus,
+  inspectOwner,
   isDemoVenue,
   KYC_PENDING_STATUSES,
   KYC_STATUS_TONE,
   ONBOARDING_STATUSES,
   OPERATIONAL_STATUSES,
-  ownerFullName,
   SUSPENDED_STATUSES,
   VENUE_STATUS_TONE,
   type KycStatus,
@@ -78,6 +79,21 @@ const SCOPE_OPTIONS: SingleSelectOption<ScopeOption>[] = [
     value: 'with-demos',
     label: 'Producción + demos',
     description: 'Incluye TRIAL y LIVE_DEMO en la lista',
+  },
+]
+
+type GroupByOption = 'none' | 'organization'
+
+const GROUP_BY_OPTIONS: SingleSelectOption<GroupByOption>[] = [
+  {
+    value: 'none',
+    label: 'Sin agrupar',
+    description: 'Lista plana con sort, search y export',
+  },
+  {
+    value: 'organization',
+    label: 'Por organización',
+    description: 'Secciones por org con totales agregados — sin export ni search',
   },
 ]
 
@@ -148,6 +164,10 @@ export function VenuesPage() {
   const [statuses, setStatuses] = useState<Set<VenueStatus>>(new Set())
   const [kycs, setKycs] = useState<Set<KycOption>>(new Set())
   const [scope, setScope] = useState<ScopeOption>('production')
+  // `groupBy` es una preferencia de VISTA, no un filtro — por eso vive
+  // separado de `resetAllFilters()`. Limpiar filtros mantiene la vista
+  // agrupada si el operador la había elegido.
+  const [groupBy, setGroupBy] = useState<GroupByOption>('none')
 
   // El scope se manda al servidor — Render filtra los demos. El resto
   // (Estado + KYC) lo aplica el cliente porque ya tenemos el array entero
@@ -197,27 +217,32 @@ export function VenuesPage() {
         id: 'status',
         header: 'Estado',
         accessorFn: (row) => row.status,
-        cell: ({ row }) => (
-          <div className="flex flex-col items-start gap-1">
-            <Badge tone={VENUE_STATUS_TONE[row.original.status]}>
-              {humanizeVenueStatus(row.original.status)}
-            </Badge>
-            {row.original.kycStatus ? (
-              <Badge tone={KYC_STATUS_TONE[row.original.kycStatus]}>
-                KYC · {humanizeKycStatus(row.original.kycStatus)}
+        cell: ({ row }) => {
+          const kyc = row.original.kycStatus
+          // Sólo mostramos el KYC pill cuando NO está verificado — es decir,
+          // cuando el operador necesita actuar (rechazado, en revisión, sin
+          // enviar, o ausente). Mostrarlo "KYC · VERIFICADO" en cada row es
+          // ruido visual; `data, not decoration` (.impeccable.md).
+          const showKycPill = kyc !== 'VERIFIED'
+          return (
+            <div className="flex flex-col items-start gap-1">
+              <Badge tone={VENUE_STATUS_TONE[row.original.status]}>
+                {humanizeVenueStatus(row.original.status)}
               </Badge>
-            ) : (
-              <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-                Sin KYC
-              </span>
-            )}
-          </div>
-        ),
-        meta: { headerClassName: 'w-[180px]' },
+              {showKycPill &&
+                (kyc ? (
+                  <Badge tone={KYC_STATUS_TONE[kyc]}>KYC · {humanizeKycStatus(kyc)}</Badge>
+                ) : (
+                  <Badge tone="muted">Sin KYC</Badge>
+                ))}
+            </div>
+          )
+        },
+        meta: { headerClassName: 'w-[160px]' },
       },
       {
         id: 'monthlyRevenue',
-        header: () => <span className="block text-right">Volumen mes</span>,
+        header: () => <span className="block text-right">Volumen</span>,
         accessorFn: (row) => row.monthlyRevenue,
         cell: ({ row }) => {
           const value = row.original.monthlyRevenue
@@ -260,15 +285,29 @@ export function VenuesPage() {
       {
         id: 'owner',
         header: 'Owner',
-        accessorFn: (row) => ownerFullName(row.owner),
+        // El accessor para sort/search usa el nombre real, o un string
+        // estable cuando no hay owner — así "Sin owner" agrupa al ordenar
+        // alfabéticamente en lugar de scatter el placeholder.
+        accessorFn: (row) => {
+          const status = inspectOwner(row.owner)
+          return status.kind === 'real' ? status.name : '~sin-owner'
+        },
         cell: ({ row }) => {
-          const name = ownerFullName(row.original.owner)
+          const status = inspectOwner(row.original.owner)
+          if (status.kind === 'missing') {
+            return (
+              <div className="min-w-0">
+                <p className="text-[12.5px] italic text-[var(--ink-faint)]">Sin owner</p>
+                <p className="text-[10.5px] text-[var(--ink-faint)]">
+                  {status.reason === 'synthetic-email' ? 'Cuenta de sistema' : 'Falta Staff ADMIN'}
+                </p>
+              </div>
+            )
+          }
           return (
             <div className="min-w-0">
-              <p className="truncate text-[12.5px] text-[var(--ink)]">{name}</p>
-              <p className="truncate text-[10.5px] text-[var(--ink-faint)]">
-                {row.original.owner.email}
-              </p>
+              <p className="truncate text-[12.5px] text-[var(--ink)]">{status.name}</p>
+              <p className="truncate text-[10.5px] text-[var(--ink-faint)]">{status.email}</p>
             </div>
           )
         },
@@ -276,7 +315,9 @@ export function VenuesPage() {
       },
       {
         id: 'createdAt',
-        header: `Creado (${timezoneShort(DEFAULT_TIMEZONE)})`,
+        // El TZ ya está indicado en el subtítulo de la página — repetirlo en
+        // cada header genera wrapping a 2 líneas en columnas angostas.
+        header: 'Creado',
         accessorFn: (row) => new Date(row.createdAt).getTime(),
         cell: ({ row }) => (
           <div>
@@ -373,14 +414,14 @@ export function VenuesPage() {
         ))}
       </section>
 
-      <DataTable
-        data={filteredVenues}
-        columns={columns}
-        searchPlaceholder="Buscar por nombre, slug u organización…"
-        caption={`Tabla de ${filteredCount} venues${hasActiveFilters ? ' filtrados' : ''}.`}
-        initialSorting={[{ id: 'createdAt', desc: true }]}
-        pageSize={25}
-        toolbar={
+      {/*
+        Toolbar de filtros + groupBy. Vive fuera del DataTable porque también
+        debe acompañar la vista agrupada (donde no renderizamos DataTable).
+        En vista plana se pasa al slot `toolbar=` del DataTable; en agrupada
+        se renderiza arriba del listado custom.
+      */}
+      {(() => {
+        const toolbar = (
           <div className="flex flex-wrap items-center gap-2">
             <FilterPill
               label="Estado"
@@ -420,6 +461,19 @@ export function VenuesPage() {
                 onChange={setScope}
               />
             </FilterPill>
+            <span aria-hidden className="mx-1 hidden h-5 w-px bg-[var(--line)] sm:inline-block" />
+            <FilterPill
+              label="Agrupar"
+              activeLabel={groupBy === 'organization' ? 'Por organización' : null}
+              onClear={groupBy !== 'none' ? () => setGroupBy('none') : undefined}
+            >
+              <SingleSelectFilterContent
+                title="Agrupar venues por"
+                options={GROUP_BY_OPTIONS}
+                selected={groupBy}
+                onChange={setGroupBy}
+              />
+            </FilterPill>
             {hasActiveFilters && (
               <button
                 type="button"
@@ -430,88 +484,131 @@ export function VenuesPage() {
               </button>
             )}
           </div>
+        )
+
+        if (groupBy === 'organization') {
+          return (
+            <div>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {toolbar}
+                <p className="tabular text-[11.5px] text-[var(--ink-faint)]">
+                  {filteredCount} venues · agrupados por organización
+                </p>
+              </div>
+              <VenuesByOrgList venues={filteredVenues} />
+            </div>
+          )
         }
-        emptyState={{
-          title: hasActiveFilters
-            ? 'Ningún venue coincide con los filtros'
-            : totalCount === 0 && !query.isLoading
-              ? 'Sin venues registrados'
-              : 'Cargando venues…',
-          description: hasActiveFilters
-            ? 'Ajusta los filtros arriba o limpia la selección con "Todo".'
-            : totalCount === 0 && !query.isLoading
-              ? 'Cuando se cree el primer venue real (no demo), aparecerá aquí.'
-              : 'Esto debería tardar menos de un segundo.',
-        }}
-        exportable={{
-          filename: 'venues',
-          columns: [
-            { key: 'id', header: 'ID', accessor: (v) => v.id, defaultEnabled: true },
-            { key: 'name', header: 'Nombre', accessor: (v) => v.name, defaultEnabled: true },
-            { key: 'slug', header: 'Slug', accessor: (v) => v.slug, defaultEnabled: true },
-            {
-              key: 'status',
-              header: 'Estado',
-              accessor: (v) => humanizeVenueStatus(v.status),
-              defaultEnabled: true,
-            },
-            {
-              key: 'kycStatus',
-              header: 'KYC',
-              accessor: (v) => humanizeKycStatus(v.kycStatus),
-              defaultEnabled: true,
-            },
-            {
-              key: 'organization',
-              header: 'Organización',
-              accessor: (v) => v.organization.name,
-              defaultEnabled: true,
-            },
-            {
-              key: 'organizationEmail',
-              header: 'Email org',
-              accessor: (v) => v.organization.email,
-            },
-            {
-              key: 'owner',
-              header: 'Owner',
-              accessor: (v) => ownerFullName(v.owner),
-              defaultEnabled: true,
-            },
-            { key: 'ownerEmail', header: 'Email owner', accessor: (v) => v.owner.email },
-            {
-              key: 'monthlyRevenue',
-              header: 'Volumen mes (MXN)',
-              accessor: (v) => v.monthlyRevenue,
-              defaultEnabled: true,
-            },
-            {
-              key: 'monthlyTransactions',
-              header: 'Pagos mes',
-              accessor: (v) => v.monthlyTransactions,
-              defaultEnabled: true,
-            },
-            {
-              key: 'averageOrderValue',
-              header: 'AOV (MXN)',
-              accessor: (v) => v.averageOrderValue,
-            },
-            {
-              key: 'createdAt',
-              header: 'Creado',
-              accessor: (v) => v.createdAt,
-              defaultEnabled: true,
-            },
-            { key: 'statusChangedAt', header: 'Último cambio', accessor: (v) => v.statusChangedAt },
-            {
-              key: 'suspensionReason',
-              header: 'Razón suspensión',
-              accessor: (v) => v.suspensionReason,
-            },
-          ],
-          dateAccessor: (v) => v.createdAt,
-        }}
-      />
+
+        return (
+          <DataTable
+            data={filteredVenues}
+            columns={columns}
+            searchPlaceholder="Buscar por nombre, slug u organización…"
+            caption={`Tabla de ${filteredCount} venues${hasActiveFilters ? ' filtrados' : ''}.`}
+            initialSorting={[{ id: 'createdAt', desc: true }]}
+            pageSize={25}
+            toolbar={toolbar}
+            emptyState={{
+              title: hasActiveFilters
+                ? 'Ningún venue coincide con los filtros'
+                : totalCount === 0 && !query.isLoading
+                  ? 'Sin venues registrados'
+                  : 'Cargando venues…',
+              description: hasActiveFilters
+                ? 'Ajusta los filtros arriba o limpia la selección con "Todo".'
+                : totalCount === 0 && !query.isLoading
+                  ? 'Cuando se cree el primer venue real (no demo), aparecerá aquí.'
+                  : 'Esto debería tardar menos de un segundo.',
+            }}
+            exportable={{
+              filename: 'venues',
+              columns: [
+                { key: 'id', header: 'ID', accessor: (v) => v.id, defaultEnabled: true },
+                { key: 'name', header: 'Nombre', accessor: (v) => v.name, defaultEnabled: true },
+                { key: 'slug', header: 'Slug', accessor: (v) => v.slug, defaultEnabled: true },
+                {
+                  key: 'status',
+                  header: 'Estado',
+                  accessor: (v) => humanizeVenueStatus(v.status),
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'kycStatus',
+                  header: 'KYC',
+                  accessor: (v) => humanizeKycStatus(v.kycStatus),
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'organization',
+                  header: 'Organización',
+                  accessor: (v) => v.organization.name,
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'organizationEmail',
+                  header: 'Email org',
+                  accessor: (v) => v.organization.email,
+                },
+                {
+                  key: 'owner',
+                  header: 'Owner',
+                  // En el CSV mantenemos el dato crudo si es real, pero
+                  // normalizamos placeholders a vacío para que el operador no
+                  // pegue "Unknown Owner" en un correo accidental.
+                  accessor: (v) => {
+                    const status = inspectOwner(v.owner)
+                    return status.kind === 'real' ? status.name : ''
+                  },
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'ownerEmail',
+                  header: 'Email owner',
+                  accessor: (v) => {
+                    const status = inspectOwner(v.owner)
+                    return status.kind === 'real' ? status.email : ''
+                  },
+                },
+                {
+                  key: 'monthlyRevenue',
+                  header: 'Volumen mes (MXN)',
+                  accessor: (v) => v.monthlyRevenue,
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'monthlyTransactions',
+                  header: 'Pagos mes',
+                  accessor: (v) => v.monthlyTransactions,
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'averageOrderValue',
+                  header: 'AOV (MXN)',
+                  accessor: (v) => v.averageOrderValue,
+                },
+                {
+                  key: 'createdAt',
+                  header: 'Creado',
+                  accessor: (v) => v.createdAt,
+                  defaultEnabled: true,
+                },
+                {
+                  key: 'statusChangedAt',
+                  header: 'Último cambio',
+                  accessor: (v) => v.statusChangedAt,
+                },
+                {
+                  key: 'suspensionReason',
+                  header: 'Razón suspensión',
+                  accessor: (v) => v.suspensionReason,
+                },
+              ],
+              dateAccessor: (v) => v.createdAt,
+            }}
+          />
+        )
+      })()}
 
       <p className={cn('mt-3 text-[11.5px] text-[var(--ink-faint)]')}>
         Las métricas de volumen, pagos y AOV se calculan sobre el mes en curso (Mexico City).

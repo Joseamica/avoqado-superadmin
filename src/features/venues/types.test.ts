@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   humanizeKycStatus,
   humanizeVenueStatus,
+  inspectOwner,
   isDemoVenue,
   isOperationalVenue,
   isSuspendedVenue,
@@ -112,5 +113,53 @@ describe('ownerFullName', () => {
   it('maneja sólo firstName o sólo lastName', () => {
     expect(ownerFullName({ ...baseOwner, lastName: '' })).toBe('Jane')
     expect(ownerFullName({ ...baseOwner, firstName: '' })).toBe('Doe')
+  })
+})
+
+describe('inspectOwner — distinción de owners reales vs placeholders del backend', () => {
+  it('reconoce el fallback "Unknown Owner" como missing', () => {
+    const result = inspectOwner({
+      id: '',
+      firstName: 'Unknown',
+      lastName: 'Owner',
+      email: 'unknown@email.com',
+    })
+    expect(result).toEqual({ kind: 'missing', reason: 'unknown' })
+  })
+
+  it('reconoce emails sintéticos @internal.avoqado.io como missing', () => {
+    const result = inspectOwner({
+      id: 'staff-xx',
+      firstName: 'IQ',
+      lastName: 'IQ',
+      email: 'tpv-iq-1778001255931-gxishc@internal.avoqado.io',
+    })
+    expect(result).toEqual({ kind: 'missing', reason: 'synthetic-email' })
+  })
+
+  it('clasifica como real un owner con email humano', () => {
+    const result = inspectOwner({
+      id: 'staff-1',
+      firstName: 'Daniel',
+      lastName: 'Samperino',
+      email: 'daniel.samperino@playtelecom.com',
+    })
+    expect(result).toEqual({
+      kind: 'real',
+      name: 'Daniel Samperino',
+      email: 'daniel.samperino@playtelecom.com',
+    })
+  })
+
+  it('no se confunde con un email que solo CONTIENE internal.avoqado.io', () => {
+    // Edge case: si alguien crea un email externo con esa cadena en local-part.
+    const result = inspectOwner({
+      id: 'staff-2',
+      firstName: 'Eve',
+      lastName: 'Polastri',
+      email: 'eve@internal.avoqado.io.example.com',
+    })
+    // endsWith('@internal.avoqado.io') es false → real.
+    expect(result.kind).toBe('real')
   })
 })
