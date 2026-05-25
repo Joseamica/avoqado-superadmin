@@ -23,6 +23,7 @@ import {
   type AccountSlot,
 } from './types'
 import { EditVenuePricingDrawer } from './EditVenuePricingDrawer'
+import { EditSettlementDrawer } from './EditSettlementDrawer'
 
 export function MerchantDetailPage() {
   const navigate = useNavigate()
@@ -32,6 +33,7 @@ export function MerchantDetailPage() {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [editingEco, setEditingEco] = useState(false)
+  const [editingSettlement, setEditingSettlement] = useState(false)
   const [pricingTarget, setPricingTarget] = useState<{
     venueId: string
     venueName: string
@@ -166,7 +168,13 @@ export function MerchantDetailPage() {
         </Section>
       )}
 
-      <Section title="Liquidación">
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-[var(--ink)]">Liquidación</h2>
+          <Button size="sm" variant="ghost" onClick={() => setEditingSettlement(true)}>
+            Editar
+          </Button>
+        </div>
         {eco.settlements.length === 0 ? (
           <Empty>Sin días de liquidación configurados.</Empty>
         ) : (
@@ -186,7 +194,7 @@ export function MerchantDetailPage() {
             ))}
           </ul>
         )}
-      </Section>
+      </section>
 
       <Section title={`Venues (${eco.venueConfigs.length})`}>
         {eco.venueConfigs.length === 0 ? (
@@ -267,6 +275,13 @@ export function MerchantDetailPage() {
           onSaved={eco.refetch}
         />
       )}
+      <EditSettlementDrawer
+        open={editingSettlement}
+        onOpenChange={setEditingSettlement}
+        merchantId={m.id}
+        settlements={eco.settlements}
+        onSaved={eco.refetch}
+      />
       <MerchantIdentityDrawer open={editing} onOpenChange={setEditing} merchant={m} />
       <DeleteMerchantDialog
         open={deleting}

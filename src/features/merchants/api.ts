@@ -6,12 +6,14 @@ import { api } from '@/shared/lib/api'
 import type {
   AccountSlot,
   CardRates,
+  CardType,
   MerchantAccount,
   MerchantProvider,
   MerchantRevenueShare,
   MerchantVenueConfig,
   ProviderCostStructure,
   SettlementConfiguration,
+  SettlementDayType,
   VenuePricingStructure,
 } from './types'
 
@@ -416,5 +418,52 @@ export async function saveVenuePricing(
       ...body,
       effectiveFrom: new Date().toISOString(),
     })
+  }
+}
+
+/* --- Holidays + settlement save (F3) --- */
+
+export async function fetchHolidays(year: number, country = 'MX'): Promise<Set<string>> {
+  const { data } = await api.get<{ data: { date: string; name: string }[] }>(
+    '/superadmin/holidays',
+    {
+      params: { year, country },
+    },
+  )
+  return new Set((data?.data ?? []).map((h) => h.date))
+}
+
+export interface SettlementRowInput {
+  cardType: CardType
+  settlementDays: number
+  settlementDayType: SettlementDayType
+}
+
+/** Por tarjeta: PUT la config activa (id en `existingByCard`) o POST si no existe. */
+export async function saveSettlement(
+  merchantAccountId: string,
+  rows: SettlementRowInput[],
+  cutoffTime: string,
+  cutoffTimezone: string,
+  existingByCard: Record<string, string>,
+): Promise<void> {
+  for (const r of rows) {
+    const body = {
+      merchantAccountId,
+      cardType: r.cardType,
+      settlementDays: r.settlementDays,
+      settlementDayType: r.settlementDayType,
+      cutoffTime,
+      cutoffTimezone,
+    }
+    const id = existingByCard[r.cardType]
+    if (id) {
+      await api.put(`/superadmin/settlement-configurations/${encodeURIComponent(id)}`, body)
+    } else {
+      await api.post('/superadmin/settlement-configurations', {
+        ...body,
+        effectiveFrom: new Date().toISOString(),
+      })
+    }
   }
 }

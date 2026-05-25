@@ -11,6 +11,7 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- **Merchant accounts (F3):** edición de liquidación (días D+N por tarjeta + tipo hábiles/naturales + corte) desde `/merchants/:id` con estimado de fecha de depósito (excluye fines de semana + feriados de `date.nager.at`, cacheados en `HolidayCalendar` vía el nuevo endpoint `GET /superadmin/holidays`); `logAction` server-side en settlement-configurations.
 - **Merchant accounts (F2):** edición de costo del proveedor, revenue-share (split directa/agregador) y pricing por venue/slot desde `/merchants/:id`, con preview de margen en vivo (`CardRatesInput` en %, `MarginPreview`); `logAction` server-side en cost-structures / venue-pricing / merchant-revenue-shares.
 - **Merchant accounts (F1B):** alta manual / editar identidad / activar-desactivar / borrar (con aviso de cascada) desde `/merchants`; `logAction` server-side en las mutaciones de merchant (avoqado-server); a11y: `ReadinessStrip` anuncia estado a lectores de pantalla y el `Combobox` acepta `ariaLabel`.
 - **Merchant accounts (F1A):** página `/merchants` (listado) y detalle `/merchants/:id` de sólo lectura que hace legible la economía (costo proveedor → split agregador → margen Avoqado) + readiness por cuenta. Consume `/api/v1/superadmin/*` (los endpoints `merchant-revenue-shares` y `settlement-configurations` ahora se montan también ahí en el server).

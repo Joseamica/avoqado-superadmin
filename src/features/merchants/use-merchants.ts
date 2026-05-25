@@ -3,6 +3,7 @@ import {
   createMerchant,
   deleteMerchant,
   fetchActiveCost,
+  fetchHolidays,
   fetchMerchant,
   fetchMerchants,
   fetchProviders,
@@ -11,6 +12,7 @@ import {
   fetchVenueConfigs,
   saveCost,
   saveRevenueShare,
+  saveSettlement,
   saveVenuePricing,
   toggleMerchant,
   updateMerchant,
@@ -19,6 +21,7 @@ import {
   type SaveCostInput,
   type SaveRevenueShareInput,
   type SaveVenuePricingInput,
+  type SettlementRowInput,
   type UpdateMerchantInput,
 } from './api'
 import { cardRatesFromCost, type AccountSlot } from './types'
@@ -196,6 +199,35 @@ export function useSaveVenuePricing() {
       activeId: string | null
       input: SaveVenuePricingInput
     }) => saveVenuePricing(vars.venueId, vars.accountType, vars.activeId, vars.input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+export function useHolidays(year: number) {
+  return useQuery({
+    queryKey: ['superadmin', 'holidays', year],
+    queryFn: () => fetchHolidays(year),
+    staleTime: 24 * 60 * 60_000,
+  })
+}
+
+export function useSaveSettlement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: {
+      merchantAccountId: string
+      rows: SettlementRowInput[]
+      cutoffTime: string
+      cutoffTimezone: string
+      existingByCard: Record<string, string>
+    }) =>
+      saveSettlement(
+        vars.merchantAccountId,
+        vars.rows,
+        vars.cutoffTime,
+        vars.cutoffTimezone,
+        vars.existingByCard,
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }
