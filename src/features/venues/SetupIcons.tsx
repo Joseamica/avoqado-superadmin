@@ -145,11 +145,13 @@ export function SetupIcons({ venue }: SetupIconsProps) {
                 to={href}
                 aria-label={def.description[status]}
                 className={cn(
-                  'inline-flex h-7 w-7 items-center justify-center rounded-[4px] border transition-colors',
+                  'inline-flex h-7 w-7 items-center justify-center rounded-[6px] border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+                  // ok = configurado: superficie elevada + icono brillante (NO blanco CTA).
                   status === 'ok' &&
-                    'border-[var(--line-strong)] bg-[var(--surface-primary)] text-[var(--on-surface-primary)] hover:bg-[var(--surface-primary-hover)]',
+                    'border-[var(--line-strong)] bg-[var(--canvas-raised)] text-[var(--ink)] hover:bg-[var(--line)]',
+                  // missing = falta: hundido + icono tenue.
                   status === 'missing' &&
-                    'border-[var(--line)] bg-[var(--canvas-sunken)] text-[var(--ink-faint)] hover:border-[var(--accent-line)] hover:bg-[var(--accent-faint)] hover:text-[var(--accent)]',
+                    'border-[var(--line)] bg-[var(--canvas-sunken)] text-[var(--ink-faint)] hover:border-[var(--line-strong)] hover:bg-[var(--canvas-raised)] hover:text-[var(--ink-muted)]',
                   status === 'unknown' &&
                     'border-dashed border-[var(--line)] bg-[var(--canvas)] text-[var(--ink-faint)] hover:text-[var(--ink-muted)]',
                 )}

@@ -2,6 +2,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { forwardRef, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react'
 import { cn } from '@/shared/lib/utils'
+import { IconButton } from './IconButton'
 
 /**
  * Drawer del design system — slide desde la derecha en desktop, full-screen
@@ -97,14 +98,9 @@ export function DrawerHeader({
       <div className="min-w-0 flex-1">{children}</div>
       {onClose && (
         <DrawerClose asChild>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-[var(--ink-faint)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
-          >
+          <IconButton size="md" onClick={onClose} aria-label="Cerrar">
             <X className="h-3.5 w-3.5" aria-hidden />
-          </button>
+          </IconButton>
         </DrawerClose>
       )}
     </header>

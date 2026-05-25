@@ -14,6 +14,7 @@ import {
 } from '@tanstack/react-table'
 import { ChevronDown, ChevronRight, ChevronsUpDown, ChevronUp, Search } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
+import { IconButton } from '@/shared/ui/IconButton'
 import { ExportDialog } from './ExportDialog'
 import type { CSVColumn } from '@/shared/lib/csv'
 
@@ -76,22 +77,21 @@ export function DataTable<TData>({
       header: () => <span className="sr-only">Expandir</span>,
       enableSorting: false,
       cell: ({ row }) => (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           onClick={(e) => {
             e.stopPropagation()
             row.toggleExpanded()
           }}
           aria-label={row.getIsExpanded() ? 'Contraer fila' : 'Expandir fila'}
           aria-expanded={row.getIsExpanded()}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
         >
           {row.getIsExpanded() ? (
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           ) : (
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           )}
-        </button>
+        </IconButton>
       ),
       meta: { headerClassName: 'w-[40px]', cellClassName: 'p-2' },
     }

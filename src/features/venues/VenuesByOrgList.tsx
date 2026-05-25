@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
+import { IconButton } from '@/shared/ui/IconButton'
 import { cn } from '@/shared/lib/utils'
 import { formatRelative } from '@/shared/lib/datetime'
 import {
@@ -119,12 +120,11 @@ export function VenuesByOrgList({ venues }: VenuesByOrgListProps) {
             <header className="mb-3 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-3">
-                  <button
-                    type="button"
+                  <IconButton
+                    size="sm"
                     onClick={() => toggle(group.id)}
                     aria-expanded={!isCollapsed}
                     aria-controls={`org-${group.id}-venues`}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] text-[var(--ink-faint)] transition-colors hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
                   >
                     <ChevronDown
                       className={cn(
@@ -133,7 +133,7 @@ export function VenuesByOrgList({ venues }: VenuesByOrgListProps) {
                       )}
                       aria-hidden
                     />
-                  </button>
+                  </IconButton>
                   <h2 className="truncate font-display text-[20px] font-semibold tracking-[-0.02em] text-[var(--ink)]">
                     {group.name}
                   </h2>

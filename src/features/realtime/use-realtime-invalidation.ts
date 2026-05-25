@@ -24,6 +24,7 @@ const EVENT_INVALIDATIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonl
   ['superadmin:kyc:updated', [['superadmin', 'kyc']]],
   ['superadmin:venue:updated', [['superadmin', 'venues']]],
   ['superadmin:terminal:status', [['superadmin', 'terminals']]],
+  ['superadmin:merchant:updated', [['superadmin', 'merchants']]],
   [
     'superadmin:payment:event',
     [

@@ -34,4 +34,9 @@ export const handlers = [
   }),
 
   http.post(`${baseURL}/dashboard/auth/logout`, () => HttpResponse.json({ message: 'ok' })),
+
+  http.get(`${baseURL}/superadmin/merchant-accounts`, () =>
+    HttpResponse.json({ success: true, data: [], count: 0 }),
+  ),
+  http.get(`${baseURL}/superadmin/payment-providers`, () => HttpResponse.json({ data: [] })),
 ]

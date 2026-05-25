@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Cpu, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
+import { IconButton } from '@/shared/ui/IconButton'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { DataTable } from '@/shared/data-table/DataTable'
 import {
@@ -276,14 +277,13 @@ export function TerminalsPage() {
         header: () => <span className="sr-only">Abrir</span>,
         enableSorting: false,
         cell: ({ row }) => (
-          <button
-            type="button"
+          <IconButton
+            size="sm"
             onClick={() => setDrawerTerminal(row.original)}
             aria-label={`Abrir acciones de ${row.original.name}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] transition-colors hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
           >
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-          </button>
+          </IconButton>
         ),
         meta: { headerClassName: 'w-[48px]' },
       },

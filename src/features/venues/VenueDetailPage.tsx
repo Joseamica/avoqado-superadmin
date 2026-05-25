@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Copy, Mail, Phone, ShieldOff } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { IconButton } from '@/shared/ui/IconButton'
 import { QueryError } from '@/shared/components/QueryError'
 import {
   formatDateTime,
@@ -249,16 +250,15 @@ function DefinitionRow({
           {value}
         </span>
         {copyable && (
-          <button
-            type="button"
+          <IconButton
+            size="sm"
             onClick={() => {
               if (navigator.clipboard) navigator.clipboard.writeText(copyable)
             }}
             aria-label={`Copiar ${label.toLowerCase()}`}
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] text-[var(--ink-faint)] transition-colors hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
           >
             <Copy className="h-3 w-3" aria-hidden />
-          </button>
+          </IconButton>
         )}
       </div>
     </div>

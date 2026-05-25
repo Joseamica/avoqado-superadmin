@@ -40,6 +40,9 @@ coverage/
 # Skill cache (impeccable / gstack) — derived from skills-lock.json
 .agents/
 
+# Brainstorming visual companion scratch (mockups, server state)
+.superpowers/
+
 # Local Claude Code settings (per-developer, never in CI)
 .claude/settings.local.json
 

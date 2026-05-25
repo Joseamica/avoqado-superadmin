@@ -1,0 +1,420 @@
+/**
+ * API client del feature Merchants. Namespace único `/api/v1/superadmin/*`
+ * (cookies HTTP-only). Mapea raw→dominio (Decimals string→number).
+ */
+import { api } from '@/shared/lib/api'
+import type {
+  AccountSlot,
+  CardRates,
+  MerchantAccount,
+  MerchantProvider,
+  MerchantRevenueShare,
+  MerchantVenueConfig,
+  ProviderCostStructure,
+  SettlementConfiguration,
+  VenuePricingStructure,
+} from './types'
+
+const num = (v: unknown, fallback = 0): number => {
+  const n = typeof v === 'string' ? parseFloat(v) : typeof v === 'number' ? v : NaN
+  return Number.isFinite(n) ? n : fallback
+}
+
+/* --- Lista + detalle --- */
+
+interface MerchantListResponse {
+  success: boolean
+  data: RawMerchant[]
+  count: number
+}
+interface RawMerchant {
+  id: string
+  provider: { id: string; code: string; name: string; type: MerchantProvider['type'] }
+  externalMerchantId: string
+  alias: string | null
+  displayName: string | null
+  active: boolean
+  displayOrder: number
+  clabeNumber: string | null
+  bankName: string | null
+  accountHolder: string | null
+  hasCredentials: boolean
+  blumonSerialNumber: string | null
+  blumonPosId: string | null
+  blumonEnvironment: string | null
+  blumonMerchantId: string | null
+  angelpayAffiliation: string | null
+  angelpayMerchantName: string | null
+  aggregatorId: string | null
+  venues: { id: string; name: string; slug: string }[]
+  terminals: { id: string; serialNumber: string }[]
+  _count: { costStructures: number; venueConfigs: number; terminals: number }
+  createdAt: string
+  updatedAt: string
+}
+
+function mapMerchant(r: RawMerchant): MerchantAccount {
+  return {
+    id: r.id,
+    provider: r.provider,
+    externalMerchantId: r.externalMerchantId,
+    alias: r.alias,
+    displayName: r.displayName,
+    active: r.active,
+    displayOrder: r.displayOrder ?? 0,
+    clabeNumber: r.clabeNumber,
+    bankName: r.bankName,
+    accountHolder: r.accountHolder,
+    hasCredentials: r.hasCredentials ?? false,
+    blumonSerialNumber: r.blumonSerialNumber,
+    blumonPosId: r.blumonPosId,
+    blumonEnvironment: r.blumonEnvironment,
+    blumonMerchantId: r.blumonMerchantId,
+    angelpayAffiliation: r.angelpayAffiliation,
+    angelpayMerchantName: r.angelpayMerchantName,
+    aggregatorId: r.aggregatorId,
+    venues: r.venues ?? [],
+    terminals: r.terminals ?? [],
+    counts: {
+      costStructures: r._count?.costStructures ?? 0,
+      venueConfigs: r._count?.venueConfigs ?? 0,
+      terminals: r._count?.terminals ?? 0,
+    },
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }
+}
+
+export interface FetchMerchantsParams {
+  providerId?: string
+  active?: boolean
+}
+
+export async function fetchMerchants(
+  params: FetchMerchantsParams = {},
+): Promise<MerchantAccount[]> {
+  const { data } = await api.get<MerchantListResponse>('/superadmin/merchant-accounts', { params })
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map(mapMerchant)
+}
+
+export async function fetchMerchant(id: string): Promise<MerchantAccount | null> {
+  try {
+    const { data } = await api.get<{ data: RawMerchant }>(
+      `/superadmin/merchant-accounts/${encodeURIComponent(id)}`,
+    )
+    return data?.data ? mapMerchant(data.data) : null
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return null
+    throw error
+  }
+}
+
+/* --- Providers (filtro + futuro form de alta) --- */
+
+export async function fetchProviders(): Promise<MerchantProvider[]> {
+  const { data } = await api.get<{ data: MerchantProvider[] }>('/superadmin/payment-providers', {
+    params: { active: true },
+  })
+  return Array.isArray(data?.data) ? data.data : []
+}
+
+/* --- Costo del proveedor (estructura activa) --- */
+
+export async function fetchActiveCost(
+  merchantAccountId: string,
+): Promise<ProviderCostStructure | null> {
+  try {
+    const { data } = await api.get<{ data: Record<string, unknown> | null }>(
+      `/superadmin/cost-structures/active/${encodeURIComponent(merchantAccountId)}`,
+    )
+    const c = data?.data
+    if (!c) return null
+    return {
+      id: String(c.id),
+      merchantAccountId,
+      debitRate: num(c.debitRate),
+      creditRate: num(c.creditRate),
+      amexRate: num(c.amexRate),
+      internationalRate: num(c.internationalRate),
+      includesTax: (c.includesTax as boolean | null) ?? null,
+      taxRate: num(c.taxRate, 0.16),
+      fixedCostPerTransaction:
+        c.fixedCostPerTransaction == null ? null : num(c.fixedCostPerTransaction),
+      effectiveFrom: String(c.effectiveFrom),
+      effectiveTo: (c.effectiveTo as string | null) ?? null,
+      active: (c.active as boolean) ?? true,
+    }
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return null
+    throw error
+  }
+}
+
+/* --- Revenue-share (split agregador) --- */
+
+export async function fetchRevenueShare(
+  merchantAccountId: string,
+): Promise<MerchantRevenueShare | null> {
+  const { data } = await api.get<{ data: Record<string, unknown> | null }>(
+    '/superadmin/merchant-revenue-shares/by-merchant',
+    { params: { merchantAccountId } },
+  )
+  const r = data?.data
+  if (!r) return null
+  const ap = r.aggregatorPrice as Record<string, unknown> | null
+  const aggregatorPrice: CardRates | null = ap
+    ? {
+        DEBIT: num(ap.DEBIT),
+        CREDIT: num(ap.CREDIT),
+        AMEX: num(ap.AMEX),
+        INTERNATIONAL: num(ap.INTERNATIONAL),
+      }
+    : null
+  return {
+    id: String(r.id),
+    merchantAccountId,
+    aggregatorPrice,
+    aggregatorPriceIncludesTax: (r.aggregatorPriceIncludesTax as boolean) ?? false,
+    avoqadoShareOfProviderMargin: num(r.avoqadoShareOfProviderMargin, 0.5),
+    avoqadoShareOfAggregatorMargin:
+      r.avoqadoShareOfAggregatorMargin == null ? null : num(r.avoqadoShareOfAggregatorMargin),
+    taxRate: num(r.taxRate, 0.16),
+    active: (r.active as boolean) ?? true,
+  }
+}
+
+/* --- Liquidación (todas las configs del merchant) --- */
+
+export async function fetchSettlements(
+  merchantAccountId: string,
+): Promise<SettlementConfiguration[]> {
+  const { data } = await api.get<{ data: Record<string, unknown>[] }>(
+    '/superadmin/settlement-configurations',
+    { params: { merchantAccountId } },
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((s) => ({
+    id: String(s.id),
+    merchantAccountId,
+    cardType: s.cardType as SettlementConfiguration['cardType'],
+    settlementDays: num(s.settlementDays),
+    settlementDayType: s.settlementDayType as SettlementConfiguration['settlementDayType'],
+    cutoffTime: String(s.cutoffTime ?? ''),
+    cutoffTimezone: String(s.cutoffTimezone ?? 'America/Mexico_City'),
+    effectiveFrom: String(s.effectiveFrom),
+    effectiveTo: (s.effectiveTo as string | null) ?? null,
+  }))
+}
+
+/* --- Venues que referencian a la cuenta + slot --- */
+
+export async function fetchVenueConfigs(merchantAccountId: string): Promise<MerchantVenueConfig[]> {
+  const { data } = await api.get<{ data: Record<string, unknown>[] }>(
+    `/superadmin/venue-pricing/configs-by-merchant/${encodeURIComponent(merchantAccountId)}`,
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((c) => {
+    const venue = (c.venue as { id: string; name: string; slug: string }) ?? {
+      id: '',
+      name: '—',
+      slug: '',
+    }
+    const slot: MerchantVenueConfig['slot'] =
+      c.primaryAccountId === merchantAccountId
+        ? 'PRIMARY'
+        : c.secondaryAccountId === merchantAccountId
+          ? 'SECONDARY'
+          : 'TERTIARY'
+    return { venueId: venue.id, venue, slot }
+  })
+}
+
+/* --- Mutations (identidad) --- */
+
+export interface MerchantCredentialsInput {
+  merchantId: string
+  apiKey: string
+}
+
+export interface CreateMerchantInput {
+  providerId: string
+  externalMerchantId: string
+  alias?: string | null
+  displayName?: string | null
+  active?: boolean
+  displayOrder?: number
+  /** Requerido salvo cuenta Blumon-pending (con blumonSerialNumber y sin creds). */
+  credentials?: MerchantCredentialsInput
+  blumonSerialNumber?: string
+  blumonEnvironment?: string
+  blumonMerchantId?: string
+}
+
+export interface UpdateMerchantInput {
+  externalMerchantId?: string
+  alias?: string | null
+  displayName?: string | null
+  active?: boolean
+  displayOrder?: number
+}
+
+export async function createMerchant(input: CreateMerchantInput): Promise<MerchantAccount> {
+  const { data } = await api.post<{ data: RawMerchant }>('/superadmin/merchant-accounts', input)
+  return mapMerchant(data.data)
+}
+
+export async function updateMerchant(
+  id: string,
+  input: UpdateMerchantInput,
+): Promise<MerchantAccount> {
+  const { data } = await api.put<{ data: RawMerchant }>(
+    `/superadmin/merchant-accounts/${encodeURIComponent(id)}`,
+    input,
+  )
+  return mapMerchant(data.data)
+}
+
+export async function toggleMerchant(id: string): Promise<MerchantAccount> {
+  const { data } = await api.patch<{ data: RawMerchant }>(
+    `/superadmin/merchant-accounts/${encodeURIComponent(id)}/toggle`,
+  )
+  return mapMerchant(data.data)
+}
+
+export async function deleteMerchant(id: string): Promise<void> {
+  await api.delete(`/superadmin/merchant-accounts/${encodeURIComponent(id)}`)
+}
+
+/* --- Mutations economía (F2) --- */
+
+export interface SaveCostInput {
+  rates: CardRates
+  includesTax: boolean
+  taxRate: number
+  fixedCostPerTransaction?: number | null
+}
+
+/** PUT la estructura activa si `activeId`, si no POST una nueva (effectiveFrom=ahora). */
+export async function saveCost(
+  merchantAccountId: string,
+  activeId: string | null,
+  input: SaveCostInput,
+): Promise<void> {
+  const body = {
+    merchantAccountId,
+    debitRate: input.rates.DEBIT,
+    creditRate: input.rates.CREDIT,
+    amexRate: input.rates.AMEX,
+    internationalRate: input.rates.INTERNATIONAL,
+    includesTax: input.includesTax,
+    taxRate: input.taxRate,
+    fixedCostPerTransaction: input.fixedCostPerTransaction ?? undefined,
+  }
+  if (activeId) {
+    await api.put(`/superadmin/cost-structures/${encodeURIComponent(activeId)}`, body)
+  } else {
+    await api.post('/superadmin/cost-structures', {
+      ...body,
+      effectiveFrom: new Date().toISOString(),
+    })
+  }
+}
+
+export interface SaveRevenueShareInput {
+  aggregatorPrice: CardRates | null
+  avoqadoShareOfProviderMargin: number
+  avoqadoShareOfAggregatorMargin: number | null
+  taxRate: number
+}
+
+export async function saveRevenueShare(
+  merchantAccountId: string,
+  existingId: string | null,
+  input: SaveRevenueShareInput,
+): Promise<void> {
+  const body = {
+    aggregatorPrice: input.aggregatorPrice,
+    aggregatorPriceIncludesTax: false,
+    avoqadoShareOfProviderMargin: input.avoqadoShareOfProviderMargin,
+    avoqadoShareOfAggregatorMargin: input.avoqadoShareOfAggregatorMargin,
+    taxRate: input.taxRate,
+    active: true,
+  }
+  if (existingId) {
+    await api.put(`/superadmin/merchant-revenue-shares/${encodeURIComponent(existingId)}`, body)
+  } else {
+    await api.post('/superadmin/merchant-revenue-shares', { ...body, merchantAccountId })
+  }
+}
+
+/* --- Venue pricing (F2B) --- */
+
+export async function getActiveVenuePricing(
+  venueId: string,
+  accountType: AccountSlot,
+): Promise<VenuePricingStructure | null> {
+  try {
+    const { data } = await api.get<{ data: Record<string, unknown> | null }>(
+      `/superadmin/venue-pricing/structures/active/${encodeURIComponent(venueId)}/${accountType}`,
+    )
+    const p = data?.data
+    if (!p) return null
+    return {
+      id: String(p.id),
+      venueId,
+      accountType,
+      debitRate: num(p.debitRate),
+      creditRate: num(p.creditRate),
+      amexRate: num(p.amexRate),
+      internationalRate: num(p.internationalRate),
+      includesTax: (p.includesTax as boolean | null) ?? null,
+      taxRate: num(p.taxRate, 0.16),
+      fixedFeePerTransaction:
+        p.fixedFeePerTransaction == null ? null : num(p.fixedFeePerTransaction),
+      monthlyServiceFee: p.monthlyServiceFee == null ? null : num(p.monthlyServiceFee),
+      effectiveFrom: String(p.effectiveFrom),
+      effectiveTo: (p.effectiveTo as string | null) ?? null,
+      active: (p.active as boolean) ?? true,
+    }
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return null
+    throw error
+  }
+}
+
+export interface SaveVenuePricingInput {
+  rates: CardRates
+  includesTax: boolean
+  taxRate: number
+  fixedFeePerTransaction?: number | null
+  monthlyServiceFee?: number | null
+}
+
+export async function saveVenuePricing(
+  venueId: string,
+  accountType: AccountSlot,
+  activeId: string | null,
+  input: SaveVenuePricingInput,
+): Promise<void> {
+  const body = {
+    venueId,
+    accountType,
+    debitRate: input.rates.DEBIT,
+    creditRate: input.rates.CREDIT,
+    amexRate: input.rates.AMEX,
+    internationalRate: input.rates.INTERNATIONAL,
+    includesTax: input.includesTax,
+    taxRate: input.taxRate,
+    fixedFeePerTransaction: input.fixedFeePerTransaction ?? undefined,
+    monthlyServiceFee: input.monthlyServiceFee ?? undefined,
+  }
+  if (activeId) {
+    await api.put(`/superadmin/venue-pricing/structures/${encodeURIComponent(activeId)}`, body)
+  } else {
+    await api.post('/superadmin/venue-pricing/structures', {
+      ...body,
+      effectiveFrom: new Date().toISOString(),
+    })
+  }
+}

@@ -41,6 +41,14 @@ const TerminalSettingsPage = lazy(() =>
     default: m.TerminalSettingsPage,
   })),
 )
+const MerchantsPage = lazy(() =>
+  import('@/features/merchants/MerchantsPage').then((m) => ({ default: m.MerchantsPage })),
+)
+const MerchantDetailPage = lazy(() =>
+  import('@/features/merchants/MerchantDetailPage').then((m) => ({
+    default: m.MerchantDetailPage,
+  })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -97,6 +105,8 @@ export function AppRoutes() {
           {/* `/new` ANTES de `:terminalId` para que no se trate "new" como ID. */}
           <Route path="/terminals/new" element={<NewTerminalPage />} />
           <Route path="/terminals/:terminalId/settings" element={<TerminalSettingsPage />} />
+          <Route path="/merchants" element={<MerchantsPage />} />
+          <Route path="/merchants/:id" element={<MerchantDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

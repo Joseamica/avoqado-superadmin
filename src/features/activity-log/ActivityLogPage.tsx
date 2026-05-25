@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
+import { IconButton } from '@/shared/ui/IconButton'
 import { DataTable } from '@/shared/data-table/DataTable'
 import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
 import { QueryError } from '@/shared/components/QueryError'
@@ -174,13 +175,13 @@ export function ActivityLogPage() {
         enableSorting: false,
         cell: ({ row }) => (
           <div className="text-right">
-            <button
-              type="button"
+            <IconButton
+              size="md"
               aria-label={`Ver detalle del evento ${row.original.id}`}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)] focus-visible:opacity-100 group-hover:opacity-100"
+              className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
             >
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-            </button>
+            </IconButton>
           </div>
         ),
         meta: { headerClassName: 'w-[60px]', cellClassName: 'text-right' },

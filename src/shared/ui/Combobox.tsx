@@ -62,6 +62,8 @@ interface ComboboxProps {
   disabled?: boolean
   /** Render custom del trigger label cuando hay value seleccionado. Si no, busca el option matching y muestra su `label`, o el `value` raw si es custom. */
   renderTriggerValue?: (value: string) => ReactNode
+  /** Accessible label for the trigger button. Passed to `aria-label`. Useful when the trigger has no visible text label in context. */
+  ariaLabel?: string
 }
 
 export function Combobox({
@@ -76,6 +78,7 @@ export function Combobox({
   width = 320,
   disabled = false,
   renderTriggerValue,
+  ariaLabel,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -107,6 +110,7 @@ export function Combobox({
           type="button"
           disabled={disabled}
           aria-expanded={open}
+          aria-label={ariaLabel}
           className={cn(
             'inline-flex h-10 w-full items-center justify-between gap-2 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 text-left text-[13px] outline-none transition-colors',
             value ? 'text-[var(--ink)]' : 'text-[var(--ink-faint)]',

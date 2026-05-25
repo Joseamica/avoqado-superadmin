@@ -4,6 +4,7 @@ import { ArrowUpRight, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
 import { buttonVariants } from '@/shared/ui/button-variants'
+import { iconButtonVariants } from '@/shared/ui/icon-button-variants'
 import { DataTable } from '@/shared/data-table/DataTable'
 import {
   FilterPill,
@@ -395,7 +396,7 @@ export function VenuesPage() {
           <Link
             to={`/venues/${row.original.id}`}
             aria-label={`Ver detalle de ${row.original.name}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--ink-faint)] transition-colors hover:bg-[var(--canvas-sunken)] hover:text-[var(--ink)]"
+            className={iconButtonVariants({ size: 'sm' })}
           >
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
           </Link>

@@ -57,7 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/venues', label: 'Venues', icon: Store },
       { to: '/terminals', label: 'TPVs', icon: Terminal },
-      { to: '/merchants', label: 'Merchant accounts', icon: CreditCard, disabled: true },
+      { to: '/merchants', label: 'Merchant accounts', icon: CreditCard },
     ],
   },
   {
