@@ -66,12 +66,15 @@ afterAll(() => server.close())
 describe('NewVenuePage', () => {
   it('renderiza el header "Nuevo venue" y las secciones principales', async () => {
     renderWithProviders(<NewVenuePage />)
-    expect(screen.getByRole('heading', { level: 1, name: 'Nuevo venue' })).toBeInTheDocument()
-    // Sección Identidad siempre visible
+    // Use findByRole so the assertion waits for the page to settle. NewVenuePage
+    // fires several queries on mount (orgs, features, terminal brands) — running
+    // alongside the rest of the suite occasionally pushes the initial render past
+    // the synchronous getBy* window. findBy waits up to 1s.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Nuevo venue' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Identidad' })).toBeInTheDocument()
-    // Sección Dirección colapsada por default
     expect(screen.getByRole('button', { name: /Dirección y contacto/ })).toBeInTheDocument()
-    // CTA principal
     expect(screen.getByRole('button', { name: /Crear venue/i })).toBeInTheDocument()
   })
 

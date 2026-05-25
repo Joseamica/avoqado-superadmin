@@ -49,6 +49,9 @@ const TerminalSettingsPage = lazy(() =>
 const MerchantsPage = lazy(() =>
   import('@/features/merchants/MerchantsPage').then((m) => ({ default: m.MerchantsPage })),
 )
+const BlumonSetupPanel = lazy(() =>
+  import('@/features/merchants/BlumonSetupPanel').then((m) => ({ default: m.BlumonSetupPanel })),
+)
 const MerchantDetailPage = lazy(() =>
   import('@/features/merchants/MerchantDetailPage').then((m) => ({
     default: m.MerchantDetailPage,
@@ -108,6 +111,8 @@ export function AppRoutes() {
           <Route path="/terminals/new" element={<NewTerminalPage />} />
           <Route path="/terminals/:terminalId/settings" element={<TerminalSettingsPage />} />
           <Route path="/merchants" element={<MerchantsPage />} />
+          {/* `/new` ANTES de `:id` para que "new" no se capture como ID. */}
+          <Route path="/merchants/new" element={<BlumonSetupPanel />} />
           <Route path="/merchants/:id" element={<MerchantDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />

@@ -10,12 +10,15 @@ import {
   fetchRevenueShare,
   fetchSettlements,
   fetchVenueConfigs,
+  fetchVenueOptions,
+  fullSetupBlumon,
   saveCost,
   saveRevenueShare,
   saveSettlement,
   saveVenuePricing,
   toggleMerchant,
   updateMerchant,
+  type BlumonFullSetupPayload,
   type CreateMerchantInput,
   type FetchMerchantsParams,
   type SaveCostInput,
@@ -228,6 +231,22 @@ export function useSaveSettlement() {
         vars.cutoffTimezone,
         vars.existingByCard,
       ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+export function useVenueOptions() {
+  return useQuery({
+    queryKey: ['superadmin', 'venue-options'],
+    queryFn: fetchVenueOptions,
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useFullSetupBlumon() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: BlumonFullSetupPayload) => fullSetupBlumon(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }

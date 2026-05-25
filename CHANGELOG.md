@@ -11,6 +11,7 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- **Merchant accounts (F5·A):** panel de alta guiada Blumon en `/merchants/new` (cards de estado con gating + progreso "X de 4 obligatorios" → un POST a `blumon/full-setup` con auto-fetch de credenciales); `logAction` en el full-setup.
 - **Merchant accounts (F4):** pantalla venue-céntrica `/venues/:id/merchant` para asignar cuentas a los slots primary/secondary/tertiary del venue + preferredProcessor (con hint de compatibilidad de hardware Blumon→PAX / AngelPay→NexGo); `logAction` en venuePaymentConfig.
 - **Merchant accounts (F3):** edición de liquidación (días D+N por tarjeta + tipo hábiles/naturales + corte) desde `/merchants/:id` con estimado de fecha de depósito (excluye fines de semana + feriados de `date.nager.at`, cacheados en `HolidayCalendar` vía el nuevo endpoint `GET /superadmin/holidays`); `logAction` server-side en settlement-configurations.
 - **Merchant accounts (F2):** edición de costo del proveedor, revenue-share (split directa/agregador) y pricing por venue/slot desde `/merchants/:id`, con preview de margen en vivo (`CardRatesInput` en %, `MarginPreview`); `logAction` server-side en cost-structures / venue-pricing / merchant-revenue-shares.

@@ -421,6 +421,70 @@ export async function saveVenuePricing(
   }
 }
 
+/* ─── Blumon full-setup (F5·A) ─── */
+
+export interface VenueOption {
+  id: string
+  name: string
+  slug: string
+}
+
+/** Tasas EN PORCENTAJE (el endpoint full-setup divide /100). NO decimal. */
+export interface BlumonRateOverride {
+  debitRate: number
+  creditRate: number
+  amexRate: number
+  internationalRate: number
+  includesTax: boolean
+  fixedCostPerTransaction?: number
+  monthlyFee?: number
+}
+export interface BlumonPricingOverride {
+  debitRate: number
+  creditRate: number
+  amexRate: number
+  internationalRate: number
+  includesTax: boolean
+  fixedFeePerTransaction?: number
+  monthlyServiceFee?: number
+}
+
+export interface BlumonFullSetupPayload {
+  serialNumber: string
+  brand: string
+  model: string
+  displayName?: string
+  environment: 'SANDBOX' | 'PRODUCTION'
+  businessCategory?: string
+  target: { type: 'venue'; id: string }
+  accountSlot: 'PRIMARY' | 'SECONDARY' | 'TERTIARY'
+  additionalTerminalIds?: string[]
+  costStructureOverrides?: BlumonRateOverride
+  venuePricing?: BlumonPricingOverride
+  settlementConfig?: {
+    debitDays: number
+    creditDays: number
+    amexDays: number
+    internationalDays: number
+  }
+}
+
+export async function fullSetupBlumon(payload: BlumonFullSetupPayload): Promise<MerchantAccount> {
+  const { data } = await api.post<{ data: RawMerchant }>(
+    '/superadmin/merchant-accounts/blumon/full-setup',
+    payload,
+  )
+  return mapMerchant(data.data)
+}
+
+export async function fetchVenueOptions(): Promise<VenueOption[]> {
+  const { data } = await api.get<{ data: Array<{ id: string; name: string; slug: string }> }>(
+    '/dashboard/superadmin/venues',
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((v) => ({ id: v.id, name: v.name, slug: v.slug }))
+}
+
 /* --- Holidays + settlement save (F3) --- */
 
 export async function fetchHolidays(year: number, country = 'MX'): Promise<Set<string>> {

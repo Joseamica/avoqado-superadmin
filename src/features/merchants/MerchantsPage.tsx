@@ -115,7 +115,12 @@ export function MerchantsPage() {
             Cuentas de pago por proveedor — costos, liquidación y a qué venues sirven.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)}>+ Alta manual</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => navigate('/merchants/new')}>
+            + Alta guiada (Blumon)
+          </Button>
+          <Button onClick={() => setCreating(true)}>+ Alta manual</Button>
+        </div>
       </header>
 
       {query.isError && (
