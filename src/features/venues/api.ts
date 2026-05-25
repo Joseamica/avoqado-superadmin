@@ -301,3 +301,100 @@ export async function fetchVenueDetail(venueId: string): Promise<Venue | null> {
     throw error
   }
 }
+
+/* ─── VenuePaymentConfig (F4) — namespace /superadmin/* ─── */
+
+export type PreferredProcessor = 'AUTO' | 'LEGACY' | 'MENTA' | 'CLIP' | 'BANK_DIRECT'
+
+export interface VenuePaymentConfig {
+  primaryAccountId: string
+  secondaryAccountId: string | null
+  tertiaryAccountId: string | null
+  preferredProcessor: PreferredProcessor
+  routingRules: unknown
+}
+
+export interface MerchantAccountOption {
+  id: string
+  label: string
+  providerCode: string
+  providerName: string
+  environment: string | null
+}
+
+export async function fetchVenuePaymentConfig(venueId: string): Promise<VenuePaymentConfig | null> {
+  try {
+    const { data } = await api.get<{ data: Record<string, unknown> | null }>(
+      `/superadmin/venue-pricing/config/${encodeURIComponent(venueId)}`,
+    )
+    const c = data?.data
+    if (!c) return null
+    return {
+      primaryAccountId: String(c.primaryAccountId ?? ''),
+      secondaryAccountId: (c.secondaryAccountId as string | null) ?? null,
+      tertiaryAccountId: (c.tertiaryAccountId as string | null) ?? null,
+      preferredProcessor: (c.preferredProcessor as PreferredProcessor) ?? 'AUTO',
+      routingRules: c.routingRules ?? null,
+    }
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) return null
+    throw error
+  }
+}
+
+export interface SaveVenuePaymentConfigInput {
+  primaryAccountId: string
+  secondaryAccountId: string | null
+  tertiaryAccountId: string | null
+  preferredProcessor: PreferredProcessor
+  routingRules?: unknown
+}
+
+export async function saveVenuePaymentConfig(
+  venueId: string,
+  exists: boolean,
+  input: SaveVenuePaymentConfigInput,
+): Promise<void> {
+  if (exists) {
+    await api.put(`/superadmin/venue-pricing/config/${encodeURIComponent(venueId)}`, input)
+  } else {
+    await api.post('/superadmin/venue-pricing/config', { venueId, ...input })
+  }
+}
+
+export async function fetchMerchantAccountOptions(): Promise<MerchantAccountOption[]> {
+  const { data } = await api.get<{
+    data: Array<{
+      id: string
+      displayName: string | null
+      alias: string | null
+      externalMerchantId: string
+      blumonEnvironment: string | null
+      provider: { code: string; name: string }
+    }>
+  }>('/superadmin/merchant-accounts', { params: { active: true } })
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((m) => ({
+    id: m.id,
+    label: m.displayName || m.alias || m.externalMerchantId,
+    providerCode: m.provider?.code ?? '',
+    providerName: m.provider?.name ?? '—',
+    environment: m.blumonEnvironment ?? null,
+  }))
+}
+
+/** Brands de terminales ACTIVOS del venue (hint de compatibilidad). Best-effort. */
+export async function fetchVenueTerminalBrands(venueId: string): Promise<string[]> {
+  try {
+    const { data } = await api.get<{ data: Array<{ brand: string | null; status: string }> }>(
+      '/superadmin/terminals',
+      { params: { venueId } },
+    )
+    const rows = Array.isArray(data?.data) ? data.data : []
+    return rows
+      .filter((t) => t.status === 'ACTIVE' && t.brand)
+      .map((t) => (t.brand as string).toUpperCase())
+  } catch {
+    return []
+  }
+}

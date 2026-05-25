@@ -3,11 +3,16 @@ import {
   approveVenueAfterCreate,
   createVenueWizard,
   fetchFeatures,
+  fetchMerchantAccountOptions,
   fetchOrganizations,
   fetchVenueDetail,
+  fetchVenuePaymentConfig,
+  fetchVenueTerminalBrands,
   fetchVenues,
+  saveVenuePaymentConfig,
   type CreateVenuePayload,
   type FetchVenuesParams,
+  type SaveVenuePaymentConfigInput,
 } from './api'
 import type { Venue } from './types'
 
@@ -94,6 +99,44 @@ export function useVenueDetail(venueId: string | undefined) {
         if (hit) return hit
       }
       return undefined
+    },
+  })
+}
+
+export function useVenuePaymentConfig(venueId: string | undefined) {
+  return useQuery({
+    queryKey: ['superadmin', 'venues', 'payment-config', venueId ?? null],
+    queryFn: () => fetchVenuePaymentConfig(venueId as string),
+    enabled: !!venueId,
+    staleTime: 15_000,
+  })
+}
+
+export function useMerchantAccountOptions() {
+  return useQuery({
+    queryKey: ['superadmin', 'merchant-account-options'],
+    queryFn: fetchMerchantAccountOptions,
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useVenueTerminalBrands(venueId: string | undefined) {
+  return useQuery({
+    queryKey: ['superadmin', 'venues', 'terminal-brands', venueId ?? null],
+    queryFn: () => fetchVenueTerminalBrands(venueId as string),
+    enabled: !!venueId,
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveVenuePaymentConfig(venueId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { exists: boolean; input: SaveVenuePaymentConfigInput }) =>
+      saveVenuePaymentConfig(venueId, vars.exists, vars.input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['superadmin', 'venues', 'payment-config', venueId] })
+      qc.invalidateQueries({ queryKey: VENUES_QUERY_KEY })
     },
   })
 }

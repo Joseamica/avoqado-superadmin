@@ -30,6 +30,11 @@ const VenueResourcePlaceholder = lazy(() =>
     default: m.VenueResourcePlaceholder,
   })),
 )
+const VenuePaymentConfigPage = lazy(() =>
+  import('@/features/venues/VenuePaymentConfigPage').then((m) => ({
+    default: m.VenuePaymentConfigPage,
+  })),
+)
 const TerminalsPage = lazy(() =>
   import('@/features/terminals/TerminalsPage').then((m) => ({ default: m.TerminalsPage })),
 )
@@ -93,10 +98,7 @@ export function AppRoutes() {
             path="/venues/:venueId/terminals/new"
             element={<VenueResourcePlaceholder resource="terminal" />}
           />
-          <Route
-            path="/venues/:venueId/merchant"
-            element={<VenueResourcePlaceholder resource="merchant" />}
-          />
+          <Route path="/venues/:venueId/merchant" element={<VenuePaymentConfigPage />} />
           <Route
             path="/venues/:venueId/pricing"
             element={<VenueResourcePlaceholder resource="pricing" />}
