@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   X,
   Store,
-  Smartphone,
+  Wallet,
   CreditCard,
   Layers,
   Landmark,
@@ -17,33 +17,45 @@ import { Button } from '@/shared/ui/Button'
 import { IconButton } from '@/shared/ui/IconButton'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { SetupCard, type SetupCardState } from './SetupCard'
-import { useVenueOptions, useFullSetupBlumon } from './use-merchants'
+import { useVenueOptions, useFullSetupAngelPay, useAngelPayAccounts } from './use-merchants'
 import {
   VenueDrawer,
-  HardwareDrawer,
+  CuentaDrawer,
   MerchantDrawer,
   SlotDrawer,
   SettlementDrawer,
-} from './BlumonSetupDrawers'
+} from './AngelPaySetupDrawers'
 import { RatesDrawer } from './SetupDrawerKit'
-import { INITIAL_DRAFT, type BlumonDraft, buildBlumonPayload } from './blumon-setup'
+import { INITIAL_ANGELPAY_DRAFT, type AngelPayDraft, buildAngelPayPayload } from './angelpay-setup'
 
-type CardKey = 'venue' | 'hardware' | 'merchant' | 'slot' | 'cost' | 'pricing' | 'settlement'
+type CardKey = 'venue' | 'cuenta' | 'merchant' | 'slot' | 'cost' | 'pricing' | 'settlement'
 
-export function BlumonSetupPanel() {
+export function AngelPaySetupPanel() {
   const navigate = useNavigate()
   const venuesQ = useVenueOptions()
-  const submit = useFullSetupBlumon()
-  const [draft, setDraft] = useState<BlumonDraft>(INITIAL_DRAFT)
+  const submit = useFullSetupAngelPay()
+  const [draft, setDraft] = useState<AngelPayDraft>(INITIAL_ANGELPAY_DRAFT)
   const [openCard, setOpenCard] = useState<CardKey | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const patch = (p: Partial<BlumonDraft>) => setDraft((d) => ({ ...d, ...p }))
+  const patch = (p: Partial<AngelPayDraft>) => setDraft((d) => ({ ...d, ...p }))
+
+  const accountsQ = useAngelPayAccounts(draft.venueId ?? undefined)
 
   const venueDone = !!draft.venueId
-  const hardwareDone = !!(draft.serialNumber && draft.brand && draft.model)
-  const merchantDone = !!draft.displayName
-  const requiredDone = [venueDone, hardwareDone, merchantDone, true].filter(Boolean).length
-  const canSubmit = venueDone && hardwareDone && merchantDone
+  const cuentaDone =
+    draft.loginMode === 'existing'
+      ? !!draft.angelpayUserAccountId
+      : !!draft.email && draft.pin.length === 6
+  const merchantDone = !!(
+    draft.externalMerchantId &&
+    draft.merchantName &&
+    draft.affiliation &&
+    draft.displayName
+  )
+  const slotValid = draft.slotMode !== 'replace' || !!draft.replacedAccountId
+
+  const requiredDone = [venueDone, cuentaDone, merchantDone, slotValid].filter(Boolean).length
+  const canSubmit = venueDone && cuentaDone && merchantDone && slotValid
 
   function st(done: boolean, locked: boolean, optional = false): SetupCardState {
     if (locked) return 'locked'
@@ -52,9 +64,9 @@ export function BlumonSetupPanel() {
 
   function handleSubmit() {
     setError(null)
-    submit.mutate(buildBlumonPayload(draft), {
+    submit.mutate(buildAngelPayPayload(draft), {
       onSuccess: (m) => {
-        toast.success('Merchant Blumon creado')
+        toast.success('Merchant AngelPay creado')
         navigate(`/merchants/${m.id}`)
       },
       onError: (err) => {
@@ -66,6 +78,8 @@ export function BlumonSetupPanel() {
   }
 
   const venues = venuesQ.data ?? []
+  const accounts = accountsQ.data ?? []
+  const s = draft.settlement
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--canvas)]">
@@ -74,14 +88,14 @@ export function BlumonSetupPanel() {
           <X className="h-4 w-4" aria-hidden />
         </IconButton>
         <h1 className="font-display text-[16px] font-semibold text-[var(--ink)]">
-          Nuevo merchant Blumon
+          Nuevo merchant AngelPay
         </h1>
         <div className="flex items-center gap-3">
           <span className="text-[12px] tabular-nums text-[var(--ink-muted)]">
             {requiredDone} de 4 obligatorios
           </span>
           <Button size="sm" disabled={!canSubmit || submit.isPending} onClick={handleSubmit}>
-            {submit.isPending ? 'Creando…' : 'Crear merchant'}
+            {submit.isPending ? 'Activando…' : 'Activar merchant'}
           </Button>
         </div>
       </header>
@@ -102,39 +116,50 @@ export function BlumonSetupPanel() {
             onClick={() => setOpenCard('venue')}
           />
           <SetupCard
-            icon={Smartphone}
-            title="Terminal Blumon"
+            icon={Wallet}
+            title="Cuenta AngelPay"
             description={
-              hardwareDone
-                ? `${draft.brand} ${draft.model} · ${draft.serialNumber}`
-                : 'Serial + hardware (auto-fetch de credenciales)'
+              cuentaDone
+                ? draft.loginMode === 'existing'
+                  ? (accounts.find((a) => a.id === draft.angelpayUserAccountId)?.email ??
+                    'Login del adquirente')
+                  : draft.email || 'Login del adquirente'
+                : 'Login del adquirente'
             }
-            state={st(hardwareDone, false)}
-            doneLabel={hardwareDone ? draft.serialNumber : undefined}
-            onClick={() => setOpenCard('hardware')}
+            state={st(cuentaDone, !venueDone)}
+            lockedReason="Selecciona el venue primero"
+            doneLabel={
+              cuentaDone
+                ? draft.loginMode === 'existing'
+                  ? (accounts.find((a) => a.id === draft.angelpayUserAccountId)?.email ??
+                    'Cuenta existente')
+                  : draft.email
+                : undefined
+            }
+            onClick={() => setOpenCard('cuenta')}
           />
           <SetupCard
             icon={CreditCard}
             title="Merchant"
-            description={merchantDone ? draft.displayName : 'Nombre de la cuenta a crear'}
-            state={st(merchantDone, !hardwareDone)}
-            lockedReason="Configura el terminal primero"
+            description={merchantDone ? draft.displayName : 'Nombre del merchant a crear'}
+            state={st(merchantDone, !cuentaDone)}
+            lockedReason="Configura la cuenta primero"
             doneLabel={merchantDone ? draft.displayName : undefined}
             onClick={() => setOpenCard('merchant')}
           />
           <SetupCard
             icon={Layers}
             title="Slot"
-            description={`Slot de ruteo · ${draft.accountSlot}`}
-            state={st(true, !venueDone)}
+            description={`Slot de ruteo · ${draft.accountType}`}
+            state={st(!venueDone ? false : slotValid, !venueDone)}
             lockedReason="Selecciona el venue primero"
-            doneLabel={draft.accountSlot}
+            doneLabel={slotValid ? draft.accountType : undefined}
             onClick={() => setOpenCard('slot')}
           />
           <SetupCard
             icon={Landmark}
             title="Costo del procesador"
-            description={draft.cost ? 'Configurado' : 'Opcional — lo que Blumon nos cobra'}
+            description={draft.cost ? 'Configurado' : 'Opcional — lo que AngelPay nos cobra'}
             state={st(!!draft.cost, !merchantDone, true)}
             lockedReason="Configura el merchant primero"
             optional
@@ -154,7 +179,7 @@ export function BlumonSetupPanel() {
           <SetupCard
             icon={CalendarClock}
             title="Liquidación"
-            description={`T+${draft.settlement.DEBIT}/${draft.settlement.CREDIT}/${draft.settlement.AMEX}/${draft.settlement.INTERNATIONAL} · días hábiles`}
+            description={`T+${s.DEBIT}/${s.CREDIT}/${s.AMEX}/${s.INTERNATIONAL} · días hábiles`}
             state="done"
             doneLabel="Listo"
             onClick={() => setOpenCard('settlement')}
@@ -187,8 +212,14 @@ export function BlumonSetupPanel() {
           onSave={patch}
         />
       )}
-      {openCard === 'hardware' && (
-        <HardwareDrawer open onOpenChange={() => setOpenCard(null)} draft={draft} onSave={patch} />
+      {openCard === 'cuenta' && (
+        <CuentaDrawer
+          open
+          onOpenChange={() => setOpenCard(null)}
+          draft={draft}
+          accounts={accounts}
+          onSave={patch}
+        />
       )}
       {openCard === 'merchant' && (
         <MerchantDrawer open onOpenChange={() => setOpenCard(null)} draft={draft} onSave={patch} />
@@ -223,7 +254,7 @@ export function BlumonSetupPanel() {
           open
           onOpenChange={() => setOpenCard(null)}
           draft={draft}
-          onSave={(s) => patch({ settlement: s })}
+          onSave={(p) => patch(p)}
         />
       )}
     </div>

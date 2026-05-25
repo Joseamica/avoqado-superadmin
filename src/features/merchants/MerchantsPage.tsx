@@ -119,6 +119,9 @@ export function MerchantsPage() {
           <Button variant="secondary" onClick={() => navigate('/merchants/new')}>
             + Alta guiada (Blumon)
           </Button>
+          <Button variant="secondary" onClick={() => navigate('/merchants/new-angelpay')}>
+            + Alta guiada (AngelPay)
+          </Button>
           <Button onClick={() => setCreating(true)}>+ Alta manual</Button>
         </div>
       </header>

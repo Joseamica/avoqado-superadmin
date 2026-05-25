@@ -3,6 +3,7 @@ import {
   createMerchant,
   deleteMerchant,
   fetchActiveCost,
+  fetchAngelPayAccounts,
   fetchHolidays,
   fetchMerchant,
   fetchMerchants,
@@ -11,6 +12,7 @@ import {
   fetchSettlements,
   fetchVenueConfigs,
   fetchVenueOptions,
+  fullSetupAngelPay,
   fullSetupBlumon,
   saveCost,
   saveRevenueShare,
@@ -18,6 +20,7 @@ import {
   saveVenuePricing,
   toggleMerchant,
   updateMerchant,
+  type AngelPayFullSetupPayload,
   type BlumonFullSetupPayload,
   type CreateMerchantInput,
   type FetchMerchantsParams,
@@ -247,6 +250,23 @@ export function useFullSetupBlumon() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: BlumonFullSetupPayload) => fullSetupBlumon(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+export function useAngelPayAccounts(venueId: string | undefined) {
+  return useQuery({
+    queryKey: ['superadmin', 'angelpay-accounts', venueId ?? null],
+    queryFn: () => fetchAngelPayAccounts(venueId as string),
+    enabled: !!venueId,
+    staleTime: 60_000,
+  })
+}
+
+export function useFullSetupAngelPay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: AngelPayFullSetupPayload) => fullSetupAngelPay(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }

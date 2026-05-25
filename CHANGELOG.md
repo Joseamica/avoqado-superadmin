@@ -11,6 +11,7 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- **Merchant accounts (F5·B):** panel de alta guiada AngelPay en `/merchants/new-angelpay` (login existente/nuevo + merchant + slot fill/replace → un POST a `full-setup-angelpay`); `CardDrawer`/`RatesDrawer` extraídos a `SetupDrawerKit` (reusados por ambos paneles); `logAction` en el full-setup AngelPay.
 - **Merchant accounts (F5·A):** panel de alta guiada Blumon en `/merchants/new` (cards de estado con gating + progreso "X de 4 obligatorios" → un POST a `blumon/full-setup` con auto-fetch de credenciales); `logAction` en el full-setup.
 - **Merchant accounts (F4):** pantalla venue-céntrica `/venues/:id/merchant` para asignar cuentas a los slots primary/secondary/tertiary del venue + preferredProcessor (con hint de compatibilidad de hardware Blumon→PAX / AngelPay→NexGo); `logAction` en venuePaymentConfig.
 - **Merchant accounts (F3):** edición de liquidación (días D+N por tarjeta + tipo hábiles/naturales + corte) desde `/merchants/:id` con estimado de fecha de depósito (excluye fines de semana + feriados de `date.nager.at`, cacheados en `HolidayCalendar` vía el nuevo endpoint `GET /superadmin/holidays`); `logAction` server-side en settlement-configurations.

@@ -52,6 +52,11 @@ const MerchantsPage = lazy(() =>
 const BlumonSetupPanel = lazy(() =>
   import('@/features/merchants/BlumonSetupPanel').then((m) => ({ default: m.BlumonSetupPanel })),
 )
+const AngelPaySetupPanel = lazy(() =>
+  import('@/features/merchants/AngelPaySetupPanel').then((m) => ({
+    default: m.AngelPaySetupPanel,
+  })),
+)
 const MerchantDetailPage = lazy(() =>
   import('@/features/merchants/MerchantDetailPage').then((m) => ({
     default: m.MerchantDetailPage,
@@ -113,6 +118,7 @@ export function AppRoutes() {
           <Route path="/merchants" element={<MerchantsPage />} />
           {/* `/new` ANTES de `:id` para que "new" no se capture como ID. */}
           <Route path="/merchants/new" element={<BlumonSetupPanel />} />
+          <Route path="/merchants/new-angelpay" element={<AngelPaySetupPanel />} />
           <Route path="/merchants/:id" element={<MerchantDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />

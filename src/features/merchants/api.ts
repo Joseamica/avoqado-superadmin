@@ -485,6 +485,86 @@ export async function fetchVenueOptions(): Promise<VenueOption[]> {
   return data.data.map((v) => ({ id: v.id, name: v.name, slug: v.slug }))
 }
 
+/* ─── AngelPay full-setup (F5·B) ─── */
+
+export interface AngelPayAccountOption {
+  id: string
+  email: string
+  status: string
+  environment: string
+}
+
+interface AngelPayRatePayload {
+  debitRate: number
+  creditRate: number
+  amexRate: number
+  internationalRate: number
+  includesTax: boolean
+  taxRate: number
+  effectiveFrom: string
+}
+
+export interface AngelPayFullSetupPayload {
+  venueId: string
+  aggregatorId?: string
+  login:
+    | { mode: 'existing'; angelpayUserAccountId: string }
+    | { mode: 'new'; email: string; pin: string; environment: 'QA' | 'PROD' }
+  merchant:
+    | {
+        mode: 'create'
+        externalMerchantId: string
+        name: string
+        affiliation: string
+        displayName: string
+      }
+    | { mode: 'existing'; merchantAccountId: string }
+  slot: {
+    accountType: 'PRIMARY' | 'SECONDARY' | 'TERTIARY'
+    mode: 'fill' | 'replace'
+    replacedAccountId?: string
+  }
+  terminalIds?: string[]
+  cost?: AngelPayRatePayload
+  pricing?: AngelPayRatePayload
+  settlement?: {
+    settlementDays: number
+    settlementDaysByCard?: {
+      DEBIT?: number
+      CREDIT?: number
+      AMEX?: number
+      INTERNATIONAL?: number
+    }
+    settlementDayType: 'BUSINESS_DAYS' | 'CALENDAR_DAYS'
+    cutoffTime: string
+    cutoffTimezone: string
+    effectiveFrom: string
+  }
+}
+
+export async function fullSetupAngelPay(
+  payload: AngelPayFullSetupPayload,
+): Promise<MerchantAccount> {
+  const { data } = await api.post<{ data: RawMerchant }>(
+    '/superadmin/merchant-accounts/full-setup-angelpay',
+    payload,
+  )
+  return mapMerchant(data.data)
+}
+
+export async function fetchAngelPayAccounts(venueId: string): Promise<AngelPayAccountOption[]> {
+  const { data } = await api.get<{
+    data: Array<{ id: string; email: string; status: string; environment: string }>
+  }>(`/superadmin/venues/${encodeURIComponent(venueId)}/angelpay-accounts`)
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((a) => ({
+    id: a.id,
+    email: a.email,
+    status: a.status,
+    environment: a.environment,
+  }))
+}
+
 /* --- Holidays + settlement save (F3) --- */
 
 export async function fetchHolidays(year: number, country = 'MX'): Promise<Set<string>> {
