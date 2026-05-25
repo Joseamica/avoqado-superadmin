@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { screen, waitFor } from '@testing-library/react'
@@ -165,5 +165,34 @@ describe('VenuesPage', () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText(/Buscar por nombre/i)).toBeInTheDocument(),
     )
+  })
+
+  it('abre el dialog de exportar CSV y descarga (invoca todos los accessors)', async () => {
+    // Mockeamos createObjectURL para que jsdom no tire — el ExportDialog
+    // genera un blob y descarga el archivo cuando se hace click en "Descargar".
+    const createObjectURLMock = vi.fn(() => 'blob:mock')
+    const revokeObjectURLMock = vi.fn()
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURLMock,
+    })
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectURLMock,
+    })
+
+    const user = userEvent.setup()
+    renderVenuesPage()
+    await waitFor(() => expect(screen.getByText('Restaurante Pez Volador')).toBeInTheDocument())
+    const exportBtn = screen.getByRole('button', { name: /Exportar CSV/i })
+    await user.click(exportBtn)
+    // El dialog muestra los headers de las columnas exportables
+    await waitFor(() => expect(screen.getByText('Email org')).toBeInTheDocument())
+    expect(screen.getByText('Volumen mes (MXN)')).toBeInTheDocument()
+
+    // Click en Descargar — esto invoca todas las accessor funcs del config
+    const downloadBtn = screen.getByRole('button', { name: 'Descargar' })
+    await user.click(downloadBtn)
+    expect(createObjectURLMock).toHaveBeenCalled()
   })
 })
