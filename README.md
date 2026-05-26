@@ -65,7 +65,7 @@ cp .env.example .env
 
 nvm use         # Node 22 (vía .nvmrc)
 npm install
-npm run dev     # http://localhost:5173 (o el puerto libre que vite encuentre)
+npm run dev     # http://localhost:5177 (configurado en `vite.config.ts`)
 ```
 
 ## Scripts

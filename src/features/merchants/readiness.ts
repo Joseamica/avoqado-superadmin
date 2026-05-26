@@ -58,6 +58,6 @@ export function computeReadiness(
       extras.hasSettlement !== undefined,
     ),
     chip('slots', 'Slots', m.counts.venueConfigs > 0, 'No está asignada a ningún venue.'),
-    chip('terminals', 'Terminales', m.counts.terminals > 0, 'Sin terminales asignadas.'),
+    chip('terminals', 'Terminales', m.counts.terminals > 0, 'Ninguna terminal lo procesa todavía.'),
   ]
 }

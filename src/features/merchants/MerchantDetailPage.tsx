@@ -235,7 +235,9 @@ export function MerchantDetailPage() {
 
       <Section title={`Terminales (${m.terminals.length})`}>
         {m.terminals.length === 0 ? (
-          <Empty>Sin terminales asignadas.</Empty>
+          <Empty>
+            Ninguna terminal lo procesa todavía (ni asignada ni heredada del slot del venue).
+          </Empty>
         ) : (
           <ul className="flex flex-col gap-1.5 text-[13px]">
             {m.terminals.map((t) => (

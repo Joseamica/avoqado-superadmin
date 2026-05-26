@@ -42,6 +42,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
   - **Success card post-create con código de activación**: si se pidió código, en vez de navegar directo a `/terminals`, se muestra una pantalla focused con el código 6-char en monospace 44px, expiración formateada, botón copiar, y CTA "Ir a la lista de terminals". Esto fuerza al operador a copiar el código antes de moverse — la pantalla no es un toast efímero, es un milestone.
   - Pre-fill desde el icono de Setup en `/venues`: si llega `?venueId=X`, el dropdown queda fijo y el back-link va al venue (no a `/terminals`).
 
+### Fixed
+
+- **El detalle del merchant mostraba "Terminales (0)" + chip de readiness rojo para merchants ruteados de forma normal.** El conteo contaba sólo asignaciones explícitas (`Terminal.assignedMerchantIds`), pero el routing real del TPV también incluye **herencia por slot**: una terminal con `assignedMerchantIds` vacío sirve a todos los merchants slotteados de su venue. Ahora el conteo (detalle + chip + la lista en `/merchants`) es **inheritance-aware** = terminales explícitas ∪ heredadas por slot del venue. Fix en `avoqado-server` (`merchantAccount.service.ts`, helper `resolveEffectiveTerminals` + test, aditivo, deploy-first); el frontend ya leía `terminals`/`_count.terminals`. Empty-state actualizado ("Ninguna terminal lo procesa todavía…").
+
 ### Changed
 
 - **README en sync con la estructura real + nueva sección «Páginas».** La sección «Estructura» pasó de un árbol pre-feature-based (`components/` · `pages/` · `services/`, ya inexistentes) al layout real (`app/` ← `features/` ← `shared/`). Se agregó una tabla «Páginas» que lista las rutas top-level con su feature, incluidas las de Merchant Accounts (`/merchants`, `/merchants/:id`, `/merchants/new`, `/merchants/new-angelpay`, `/venues/:id/merchant`). También se corrigió la fila de fuentes (listaba dos pero decía «tres»: Inter contenido · Geist shell · Geist Mono datos).
