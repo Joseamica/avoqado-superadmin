@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import {
   DateRangePicker,
@@ -41,10 +41,17 @@ export function EarningsDetailPage() {
   const summaryQ = useEarningsSummary(queryParams)
   const seriesQ = useEarningsTimeSeries(queryParams, granularity)
 
+  // The name is passed via navigation state from the breakdown row link, so it
+  // survives an empty date range (when the aggregated data has no rows to read
+  // it from). Falls back to the aggregated data, then a generic label.
+  const location = useLocation()
+  const passedName = (location.state as { name?: string } | null)?.name
   const name =
-    scope === 'venue'
-      ? (summaryQ.data?.byVenue[0]?.venueName ?? 'Negocio')
-      : (summaryQ.data?.byMerchant[0]?.label ?? 'Merchant')
+    passedName ??
+    (scope === 'venue'
+      ? summaryQ.data?.byVenue[0]?.venueName
+      : summaryQ.data?.byMerchant[0]?.label) ??
+    (scope === 'venue' ? 'Negocio' : 'Merchant')
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">

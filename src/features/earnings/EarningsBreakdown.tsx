@@ -33,7 +33,12 @@ const actionMeta = { headerClassName: 'w-[44px]', cellClassName: 'text-right' } 
 
 /** Row action: arrow link to an entity's detail page (mirrors MerchantsPage). */
 const detailLink = (to: string, label: string) => (
-  <Link to={to} className={iconButtonVariants({ size: 'sm' })} aria-label={`Abrir ${label}`}>
+  <Link
+    to={to}
+    state={{ name: label }}
+    className={iconButtonVariants({ size: 'sm' })}
+    aria-label={`Abrir ${label}`}
+  >
     <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
   </Link>
 )
@@ -279,6 +284,7 @@ export function EarningsBreakdown({
             key={t.key}
             size="sm"
             variant={t.key === tab ? 'secondary' : 'ghost'}
+            aria-pressed={t.key === tab}
             onClick={() => setTab(t.key)}
           >
             {t.label}

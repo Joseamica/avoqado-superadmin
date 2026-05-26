@@ -40,7 +40,15 @@ export function EarningsTrend({
           No hubo transacciones en este rango. Prueba ampliar las fechas.
         </p>
       ) : (
-        <div className="h-[220px]">
+        <div
+          className="h-[220px]"
+          role="img"
+          aria-label={`Tendencia de ganancia neta: ${formatMoney(
+            data.reduce((sum, p) => sum + p.net, 0),
+          )} en ${data.length} ${
+            granularity === 'daily' ? 'días' : granularity === 'weekly' ? 'semanas' : 'meses'
+          }`}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
               <XAxis
