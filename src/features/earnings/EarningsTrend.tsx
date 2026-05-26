@@ -67,7 +67,7 @@ export function EarningsTrend({
               />
               <Area
                 type="monotone"
-                dataKey="profit"
+                dataKey="net"
                 stroke="var(--ink)"
                 fill="var(--canvas-raised)"
                 strokeWidth={1.5}

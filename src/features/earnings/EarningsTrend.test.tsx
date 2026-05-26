@@ -14,8 +14,8 @@ beforeAll(() => {
 })
 
 const data = [
-  { date: '2026-05-01', terminalProfit: 100, onlineFees: 10, profit: 110 },
-  { date: '2026-05-02', terminalProfit: 200, onlineFees: 0, profit: 200 },
+  { date: '2026-05-01', terminalNet: 100, onlineFees: 10, net: 110 },
+  { date: '2026-05-02', terminalNet: 200, onlineFees: 0, net: 200 },
 ]
 
 describe('EarningsTrend', () => {

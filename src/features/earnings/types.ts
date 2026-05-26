@@ -1,7 +1,10 @@
 export interface EarningsTotals {
-  grossProfit: number
-  terminalProfit: number
+  netProfit: number
+  terminalNet: number
   onlineFees: number
+  tramoProvider: number
+  tramoAggregator: number
+  aggregatorKept: number
   volume: number
   transactions: number
   averageMargin: number
@@ -9,8 +12,8 @@ export interface EarningsTotals {
 export interface VenueEarnings {
   venueId: string
   venueName: string
-  profit: number
-  terminalProfit: number
+  netProfit: number
+  terminalNet: number
   onlineFees: number
   volume: number
   transactions: number
@@ -19,7 +22,10 @@ export interface MerchantEarnings {
   merchantAccountId: string
   label: string
   providerCode: string
-  profit: number
+  hasAggregator: boolean
+  netProfit: number
+  tramoProvider: number
+  tramoAggregator: number
   volume: number
   transactions: number
 }
@@ -28,15 +34,14 @@ export interface ProviderEarnings {
   providerCode: string
   providerName: string
   volume: number
-  cost: number
+  netProfit: number
   transactions: number
 }
 export interface CardTypeEarnings {
   type: string
   transactions: number
   volume: number
-  profit: number
-  margin: number
+  netProfit: number
 }
 export interface ChannelEarnings {
   ecommerceMerchantId: string
@@ -57,8 +62,8 @@ export interface EarningsSummary {
 }
 export interface EarningsTimePoint {
   date: string
-  terminalProfit: number
+  terminalNet: number
   onlineFees: number
-  profit: number
+  net: number
 }
 export type Granularity = 'daily' | 'weekly' | 'monthly'

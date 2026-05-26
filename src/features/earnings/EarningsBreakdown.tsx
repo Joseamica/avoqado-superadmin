@@ -23,7 +23,6 @@ const TABS: { key: TabKey; label: string }[] = [
 ]
 
 const intFmt = new Intl.NumberFormat('es-MX')
-const pct = (n: number) => `${(n * 100).toFixed(2)}%`
 const right = { headerClassName: 'text-right', cellClassName: 'text-right' } as const
 const money = (v: number) => <span className="tabular-nums">{formatMoney(v)}</span>
 const count = (v: number) => <span className="tabular-nums">{intFmt.format(v)}</span>
@@ -47,10 +46,10 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         meta: right,
       },
       {
-        id: 'profit',
-        header: 'Ganancia',
-        accessorFn: (r) => r.profit,
-        cell: ({ row }) => money(row.original.profit),
+        id: 'netProfit',
+        header: 'Ganancia neta',
+        accessorFn: (r) => r.netProfit,
+        cell: ({ row }) => money(row.original.netProfit),
         meta: right,
       },
       {
@@ -89,10 +88,24 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         meta: right,
       },
       {
-        id: 'profit',
-        header: 'Ganancia',
-        accessorFn: (r) => r.profit,
-        cell: ({ row }) => money(row.original.profit),
+        id: 'tramoProvider',
+        header: 'Prov→agg',
+        accessorFn: (r) => r.tramoProvider,
+        cell: ({ row }) => money(row.original.tramoProvider),
+        meta: right,
+      },
+      {
+        id: 'tramoAggregator',
+        header: 'Agg→venue',
+        accessorFn: (r) => r.tramoAggregator,
+        cell: ({ row }) => money(row.original.tramoAggregator),
+        meta: right,
+      },
+      {
+        id: 'netProfit',
+        header: 'Neto',
+        accessorFn: (r) => r.netProfit,
+        cell: ({ row }) => money(row.original.netProfit),
         meta: right,
       },
       {
@@ -121,10 +134,10 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         meta: right,
       },
       {
-        id: 'cost',
-        header: 'Costo',
-        accessorFn: (r) => r.cost,
-        cell: ({ row }) => money(row.original.cost),
+        id: 'netProfit',
+        header: 'Ganancia neta',
+        accessorFn: (r) => r.netProfit,
+        cell: ({ row }) => money(row.original.netProfit),
         meta: right,
       },
       {
@@ -157,17 +170,17 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         meta: right,
       },
       {
-        id: 'profit',
-        header: 'Ganancia',
-        accessorFn: (r) => r.profit,
-        cell: ({ row }) => money(row.original.profit),
+        id: 'netProfit',
+        header: 'Ganancia neta',
+        accessorFn: (r) => r.netProfit,
+        cell: ({ row }) => money(row.original.netProfit),
         meta: right,
       },
       {
-        id: 'margin',
-        header: 'Margen',
-        accessorFn: (r) => r.margin,
-        cell: ({ row }) => <span className="tabular-nums">{pct(row.original.margin)}</span>,
+        id: 'transactions',
+        header: 'Txns',
+        accessorFn: (r) => r.transactions,
+        cell: ({ row }) => count(row.original.transactions),
         meta: right,
       },
     ],
@@ -236,24 +249,20 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
           data={summary.byVenue}
           columns={venueColumns}
           searchPlaceholder="Buscar negocio…"
-          initialSorting={[{ id: 'profit', desc: true }]}
+          initialSorting={[{ id: 'netProfit', desc: true }]}
           emptyState={{
             title: 'Sin ganancias por negocio',
             description: 'No hubo transacciones en este rango.',
           }}
-          caption="Ganancias por negocio"
+          caption="Ganancias netas por negocio"
           exportable={{
             filename: 'ganancias-negocio',
             columns: [
               { key: 'venueName', header: 'Negocio', accessor: (r) => r.venueName },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
-              {
-                key: 'terminalProfit',
-                header: 'Ganancia terminal',
-                accessor: (r) => r.terminalProfit,
-              },
+              { key: 'terminalNet', header: 'Neto terminales', accessor: (r) => r.terminalNet },
               { key: 'onlineFees', header: 'Comisión online', accessor: (r) => r.onlineFees },
-              { key: 'profit', header: 'Ganancia total', accessor: (r) => r.profit },
+              { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -264,19 +273,25 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
           data={summary.byMerchant}
           columns={merchantColumns}
           searchPlaceholder="Buscar merchant…"
-          initialSorting={[{ id: 'profit', desc: true }]}
+          initialSorting={[{ id: 'netProfit', desc: true }]}
           emptyState={{
             title: 'Sin ganancias por merchant',
             description: 'No hubo transacciones en este rango.',
           }}
-          caption="Ganancias por merchant account"
+          caption="Ganancias netas por merchant account (con los dos tramos)"
           exportable={{
             filename: 'ganancias-merchant',
             columns: [
               { key: 'label', header: 'Merchant', accessor: (r) => r.label },
               { key: 'providerCode', header: 'Proveedor', accessor: (r) => r.providerCode },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
-              { key: 'profit', header: 'Ganancia', accessor: (r) => r.profit },
+              { key: 'tramoProvider', header: 'Margen prov→agg', accessor: (r) => r.tramoProvider },
+              {
+                key: 'tramoAggregator',
+                header: 'Margen agg→venue',
+                accessor: (r) => r.tramoAggregator,
+              },
+              { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -287,17 +302,19 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
           data={summary.byProvider}
           columns={providerColumns}
           searchPlaceholder="Buscar proveedor…"
+          initialSorting={[{ id: 'netProfit', desc: true }]}
           emptyState={{
             title: 'Sin datos por proveedor',
             description: 'No hubo transacciones en este rango.',
           }}
-          caption="Volumen por proveedor"
+          caption="Ganancia neta por proveedor"
           exportable={{
             filename: 'ganancias-proveedor',
             columns: [
               { key: 'providerName', header: 'Proveedor', accessor: (r) => r.providerName },
+              { key: 'providerCode', header: 'Código', accessor: (r) => r.providerCode },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
-              { key: 'cost', header: 'Costo', accessor: (r) => r.cost },
+              { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -311,14 +328,14 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             title: 'Sin datos por tarjeta',
             description: 'No hubo transacciones en este rango.',
           }}
-          caption="Ganancias por tipo de tarjeta"
+          caption="Ganancia neta por tipo de tarjeta"
           exportable={{
             filename: 'ganancias-tarjeta',
             columns: [
               { key: 'type', header: 'Tipo', accessor: (r) => r.type },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
-              { key: 'profit', header: 'Ganancia', accessor: (r) => r.profit },
-              { key: 'margin', header: 'Margen', accessor: (r) => r.margin },
+              { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
+              { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
         />

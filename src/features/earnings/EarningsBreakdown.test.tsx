@@ -6,9 +6,12 @@ import type { EarningsSummary } from './types'
 const summary: EarningsSummary = {
   range: { startDate: '2026-05-01T00:00:00.000Z', endDate: '2026-05-31T00:00:00.000Z' },
   totals: {
-    grossProfit: 0,
-    terminalProfit: 0,
+    netProfit: 0,
+    terminalNet: 0,
     onlineFees: 0,
+    tramoProvider: 0,
+    tramoAggregator: 0,
+    aggregatorKept: 0,
     volume: 0,
     transactions: 0,
     averageMargin: 0,
@@ -17,8 +20,8 @@ const summary: EarningsSummary = {
     {
       venueId: 'v1',
       venueName: 'Amaena',
-      profit: 36400,
-      terminalProfit: 36000,
+      netProfit: 36400,
+      terminalNet: 36000,
       onlineFees: 400,
       volume: 1200000,
       transactions: 5120,
@@ -29,7 +32,10 @@ const summary: EarningsSummary = {
       merchantAccountId: 'm1',
       label: 'Cuenta Principal',
       providerCode: 'MENTA',
-      profit: 100,
+      hasAggregator: true,
+      netProfit: 100,
+      tramoProvider: 80,
+      tramoAggregator: 20,
       volume: 1000,
       transactions: 10,
     },
@@ -40,11 +46,11 @@ const summary: EarningsSummary = {
       providerCode: 'MENTA',
       providerName: 'Menta',
       volume: 1000,
-      cost: 30,
+      netProfit: 30,
       transactions: 10,
     },
   ],
-  byCardType: [{ type: 'CREDIT', transactions: 10, volume: 1000, profit: 30, margin: 0.03 }],
+  byCardType: [{ type: 'CREDIT', transactions: 10, volume: 1000, netProfit: 30 }],
   byChannel: [
     {
       ecommerceMerchantId: 'e1',
@@ -63,5 +69,13 @@ describe('EarningsBreakdown', () => {
     expect(screen.getByText('Amaena')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Canal online' }))
     expect(screen.getByText('Amaena online')).toBeInTheDocument()
+  })
+
+  it('shows the two tramos in the merchant tab', () => {
+    render(<EarningsBreakdown summary={summary} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Merchant' }))
+    expect(screen.getByText('Prov→agg')).toBeInTheDocument()
+    expect(screen.getByText('Agg→venue')).toBeInTheDocument()
+    expect(screen.getByText('Cuenta Principal')).toBeInTheDocument()
   })
 })

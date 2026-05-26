@@ -29,23 +29,36 @@ export function EarningsKpis({ totals }: { totals: EarningsTotals }) {
   return (
     <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
       <Kpi
-        label="Ganancia bruta"
-        hint="Lo que se le cobra al negocio menos lo que paga el proveedor. Si hay un agregador de por medio, su comisión aún no se descuenta aquí."
-        value={formatMoney(totals.grossProfit)}
+        label="Ganancia neta (Avoqado)"
+        hint="Lo que realmente se queda Avoqado tras repartir cada margen con el proveedor y el agregador (ambos tramos). No es el spread bruto."
+        value={formatMoney(totals.netProfit)}
         sub={
           <>
-            Terminales {formatMoney(totals.terminalProfit)} · En línea{' '}
-            {formatMoney(totals.onlineFees)}
+            Terminales {formatMoney(totals.terminalNet)} · En línea {formatMoney(totals.onlineFees)}
           </>
         }
       />
-      <Kpi label="Volumen procesado" value={formatMoney(totals.volume)} />
       <Kpi
-        label="Margen promedio"
-        value={`${(totals.averageMargin * 100).toFixed(2)}%`}
-        sub="Sólo terminales"
+        label="Las 2 vías (terminales)"
+        hint="Cómo se compone la ganancia de terminales: lo que Avoqado toma del margen proveedor→agregador, más lo del margen agregador→venue."
+        value={formatMoney(totals.terminalNet)}
+        sub={
+          <>
+            Prov→agg {formatMoney(totals.tramoProvider)} · Agg→venue{' '}
+            {formatMoney(totals.tramoAggregator)}
+          </>
+        }
       />
-      <Kpi label="Transacciones" value={intFmt.format(totals.transactions)} />
+      <Kpi
+        label="Volumen procesado"
+        value={formatMoney(totals.volume)}
+        sub={`${intFmt.format(totals.transactions)} transacciones`}
+      />
+      <Kpi
+        label="Tasa efectiva"
+        value={`${(totals.averageMargin * 100).toFixed(2)}%`}
+        sub="Neto / volumen (terminales)"
+      />
     </div>
   )
 }

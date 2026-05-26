@@ -4,21 +4,25 @@ import { EarningsKpis } from './EarningsKpis'
 import type { EarningsTotals } from './types'
 
 const totals: EarningsTotals = {
-  grossProfit: 128450.2,
-  terminalProfit: 119800,
-  onlineFees: 8650.2,
-  volume: 4200000,
-  transactions: 18204,
-  averageMargin: 0.0306,
+  netProfit: 33.94,
+  terminalNet: 33.94,
+  onlineFees: 0,
+  tramoProvider: 834.52,
+  tramoAggregator: -800.58,
+  aggregatorKept: 0,
+  volume: 109474.3,
+  transactions: 254,
+  averageMargin: 0.0003,
 }
 
 describe('EarningsKpis', () => {
-  it('shows total profit and the terminal/online split', () => {
+  it('shows net profit (not the gross spread) and the two tramos', () => {
     render(<EarningsKpis totals={totals} />)
-    expect(screen.getByText('$128,450.20')).toBeInTheDocument()
-    expect(screen.getByText(/Terminales/)).toBeInTheDocument()
-    expect(screen.getByText(/En línea/)).toBeInTheDocument()
-    expect(screen.getByText('3.06%')).toBeInTheDocument()
-    expect(screen.getByText('18,204')).toBeInTheDocument()
+    expect(screen.getByText('Ganancia neta (Avoqado)')).toBeInTheDocument()
+    expect(screen.getAllByText('$33.94').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText(/Prov→agg/)).toBeInTheDocument()
+    expect(screen.getByText(/\$834\.52/)).toBeInTheDocument()
+    expect(screen.getByText(/-\$800\.58/)).toBeInTheDocument()
+    expect(screen.getByText('254 transacciones')).toBeInTheDocument()
   })
 })
