@@ -4,21 +4,21 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 
 ## Stack
 
-| Capa              | Librería                                                                 |
-| ----------------- | ------------------------------------------------------------------------ |
-| **Build / UI**    | Vite 7 + React 18 + TypeScript 5                                         |
-| **Estilos**       | Tailwind v4 + tokens OKLCH + tres fuentes variables (Geist · Geist Mono) |
-| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/shared/ui/`)               |
-| **Routing**       | React Router v6 con `lazy()` + `<Suspense>` por ruta                     |
-| **Server state**  | TanStack Query 5 + devtools                                              |
-| **Tablas**        | TanStack Table 8                                                         |
-| **Forms**         | react-hook-form + zod + @hookform/resolvers                              |
-| **HTTP**          | axios (cookies HTTP-only, no headers de bearer)                          |
-| **Fechas / TZ**   | luxon, helper único en `src/shared/lib/datetime.ts`                      |
-| **Charts**        | recharts                                                                 |
-| **Toasts**        | sonner                                                                   |
-| **Iconos**        | lucide-react                                                             |
-| **Realtime**      | socket.io-client (lazy-cableado cuando se necesite)                      |
+| Capa              | Librería                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| **Build / UI**    | Vite 7 + React 18 + TypeScript 5                                                                       |
+| **Estilos**       | Tailwind v4 + tokens OKLCH + tres fuentes variables (Inter contenido · Geist shell · Geist Mono datos) |
+| **UI primitives** | shadcn-compatible (Radix) + handcrafted (`src/shared/ui/`)                                             |
+| **Routing**       | React Router v6 con `lazy()` + `<Suspense>` por ruta                                                   |
+| **Server state**  | TanStack Query 5 + devtools                                                                            |
+| **Tablas**        | TanStack Table 8                                                                                       |
+| **Forms**         | react-hook-form + zod + @hookform/resolvers                                                            |
+| **HTTP**          | axios (cookies HTTP-only, no headers de bearer)                                                        |
+| **Fechas / TZ**   | luxon, helper único en `src/shared/lib/datetime.ts`                                                    |
+| **Charts**        | recharts                                                                                               |
+| **Toasts**        | sonner                                                                                                 |
+| **Iconos**        | lucide-react                                                                                           |
+| **Realtime**      | socket.io-client (lazy-cableado cuando se necesite)                                                    |
 
 ## Testing
 
@@ -135,23 +135,48 @@ Auth interno: cookies HTTP-only emitidas por `POST /api/v1/dashboard/auth/login`
 
 Nada se infiere del browser. La decisión es explícita en cada uso.
 
+## Páginas
+
+Toda ruta es `lazy()` + `<Suspense>` (code-splitting por ruta) y vive en [`src/app/router.tsx`](src/app/router.tsx). Salvo `/login`, todas pasan por `ProtectedRoute` (gate SUPERADMIN).
+
+| Ruta                                                        | Página                                                                              | Feature        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
+| `/login`                                                    | Login (email + password / Google)                                                   | `auth`         |
+| `/dashboard`                                                | Resumen operativo                                                                   | `dashboard`    |
+| `/activity-log`                                             | Bitácora de acciones (ActivityLog)                                                  | `activity-log` |
+| `/system-logs`                                              | Stream de logs de Render                                                            | `system-logs`  |
+| `/venues` · `/venues/new` · `/venues/:id`                   | Listado, alta y detalle de venues                                                   | `venues`       |
+| `/venues/:id/{owner,kyc,pricing,terminals/new}`             | Sub-páginas de un venue                                                             | `venues`       |
+| `/venues/:id/merchant`                                      | Asignación de merchants a slots (primary/secondary/tertiary) + procesador preferido | `venues`       |
+| `/terminals` · `/terminals/new` · `/terminals/:id/settings` | TPVs: listado, alta, ajustes                                                        | `terminals`    |
+| `/merchants` · `/merchants/:id`                             | Registro de merchant accounts + detalle (economía, liquidación, readiness)          | `merchants`    |
+| `/merchants/new`                                            | Alta guiada **Blumon** (panel de cards → un POST a `blumon/full-setup`)             | `merchants`    |
+| `/merchants/new-angelpay`                                   | Alta guiada **AngelPay** (panel de cards → un POST a `full-setup-angelpay`)         | `merchants`    |
+
 ## Estructura
+
+Feature-based: `shared/` ← `features/` ← `app/` (flujo unidireccional; `shared/` nunca importa de `features/`). Máximo 3 niveles bajo `src/`.
 
 ```
 src/
-├── components/
-│   ├── layouts/        # AppLayout con sidebar + Brandmark
-│   ├── ui/             # Button, Badge, Kbd, Field (handcrafted) + shadcn cuando aplique
-│   ├── Brandmark.tsx
-│   ├── CommandPalette.tsx + provider (⌘K)
-│   ├── ErrorBoundary.tsx
-│   └── RouteLoader.tsx
-├── context/            # AuthContext (TanStack Query + cookies)
-├── hooks/              # custom hooks (vacío hoy, se llena por feature)
-├── lib/                # api.ts (axios), datetime.ts (luxon), utils.ts (cn)
-├── pages/              # rutas top-level (lazy() en el router)
-├── router/             # AppRoutes + ProtectedRoute (superadmin gate)
-├── services/           # auth.service.ts y futuros (venues, kyc, etc.)
+├── app/                # Wiring de la app (sólo al boot)
+│                       #   main.tsx · App.tsx · router.tsx (rutas lazy) · ProtectedRoute · index.css
+├── features/           # Módulos de dominio, self-contained (api + hooks + páginas colocados)
+│   ├── auth/           # api + use-auth + AuthProvider + LoginPage
+│   ├── dashboard/      # /dashboard
+│   ├── activity-log/   # /activity-log
+│   ├── system-logs/    # /system-logs (stream de Render)
+│   ├── venues/         # /venues (+ alta, detalle, owner, kyc, pricing, config de pagos)
+│   ├── terminals/      # /terminals (+ alta, settings) — TPVs
+│   ├── merchants/      # /merchants (registro + economía + liquidación + alta guiada Blumon/AngelPay)
+│   └── realtime/       # socket.io + use-realtime-invalidation
+├── shared/             # Reusables cross-feature
+│   ├── ui/             # Button, IconButton, Badge, Combobox, Drawer, Dialog… (primitives)
+│   ├── components/     # Brandmark, CommandPalette, ErrorBoundary, QueryError, RouteLoader…
+│   ├── data-table/     # DataTable + ExportDialog
+│   ├── filters/        # FilterPill + MultiSelectFilterContent
+│   ├── layouts/        # AppLayout (sidebar + MobileTopBar)
+│   └── lib/            # api (axios), datetime (luxon), csv, api-error, utils (cn)
 ├── test/               # setup.ts, mocks/handlers.ts, render.tsx
 └── types/              # tipos compartidos
 e2e/                    # Playwright specs
