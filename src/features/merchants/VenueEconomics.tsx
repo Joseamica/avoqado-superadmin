@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Calculator } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { IconButton } from '@/shared/ui/IconButton'
 import { EconomicsTable } from './EconomicsTable'
+import { MoneyFlowDiagram } from './MoneyFlowDiagram'
+import { LiquidationCalculatorDialog } from './LiquidationCalculatorDialog'
 import { computeMerchantEconomics } from './economics'
 import { useVenuePricings } from './use-merchants'
 import { cardRatesFromCost, effectiveCardRates, rawCardRates } from './types'
@@ -70,6 +75,7 @@ function VenueEconomicsCard({
   pricing: VenuePricingStructure | null
   loading: boolean
 }) {
+  const [calcOpen, setCalcOpen] = useState(false)
   const economics =
     pricing && cost
       ? computeMerchantEconomics({
@@ -110,9 +116,21 @@ function VenueEconomicsCard({
             {config.slot}
           </Badge>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => onEditPricing(config)}>
-          Editar pricing
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {economics && (
+            <IconButton
+              size="sm"
+              aria-label={`Calculadora de liquidación de ${config.venue.name}`}
+              title="Calculadora de liquidación"
+              onClick={() => setCalcOpen(true)}
+            >
+              <Calculator className="h-3.5 w-3.5" aria-hidden />
+            </IconButton>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => onEditPricing(config)}>
+            Editar pricing
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -127,8 +145,30 @@ function VenueEconomicsCard({
           ver el margen.
         </p>
       ) : economics ? (
-        <EconomicsTable economics={economics} />
+        <div className="flex flex-col gap-3">
+          <EconomicsTable economics={economics} />
+          <MoneyFlowDiagram
+            economics={economics}
+            shares={
+              revenueShare
+                ? {
+                    provider: revenueShare.avoqadoShareOfProviderMargin,
+                    aggregator: revenueShare.avoqadoShareOfAggregatorMargin,
+                  }
+                : undefined
+            }
+          />
+        </div>
       ) : null}
+
+      {economics && (
+        <LiquidationCalculatorDialog
+          open={calcOpen}
+          onOpenChange={setCalcOpen}
+          venueName={config.venue.name}
+          economics={economics}
+        />
+      )}
     </div>
   )
 }

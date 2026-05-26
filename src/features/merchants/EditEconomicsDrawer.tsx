@@ -13,6 +13,7 @@ import { Button } from '@/shared/ui/Button'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { CardRatesInput } from './CardRatesInput'
 import { MarginPreview } from './MarginPreview'
+import { MoneyFlowDiagram } from './MoneyFlowDiagram'
 import { computeMerchantEconomics } from './economics'
 import { useSaveCost, useSaveRevenueShare } from './use-merchants'
 import type { CardRates, MerchantRevenueShare, ProviderCostStructure } from './types'
@@ -225,6 +226,13 @@ export function EditEconomicsDrawer({
               </section>
 
               <MarginPreview economics={economics} />
+              <MoneyFlowDiagram
+                economics={economics}
+                shares={{
+                  provider: shareProvider,
+                  aggregator: mode === 'aggregator' ? shareAgg : null,
+                }}
+              />
               {error && (
                 <p className="text-[13px] text-[var(--danger)]" role="alert">
                   {error}
