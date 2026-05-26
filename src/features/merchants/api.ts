@@ -352,6 +352,8 @@ export async function saveCost(
 
 export interface SaveRevenueShareInput {
   aggregatorPrice: CardRates | null
+  /** ¿El precio al agregador ya incluye IVA? `false` = base, el cálculo le suma IVA. */
+  aggregatorPriceIncludesTax: boolean
   avoqadoShareOfProviderMargin: number
   avoqadoShareOfAggregatorMargin: number | null
   taxRate: number
@@ -364,7 +366,7 @@ export async function saveRevenueShare(
 ): Promise<void> {
   const body = {
     aggregatorPrice: input.aggregatorPrice,
-    aggregatorPriceIncludesTax: false,
+    aggregatorPriceIncludesTax: input.aggregatorPriceIncludesTax,
     avoqadoShareOfProviderMargin: input.avoqadoShareOfProviderMargin,
     avoqadoShareOfAggregatorMargin: input.avoqadoShareOfAggregatorMargin,
     taxRate: input.taxRate,

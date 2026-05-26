@@ -81,7 +81,13 @@ function VenueEconomicsCard({
           ),
           revenueShare: revenueShare
             ? {
-                aggregatorPrice: revenueShare.aggregatorPrice,
+                aggregatorPrice: revenueShare.aggregatorPrice
+                  ? effectiveCardRates(
+                      revenueShare.aggregatorPrice,
+                      revenueShare.aggregatorPriceIncludesTax,
+                      revenueShare.taxRate,
+                    )
+                  : null,
                 avoqadoShareOfProviderMargin: revenueShare.avoqadoShareOfProviderMargin,
                 avoqadoShareOfAggregatorMargin: revenueShare.avoqadoShareOfAggregatorMargin,
                 taxRate: revenueShare.taxRate,

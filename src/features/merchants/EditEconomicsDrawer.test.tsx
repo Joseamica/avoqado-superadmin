@@ -119,6 +119,8 @@ describe('EditEconomicsDrawer', () => {
     fireEvent.click(screen.getByLabelText(/Vía agregador/))
     expect(screen.getByText(/antes del\s+markup del agregador/i)).toBeInTheDocument()
     expect(screen.getByText(/se queda Avoqado del markup del agregador/i)).toBeInTheDocument()
+    // El precio al agregador tiene su propio control de IVA (como el costo).
+    expect(screen.getByLabelText(/El precio al agregador ya incluye IVA/)).toBeInTheDocument()
   })
 
   it('pre-llena los inputs con los valores del cost existente', () => {

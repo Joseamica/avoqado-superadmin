@@ -8,9 +8,19 @@ const money = (n: number | null) =>
 
 /** Preview compacto del margen Avoqado por tarjeta. Lee el MerchantEconomics ya computado. */
 export function MarginPreview({ economics }: { economics: MerchantEconomics }) {
+  // A nivel merchant con agregador sólo se puede calcular el tramo 1 (el tramo
+  // agregador→venue necesita el pricing de cada venue). Lo avisamos para que el
+  // % del agregador no parezca ignorado.
+  const aggregatorMerchantLevel =
+    economics.mode === 'aggregator' && economics.byCard.DEBIT.avoqadoMarginAggregator == null
+
   return (
     <div className="rounded-[8px] border border-[var(--line)] bg-[var(--canvas-sunken)] p-3">
-      <p className="mb-2 text-[12px] font-medium text-[var(--ink)]">Margen Avoqado (por $100)</p>
+      <p className="mb-2 text-[12px] font-medium text-[var(--ink)]">
+        {aggregatorMerchantLevel
+          ? 'Margen Avoqado · proveedor→agregador (por $100)'
+          : 'Margen Avoqado (por $100)'}
+      </p>
       {economics.mode === 'no-pricing' ? (
         <p className="text-[12px] text-[var(--ink-faint)]">
           Sin pricing — define el pricing por venue para ver el margen directo.
@@ -26,6 +36,12 @@ export function MarginPreview({ economics }: { economics: MerchantEconomics }) {
             </div>
           ))}
         </dl>
+      )}
+      {aggregatorMerchantLevel && (
+        <p className="mt-2 text-[12px] text-[var(--ink-faint)]">
+          Falta el tramo agregador→venue (tu % del agregador): depende del pricing de cada venue y
+          se calcula por venue, en la sección Venues.
+        </p>
       )}
     </div>
   )

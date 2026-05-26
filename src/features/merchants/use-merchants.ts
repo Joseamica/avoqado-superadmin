@@ -33,7 +33,7 @@ import {
   type SettlementRowInput,
   type UpdateMerchantInput,
 } from './api'
-import { cardRatesFromCost, type AccountSlot } from './types'
+import { cardRatesFromCost, effectiveCardRates, type AccountSlot } from './types'
 import { computeMerchantEconomics, type MerchantEconomics } from './economics'
 
 export const MERCHANTS_QUERY_KEY = ['superadmin', 'merchants'] as const
@@ -119,7 +119,14 @@ export function useMerchantEconomicsData(id: string | undefined) {
         venuePrice: null,
         revenueShare: revenueShare
           ? {
-              aggregatorPrice: revenueShare.aggregatorPrice,
+              // Efectivo (con IVA) para que las 3 capas (costo/agregador/venue) sean consistentes.
+              aggregatorPrice: revenueShare.aggregatorPrice
+                ? effectiveCardRates(
+                    revenueShare.aggregatorPrice,
+                    revenueShare.aggregatorPriceIncludesTax,
+                    revenueShare.taxRate,
+                  )
+                : null,
               avoqadoShareOfProviderMargin: revenueShare.avoqadoShareOfProviderMargin,
               avoqadoShareOfAggregatorMargin: revenueShare.avoqadoShareOfAggregatorMargin,
               taxRate: revenueShare.taxRate,

@@ -47,6 +47,9 @@ export function EditEconomicsDrawer({
     revenueShare?.aggregatorPrice ? 'aggregator' : 'direct',
   )
   const [aggPrice, setAggPrice] = useState<CardRates>(revenueShare?.aggregatorPrice ?? ZERO)
+  const [aggIncludesTax, setAggIncludesTax] = useState<boolean>(
+    revenueShare?.aggregatorPriceIncludesTax ?? true,
+  )
   const [shareProvider, setShareProvider] = useState<number>(
     revenueShare?.avoqadoShareOfProviderMargin ?? 0.5,
   )
@@ -64,7 +67,12 @@ export function EditEconomicsDrawer({
     revenueShare:
       mode === 'aggregator'
         ? {
-            aggregatorPrice: aggPrice,
+            // El precio al agregador entra a la preview en efectivo (con IVA), igual que el costo.
+            aggregatorPrice: effectiveCardRates(
+              aggPrice,
+              aggIncludesTax,
+              revenueShare?.taxRate ?? 0.16,
+            ),
             avoqadoShareOfProviderMargin: shareProvider,
             avoqadoShareOfAggregatorMargin: shareAgg,
             taxRate: revenueShare?.taxRate ?? 0.16,
@@ -96,6 +104,7 @@ export function EditEconomicsDrawer({
         existingId: revenueShare?.id ?? null,
         input: {
           aggregatorPrice: mode === 'aggregator' ? aggPrice : null,
+          aggregatorPriceIncludesTax: aggIncludesTax,
           avoqadoShareOfProviderMargin: shareProvider,
           avoqadoShareOfAggregatorMargin: mode === 'aggregator' ? shareAgg : null,
           taxRate: revenueShare?.taxRate ?? 0.16,
@@ -166,6 +175,14 @@ export function EditEconomicsDrawer({
                   <div className="mb-3">
                     <span className={labelCls}>Precio al agregador</span>
                     <CardRatesInput value={aggPrice} onChange={setAggPrice} idPrefix="agg" />
+                    <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={aggIncludesTax}
+                        onChange={(e) => setAggIncludesTax(e.target.checked)}
+                      />
+                      El precio al agregador ya incluye IVA
+                    </label>
                     <p className="mt-1.5 text-[12px] text-[var(--ink-faint)]">
                       Tu precio directo: costo + tu primer margen, hasta donde llega antes del
                       markup del agregador. No es lo que el agregador le cobra al venue — eso es el

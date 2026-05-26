@@ -25,4 +25,20 @@ describe('MarginPreview', () => {
     render(<MarginPreview economics={eco} />)
     expect(screen.getByText(/define el pricing/i)).toBeInTheDocument()
   })
+
+  it('en agregador a nivel merchant avisa que falta el tramo agregador→venue', () => {
+    const eco = computeMerchantEconomics({
+      cost: { DEBIT: 0.015, CREDIT: 0.025, AMEX: 0.035, INTERNATIONAL: 0.04 },
+      venuePrice: null, // nivel merchant → sin pricing de venue
+      revenueShare: {
+        aggregatorPrice: { DEBIT: 0.02, CREDIT: 0.03, AMEX: 0.04, INTERNATIONAL: 0.045 },
+        avoqadoShareOfProviderMargin: 0.5,
+        avoqadoShareOfAggregatorMargin: 1,
+        taxRate: 0.16,
+      },
+    })
+    render(<MarginPreview economics={eco} />)
+    expect(screen.getByText(/proveedor→agregador/)).toBeInTheDocument()
+    expect(screen.getByText(/Falta el tramo agregador→venue/)).toBeInTheDocument()
+  })
 })
