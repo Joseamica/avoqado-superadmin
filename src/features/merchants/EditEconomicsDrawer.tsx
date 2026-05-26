@@ -166,6 +166,11 @@ export function EditEconomicsDrawer({
                   <div className="mb-3">
                     <span className={labelCls}>Precio al agregador</span>
                     <CardRatesInput value={aggPrice} onChange={setAggPrice} idPrefix="agg" />
+                    <p className="mt-1.5 text-[12px] text-[var(--ink-faint)]">
+                      Tu precio directo: costo + tu primer margen, hasta donde llega antes del
+                      markup del agregador. No es lo que el agregador le cobra al venue — eso es el
+                      pricing de cada venue menos este precio, y se desglosa por venue.
+                    </p>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-4">
@@ -193,6 +198,10 @@ export function EditEconomicsDrawer({
                         value={String(Math.round(shareAgg * 10000) / 100)}
                         onChange={(e) => setShareAgg((parseFloat(e.target.value) || 0) / 100)}
                       />
+                      <p className="mt-1.5 max-w-[16rem] text-[12px] text-[var(--ink-faint)]">
+                        % que se queda Avoqado del markup del agregador (pricing del venue − precio
+                        a agregador).
+                      </p>
                     </div>
                   )}
                 </div>

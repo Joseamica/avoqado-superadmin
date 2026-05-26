@@ -47,6 +47,17 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
           {(!isAggregator || hasVenueCharge) && (
             <Row label="Paga el venue" pick={(e) => e.venueChargeAmount} economics={economics} />
           )}
+          {hasAggregatorSplit && (
+            <Row
+              label="Cobra el agregador"
+              pick={(e) =>
+                e.venueChargeAmount != null && e.aggregatorPriceAmount != null
+                  ? e.venueChargeAmount - e.aggregatorPriceAmount
+                  : null
+              }
+              economics={economics}
+            />
+          )}
           {hasAggregatorSplit ? (
             <>
               <Row

@@ -105,6 +105,22 @@ describe('EditEconomicsDrawer', () => {
     expect(screen.getByText('Cancelar')).toBeInTheDocument()
   })
 
+  it('en modo agregador aclara qué es el "Precio al agregador"', () => {
+    renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={cost}
+        revenueShare={revenueShare}
+        onOpenChange={() => {}}
+      />,
+    )
+    // Arranca en "Directa" (aggregatorPrice null) → cambiar a "Vía agregador".
+    fireEvent.click(screen.getByLabelText(/Vía agregador/))
+    expect(screen.getByText(/antes del\s+markup del agregador/i)).toBeInTheDocument()
+    expect(screen.getByText(/se queda Avoqado del markup del agregador/i)).toBeInTheDocument()
+  })
+
   it('pre-llena los inputs con los valores del cost existente', () => {
     renderWithProviders(
       <EditEconomicsDrawer

@@ -47,6 +47,7 @@ describe('EconomicsTable', () => {
     render(<EconomicsTable economics={eco} />)
     expect(screen.getByText('Precio a agregador')).toBeInTheDocument()
     expect(screen.getByText('Paga el venue')).toBeInTheDocument()
+    expect(screen.getByText('Cobra el agregador')).toBeInTheDocument()
     expect(screen.getByText('Margen Avoqado (proveedor)')).toBeInTheDocument()
     expect(screen.getByText('Margen Avoqado (agregador)')).toBeInTheDocument()
     expect(screen.getByText('Margen Avoqado total')).toBeInTheDocument()
