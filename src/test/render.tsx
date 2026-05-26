@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement, ReactNode } from 'react'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { TooltipProvider } from '@/shared/ui/Tooltip'
 
 interface ProvidersProps {
   children: ReactNode
@@ -28,7 +29,9 @@ export function AllProviders({ children, initialEntries = ['/'] }: ProvidersProp
   return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries}>
-        <AuthProvider>{children}</AuthProvider>
+        <TooltipProvider delayDuration={0}>
+          <AuthProvider>{children}</AuthProvider>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>
   )

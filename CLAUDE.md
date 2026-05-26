@@ -18,6 +18,15 @@ This app is the **superadmin frontend** for the Avoqado platform. It calls **`av
 
 - **Endpoints nuevos** → nacen directo en `/superadmin/*`, nunca en `/dashboard/superadmin/*`.
 - **Endpoints ya double-mounted** (mismo router en ambos paths — ej. `terminals`, `payment-providers`, `payment-analytics`): el front usa **siempre** la variante `/superadmin/*`, nunca la `/dashboard/*`.
+  **Cómo construir un endpoint nuevo (referencia → reusar o copiar):**
+
+1. **Siempre lee primero la implementación legacy como referencia.** El comportamiento correcto ya está ahí — no lo inventes ni lo adivines; replícalo.
+2. **Crea una ruta nueva** bajo `/superadmin/*` (nunca llames la legacy).
+3. **Reusa tal cual** el service/util/helper compartido que el legacy ya usa (impórtalo) cuando el comportamiento debe ser **idéntico** — no dupliques lógica que ya vive en un módulo reusable (ej. `paymentAnalyticsService`, helpers de Prisma).
+4. **Copia (forkea a una función nueva)** sólo cuando: (a) la lógica vive _inline_ dentro del controller legacy (no está extraída a un service reusable), o (b) el nuevo app necesita comportamiento **distinto** al legacy.
+
+**Regla de oro:** reusar un service compartido **sin modificarlo** = seguro (no tocas al legacy). Si necesitas **cambiar** esa lógica compartida → **forkea primero** (función nueva), porque modificar el service compartido rompería al legacy.
+
 - **Por qué (decoupling):** el objetivo es que el dashboard legacy pueda cambiar o morir sin tocar este app, y viceversa. Un endpoint `/superadmin/*` independiente evoluciona libre; uno compartido te ata a la disciplina aditiva del legacy para siempre.
 
 > **Deuda conocida (2026-05-26):** `venues`, `features`, `ecommerce-merchants` y los TPV `command`/`settings` aún se consumen vía `/dashboard/*`. `terminals` y `app-updates` ya están double-mounted (sólo falta cambiar el string del path en el front). Migrar todo a `/superadmin/*` es trabajo pendiente trackeado; **no agregar más usos de `/dashboard/superadmin/*` mientras tanto.**

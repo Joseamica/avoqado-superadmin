@@ -3,6 +3,14 @@ import {
   extractRequestSource,
   formatLogForClipboard,
   formatLogsForClipboard,
+  humanizeLevel,
+  humanizeRequestSource,
+  humanizeType,
+  LEVEL_TONE,
+  parseLogMessage,
+  prettyJson,
+  stripAnsi,
+  summarizeMessage,
   type SystemLogEntry,
 } from './types'
 
@@ -117,5 +125,189 @@ describe('formatLogsForClipboard', () => {
     expect(lines[0]).toContain('14:30:05')
     expect(lines[0]).toContain('14:30:10')
     expect(lines).toHaveLength(3) // header + 2 log lines
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Pure helpers — cada función se testea para ganar cobertura global  */
+/* ------------------------------------------------------------------ */
+
+describe('stripAnsi', () => {
+  it('limpia secuencias de color ANSI', () => {
+    expect(stripAnsi('\x1b[31merror\x1b[0m')).toBe('error')
+  })
+
+  it('no altera texto sin escape codes', () => {
+    expect(stripAnsi('plain text')).toBe('plain text')
+  })
+})
+
+describe('humanizeLevel', () => {
+  it.each([
+    ['info', 'Info'],
+    ['warning', 'Advertencia'],
+    ['error', 'Error'],
+  ] as const)('mapea %s → %s', (level, expected) => {
+    expect(humanizeLevel(level)).toBe(expected)
+  })
+
+  it('devuelve em-dash para null', () => {
+    expect(humanizeLevel(null)).toBe('—')
+  })
+})
+
+describe('humanizeType', () => {
+  it.each([
+    ['app', 'App'],
+    ['request', 'Request'],
+    ['build', 'Build'],
+    ['deploy', 'Deploy'],
+  ] as const)('mapea %s → %s', (type, expected) => {
+    expect(humanizeType(type)).toBe(expected)
+  })
+
+  it('devuelve em-dash para null', () => {
+    expect(humanizeType(null)).toBe('—')
+  })
+})
+
+describe('humanizeRequestSource', () => {
+  it.each([
+    ['tpv', 'TPV'],
+    ['mobile-pos', 'POS móvil'],
+    ['dashboard', 'Dashboard'],
+    ['superadmin', 'Superadmin'],
+    ['consumer', 'Consumer'],
+    ['webhook', 'Webhooks'],
+    ['sdk', 'SDK'],
+    ['sync', 'POS-Sync'],
+    ['health', 'Salud'],
+    ['other', 'Otros'],
+  ] as const)('mapea %s → %s', (source, expected) => {
+    expect(humanizeRequestSource(source)).toBe(expected)
+  })
+})
+
+describe('LEVEL_TONE', () => {
+  it('mapea niveles a tonos del design system', () => {
+    expect(LEVEL_TONE.info).toBe('info')
+    expect(LEVEL_TONE.warning).toBe('warn')
+    expect(LEVEL_TONE.error).toBe('danger')
+  })
+})
+
+describe('parseLogMessage', () => {
+  it('extrae JSON trailing', () => {
+    const result = parseLogMessage('DB Error {"code":"P2002","meta":{}}')
+    expect(result.summary).toBe('DB Error')
+    expect(result.json).toEqual({ code: 'P2002', meta: {} })
+  })
+
+  it('detecta línea completa JSON', () => {
+    const result = parseLogMessage('{"message":"hello"}')
+    expect(result.summary).toBe('(payload JSON — expande para ver)')
+    expect(result.json).toEqual({ message: 'hello' })
+  })
+
+  it('devuelve null json cuando no hay JSON', () => {
+    const result = parseLogMessage('Simple log')
+    expect(result.json).toBeNull()
+    expect(result.summary).toBe('Simple log')
+  })
+
+  it('primera línea como summary en multiline', () => {
+    const result = parseLogMessage('Error at line 1\nStack trace\nat foo.js:3')
+    expect(result.summary).toBe('Error at line 1')
+    expect(result.fullMessage).toContain('Stack trace')
+  })
+
+  it('ignora llaves no-JSON', () => {
+    const result = parseLogMessage('function() { return 42; }')
+    // No debería parsear como JSON
+    expect(result.json).toBeNull()
+  })
+})
+
+describe('prettyJson', () => {
+  it('formatea objeto', () => {
+    expect(prettyJson({ a: 1 })).toBe('{\n  "a": 1\n}')
+  })
+
+  it('maneja circulares', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    const result = prettyJson(circular)
+    expect(typeof result).toBe('string')
+  })
+})
+
+describe('summarizeMessage', () => {
+  it('resume HTTP request line', () => {
+    const result = summarizeMessage('Request End: POST /api/v1/tpv/payments - 201 [45.2ms]')
+    expect(result).toContain('POST')
+    expect(result).toContain('201')
+    expect(result).toContain('45 ms')
+  })
+
+  it('detecta timeout', () => {
+    const result = summarizeMessage('error: timeout of 30000ms exceeded')
+    expect(result).toContain('30000 ms')
+    expect(result).toContain('timeout')
+  })
+
+  it('detecta errores de red comunes', () => {
+    expect(summarizeMessage('connect ECONNREFUSED 127.0.0.1')).toContain('rechazó la conexión')
+    expect(summarizeMessage('read ECONNRESET')).toContain('se cortó')
+    expect(summarizeMessage('connect ETIMEDOUT')).toContain('expiró')
+    expect(summarizeMessage('getaddrinfo ENOTFOUND host.io')).toContain('DNS')
+  })
+
+  it('resume JSON con campo message', () => {
+    const json = JSON.stringify({ message: 'Payment failed', orderId: '123' })
+    const result = summarizeMessage(json)
+    expect(result).toContain('Payment failed')
+  })
+
+  it('resume JSON con muchos campos', () => {
+    const json = JSON.stringify({ message: 'hi', a: 1, b: 2, c: 3, d: 4 })
+    const result = summarizeMessage(json)
+    expect(result).toContain('4 campos')
+  })
+
+  it('resume JSON sin campo message', () => {
+    const json = JSON.stringify({ foo: 'bar', baz: 42 })
+    const result = summarizeMessage(json)
+    expect(result).toContain('campo')
+  })
+
+  it('mantiene [TAG] prefix', () => {
+    const result = summarizeMessage('[scheduler] Cron completed')
+    expect(result).toContain('[scheduler]')
+  })
+
+  it('strip winston level prefix', () => {
+    const result = summarizeMessage('info: Server started')
+    expect(result).not.toMatch(/^info:/)
+    expect(result).toContain('Server started')
+  })
+
+  it('detecta Prisma error', () => {
+    const result = summarizeMessage(
+      'Invalid `prisma.venue.findMany()` invocation:\nInvalid value for argument `take`. Expected Int',
+    )
+    expect(result).toContain('Prisma')
+    expect(result).toContain('venue.findMany')
+  })
+
+  it('strip Unexpected Error prefix', () => {
+    const result = summarizeMessage('Unexpected Error: something went wrong')
+    expect(result).toContain('something went wrong')
+    expect(result).not.toMatch(/^Unexpected Error/)
+  })
+
+  it('detecta Render API error', () => {
+    const result = summarizeMessage('Render API 502: Bad gateway, CorrelationID: abc-123')
+    expect(result).toContain('Render API respondió 502')
+    expect(result).toContain('Bad gateway')
   })
 })
