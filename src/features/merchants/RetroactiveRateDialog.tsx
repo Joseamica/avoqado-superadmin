@@ -100,10 +100,17 @@ export function RetroactiveRateDialog({
   const preview = previewQ.data
   const rangeLabel = formatDateRangeLabel(range) ?? 'Todo el histórico'
 
+  // El backend rechaza scopes > 200 pagos (se procesa síncrono). Lo gateamos aquí
+  // para no dejar al operador pegarle a un error crudo en inglés: deshabilita el
+  // botón y muestra copy en español pidiendo acotar el periodo.
+  const MAX_SYNC_PAYMENTS = 200
+  const tooMany = !!preview && preview.inScopeCount > MAX_SYNC_PAYMENTS
+
   const canApply =
     confirmText.trim() === 'APLICAR' &&
     !!preview &&
     preview.inScopeCount > 0 &&
+    !tooMany &&
     preview.venuePricingAvailable &&
     (missingCostMode !== 'CREATE_COST' || preview.costStructureAvailable) &&
     !apply.isPending
@@ -201,6 +208,13 @@ export function RetroactiveRateDialog({
                   )}
                 </div>
               ) : null}
+
+              {tooMany && (
+                <p className="text-[12px] leading-snug text-[var(--danger)]">
+                  Demasiados pagos ({preview?.inScopeCount}). El máximo por corrección es{' '}
+                  {MAX_SYNC_PAYMENTS}. Acota el periodo con un rango de fechas más corto.
+                </p>
+              )}
 
               {/* Missing-cost choice — sólo cuando hay pagos sin detalle de costo */}
               {preview && preview.missingCostCount > 0 && (
