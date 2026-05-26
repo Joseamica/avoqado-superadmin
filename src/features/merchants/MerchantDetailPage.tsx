@@ -40,6 +40,7 @@ import {
 } from './types'
 import { EditVenuePricingDrawer } from './EditVenuePricingDrawer'
 import { EditSettlementDrawer } from './EditSettlementDrawer'
+import { RateCorrectionHistory } from './RateCorrectionHistory'
 
 export function MerchantDetailPage() {
   const navigate = useNavigate()
@@ -302,6 +303,10 @@ export function MerchantDetailPage() {
           </ul>
         )}
       </section>
+
+      <Section id="section-rate-corrections" title="Correcciones de tasa">
+        <RateCorrectionHistory merchantAccountId={m.id} venues={m.venues} />
+      </Section>
 
       <p className="text-[11.5px] text-[var(--ink-faint)]">
         Actualizada {formatDateTime(m.updatedAt)}

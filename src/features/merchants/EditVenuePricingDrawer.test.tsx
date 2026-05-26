@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { renderWithProviders } from '@/test/render'
 import { EditVenuePricingDrawer } from './EditVenuePricingDrawer'
 import type { ProviderCostStructure } from './types'
@@ -47,6 +47,8 @@ afterAll(() => server.close())
 
 describe('EditVenuePricingDrawer', () => {
   it('envía el body correcto al guardar pricing nuevo (POST)', async () => {
+    const onSaved = vi.fn()
+    const onOpenChange = vi.fn()
     renderWithProviders(
       <EditVenuePricingDrawer
         open
@@ -54,7 +56,8 @@ describe('EditVenuePricingDrawer', () => {
         venueName="Doña Simona"
         slot="PRIMARY"
         cost={cost}
-        onOpenChange={() => {}}
+        onSaved={onSaved}
+        onOpenChange={onOpenChange}
       />,
     )
 
@@ -65,9 +68,16 @@ describe('EditVenuePricingDrawer', () => {
     const debitInput = screen.getByLabelText('Débito (%)')
     fireEvent.change(debitInput, { target: { value: '3' } })
 
-    // Enviar el form
-    const submitBtn = screen.getByRole('button', { name: 'Guardar' })
-    fireEvent.click(submitBtn)
+    // Hacer click en el "Guardar" del drawer — abre el RetroactiveRateDialog
+    const drawerGuardar = screen.getByRole('button', { name: 'Guardar' })
+    fireEvent.click(drawerGuardar)
+
+    // El diálogo de confirmación debe aparecer
+    const dialog = await screen.findByRole('dialog')
+
+    // Hacer click en el "Guardar" dentro del diálogo (forward-only, retro OFF por default)
+    const dialogGuardar = within(dialog).getByRole('button', { name: 'Guardar' })
+    fireEvent.click(dialogGuardar)
 
     // Esperar a que se capture el body del POST
     await waitFor(() => {
@@ -79,6 +89,10 @@ describe('EditVenuePricingDrawer', () => {
     expect(capturedPostBody!.accountType).toBe('PRIMARY')
     expect(capturedPostBody!.venueId).toBe('v1')
     expect(typeof capturedPostBody!.effectiveFrom).toBe('string')
+
+    // onSaved y cierre del drawer se disparan tras éxito
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
   it('muestra el título con el nombre del venue', async () => {
@@ -162,8 +176,15 @@ describe('EditVenuePricingDrawer', () => {
         />,
       )
 
+      // Esperar a que cargue el pricing existente
       await screen.findByLabelText('Débito (%)')
+
+      // Paso 1: click en "Guardar" del drawer → abre el diálogo
       fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+      // Paso 2: click en "Guardar" dentro del diálogo (forward-only, retro OFF)
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }))
 
       await waitFor(() => expect(capturedPutBody).not.toBeNull())
       // Sin tocar nada, debe re-enviar 0.10 crudo (no 0.116).

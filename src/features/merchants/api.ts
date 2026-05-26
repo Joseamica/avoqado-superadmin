@@ -599,6 +599,100 @@ export async function fetchAngelPayAccounts(venueId: string): Promise<AngelPayAc
   }))
 }
 
+/* ── Rate correction (retroactive) ── */
+
+export type MissingCostMode = 'FIX_PAYMENT_ONLY' | 'CREATE_COST'
+
+export interface RateSetInput {
+  debitRate: number
+  creditRate: number
+  amexRate: number
+  internationalRate: number
+  includesTax?: boolean | null
+  taxRate?: number | null
+  fixedFeePerTransaction?: number | null
+}
+
+export interface RateCorrectionParams {
+  accountType: AccountSlot
+  newVenueRates?: RateSetInput
+  newProviderRates?: RateSetInput
+  dateFrom?: string
+  dateTo?: string
+  missingCostMode: MissingCostMode
+}
+
+export interface RateCorrectionPreview {
+  merchantAccountId: string
+  inScopeCount: number
+  withCostCount: number
+  missingCostCount: number
+  beforeFeeTotal: number
+  afterFeeTotal: number
+  estimatedImpact: number
+  negativeMarginCount: number
+  costStructureAvailable: boolean
+  venuePricingAvailable: boolean
+}
+
+export interface RateCorrectionBatch {
+  id: string
+  venueId: string
+  merchantAccountId: string
+  accountType: AccountSlot
+  status: 'PENDING' | 'APPLIED' | 'FAILED' | 'REVERSED'
+  paymentCount: number
+  costCreatedCount: number
+  estimatedImpact: number | string
+  appliedAt: string | null
+  reversedAt: string | null
+  createdAt: string
+  merchantAccount?: { id: string; displayName: string | null; alias: string | null }
+  appliedBy?: {
+    id: string
+    firstName: string | null
+    lastName: string | null
+    email: string
+  } | null
+}
+
+export async function previewRateCorrection(
+  venueId: string,
+  params: RateCorrectionParams,
+): Promise<RateCorrectionPreview> {
+  const { data } = await api.post<{ data: RateCorrectionPreview }>(
+    `/superadmin/rate-corrections/venues/${encodeURIComponent(venueId)}/preview`,
+    params,
+  )
+  return data.data
+}
+
+export async function applyRateCorrection(
+  venueId: string,
+  params: RateCorrectionParams,
+): Promise<RateCorrectionBatch> {
+  const { data } = await api.post<{ data: RateCorrectionBatch }>(
+    `/superadmin/rate-corrections/venues/${encodeURIComponent(venueId)}/apply`,
+    params,
+  )
+  return data.data
+}
+
+export async function reverseRateCorrection(batchId: string): Promise<RateCorrectionBatch> {
+  const { data } = await api.post<{ data: RateCorrectionBatch }>(
+    `/superadmin/rate-corrections/${encodeURIComponent(batchId)}/reverse`,
+    {},
+  )
+  return data.data
+}
+
+export async function listRateCorrections(venueId?: string): Promise<RateCorrectionBatch[]> {
+  const { data } = await api.get<{ data: RateCorrectionBatch[] }>('/superadmin/rate-corrections', {
+    params: venueId ? { venueId } : {},
+  })
+  return data.data
+}
+
 /* --- Holidays + settlement save (F3) --- */
 
 export async function fetchHolidays(year: number, country = 'MX'): Promise<Set<string>> {
