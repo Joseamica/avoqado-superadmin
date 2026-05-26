@@ -11,8 +11,13 @@ describe('formatMoney', () => {
 })
 
 describe('formatCompactMoney', () => {
-  it('abbreviates large amounts', () => {
-    // ICU in es-MX compact notation uses a non-breaking space (U+00A0) before the unit
-    expect(formatCompactMoney(4200000)).toBe('4.2 M$')
+  it('abbreviates large amounts with a leading $', () => {
+    expect(formatCompactMoney(4200000)).toBe('$4.2M')
+  })
+  it('places the sign before the $ for negatives', () => {
+    expect(formatCompactMoney(-1200)).toBe('-$1.2K')
+  })
+  it('treats null/undefined as $0', () => {
+    expect(formatCompactMoney(null)).toBe('$0')
   })
 })

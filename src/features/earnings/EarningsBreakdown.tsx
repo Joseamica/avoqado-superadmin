@@ -242,6 +242,21 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             description: 'No hubo transacciones en este rango.',
           }}
           caption="Ganancias por negocio"
+          exportable={{
+            filename: 'ganancias-negocio',
+            columns: [
+              { key: 'venueName', header: 'Negocio', accessor: (r) => r.venueName },
+              { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
+              {
+                key: 'terminalProfit',
+                header: 'Ganancia terminal',
+                accessor: (r) => r.terminalProfit,
+              },
+              { key: 'onlineFees', header: 'Comisión online', accessor: (r) => r.onlineFees },
+              { key: 'profit', header: 'Ganancia total', accessor: (r) => r.profit },
+              { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
+            ],
+          }}
         />
       )}
       {tab === 'merchant' && (
@@ -255,6 +270,16 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             description: 'No hubo transacciones en este rango.',
           }}
           caption="Ganancias por merchant account"
+          exportable={{
+            filename: 'ganancias-merchant',
+            columns: [
+              { key: 'label', header: 'Merchant', accessor: (r) => r.label },
+              { key: 'providerCode', header: 'Proveedor', accessor: (r) => r.providerCode },
+              { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
+              { key: 'profit', header: 'Ganancia', accessor: (r) => r.profit },
+              { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
+            ],
+          }}
         />
       )}
       {tab === 'provider' && (
@@ -267,6 +292,15 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             description: 'No hubo transacciones en este rango.',
           }}
           caption="Volumen por proveedor"
+          exportable={{
+            filename: 'ganancias-proveedor',
+            columns: [
+              { key: 'providerName', header: 'Proveedor', accessor: (r) => r.providerName },
+              { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
+              { key: 'cost', header: 'Costo', accessor: (r) => r.cost },
+              { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
+            ],
+          }}
         />
       )}
       {tab === 'card' && (
@@ -278,6 +312,15 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             description: 'No hubo transacciones en este rango.',
           }}
           caption="Ganancias por tipo de tarjeta"
+          exportable={{
+            filename: 'ganancias-tarjeta',
+            columns: [
+              { key: 'type', header: 'Tipo', accessor: (r) => r.type },
+              { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
+              { key: 'profit', header: 'Ganancia', accessor: (r) => r.profit },
+              { key: 'margin', header: 'Margen', accessor: (r) => r.margin },
+            ],
+          }}
         />
       )}
       {tab === 'channel' && (
@@ -291,6 +334,16 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
             description: 'No hubo cobros por internet en este rango.',
           }}
           caption="Comisiones por canal online"
+          exportable={{
+            filename: 'ganancias-canal-online',
+            columns: [
+              { key: 'label', header: 'Canal', accessor: (r) => r.label },
+              { key: 'providerCode', header: 'Proveedor', accessor: (r) => r.providerCode },
+              { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
+              { key: 'fees', header: 'Comisión', accessor: (r) => r.fees },
+              { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
+            ],
+          }}
         />
       )}
     </section>

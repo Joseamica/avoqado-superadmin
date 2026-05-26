@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Store,
   Terminal,
+  Wallet,
   X,
 } from 'lucide-react'
 import { Brandmark } from '@/shared/components/Brandmark'
@@ -48,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operación',
     items: [
       { to: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
+      { to: '/earnings', label: 'Ganancias', icon: Wallet },
       { to: '/activity-log', label: 'Activity log', icon: Activity },
       { to: '/system-logs', label: 'Logs del sistema', icon: ScrollText },
       { to: '/kyc', label: 'KYC', icon: ShieldCheck, disabled: true },

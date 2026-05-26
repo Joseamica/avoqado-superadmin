@@ -13,11 +13,14 @@ import {
   DialogTrigger,
 } from '@/shared/ui/Dialog'
 import { downloadCsv, rowsToCsv, type CSVColumn } from '@/shared/lib/csv'
+import { downloadXlsx } from '@/shared/lib/xlsx'
 
 interface ExportableColumn<T> extends CSVColumn<T> {
   /** Si false, el checkbox sale destildado por default. */
   defaultEnabled?: boolean
 }
+
+type ExportFormat = 'csv' | 'xlsx'
 
 interface ExportDialogProps<T> {
   data: T[]
@@ -39,6 +42,8 @@ export function ExportDialog<T>({
   trigger,
 }: ExportDialogProps<T>) {
   const [open, setOpen] = useState(false)
+  const [format, setFormat] = useState<ExportFormat>('csv')
+  const [exporting, setExporting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(columns.filter((c) => c.defaultEnabled !== false).map((c) => c.key)),
   )
@@ -75,11 +80,19 @@ export function ExportDialog<T>({
   const selectAll = () => setSelected(new Set(columns.map((c) => c.key)))
   const clearAll = () => setSelected(new Set())
 
-  const handleExport = () => {
-    const csv = rowsToCsv(filteredRows, enabledColumns)
+  const handleExport = async () => {
     const datedFilename =
       fromDate || toDate ? `${filename}-${fromDate || 'inicio'}-${toDate || 'fin'}` : filename
-    downloadCsv(csv, datedFilename)
+    if (format === 'xlsx') {
+      setExporting(true)
+      try {
+        await downloadXlsx(filteredRows, enabledColumns, datedFilename)
+      } finally {
+        setExporting(false)
+      }
+    } else {
+      downloadCsv(rowsToCsv(filteredRows, enabledColumns), datedFilename)
+    }
     setOpen(false)
   }
 
@@ -89,18 +102,41 @@ export function ExportDialog<T>({
         {trigger ?? (
           <Button variant="secondary" size="md">
             <Download className="h-3.5 w-3.5" aria-hidden />
-            Exportar CSV
+            Exportar
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Exportar a CSV</DialogTitle>
+          <DialogTitle>Exportar</DialogTitle>
           <DialogDescription>
-            Escoge las columnas y, si quieres, un rango de fechas. Se exportan únicamente las filas
-            ya visibles después de filtrar y buscar.
+            Escoge el formato y las columnas
+            {dateAccessor ? ' y, si quieres, un rango de fechas' : ''}. Se exportan únicamente las
+            filas ya visibles después de filtrar y buscar.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="mb-4">
+          <p className="eyebrow mb-1.5">Formato</p>
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={format === 'csv' ? 'secondary' : 'ghost'}
+              onClick={() => setFormat('csv')}
+            >
+              CSV
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={format === 'xlsx' ? 'secondary' : 'ghost'}
+              onClick={() => setFormat('xlsx')}
+            >
+              Excel
+            </Button>
+          </div>
+        </div>
 
         {dateAccessor && (
           <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -176,9 +212,9 @@ export function ExportDialog<T>({
           <Button
             type="button"
             onClick={handleExport}
-            disabled={enabledColumns.length === 0 || filteredRows.length === 0}
+            disabled={exporting || enabledColumns.length === 0 || filteredRows.length === 0}
           >
-            Descargar
+            {exporting ? 'Generando…' : 'Descargar'}
           </Button>
           <DialogClose asChild>
             <Button type="button" variant="ghost">

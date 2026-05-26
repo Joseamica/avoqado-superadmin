@@ -27,7 +27,7 @@ export interface DataTableProps<TData> {
   toolbar?: ReactNode
   /** Empty state cuando data + filtros no devuelven nada. */
   emptyState?: { title: string; description?: string }
-  /** Si se pasa, muestra botón "Exportar CSV" con dialog. */
+  /** Si se pasa, muestra botón "Exportar" con dialog (CSV o Excel). */
   exportable?: {
     filename: string
     columns: (CSVColumn<TData> & { defaultEnabled?: boolean })[]

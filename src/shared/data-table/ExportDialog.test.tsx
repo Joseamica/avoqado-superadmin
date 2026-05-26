@@ -52,28 +52,28 @@ afterEach(() => {
 describe('<ExportDialog />', () => {
   it('renders the trigger button by default', () => {
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    expect(screen.getByRole('button', { name: /exportar csv/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^exportar$/i })).toBeInTheDocument()
   })
 
   it('opens the dialog when the trigger is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/exportar a csv/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^exportar$/i })).toBeInTheDocument()
   })
 
   it('shows row + column count summary', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
     await waitFor(() => expect(screen.getByText(/3 filas serán exportadas/i)).toBeInTheDocument())
   })
 
   it('toggles a column off via its checkbox', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
 
     const cb = await screen.findByRole('checkbox', { name: /email/i })
     await user.click(cb)
@@ -83,7 +83,7 @@ describe('<ExportDialog />', () => {
   it('uses "Ninguna" to clear all and disables Descargar when no columns selected', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
 
     await user.click(await screen.findByRole('button', { name: /^ninguna$/i }))
     expect(screen.getByRole('button', { name: /descargar/i })).toBeDisabled()
@@ -92,7 +92,7 @@ describe('<ExportDialog />', () => {
   it('downloads the CSV when "Descargar" is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExportDialog data={SAMPLE} columns={COLUMNS} filename="rows" />)
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /descargar/i }))
     expect(createSpy).toHaveBeenCalled()
@@ -108,7 +108,7 @@ describe('<ExportDialog />', () => {
         dateAccessor={(r) => r.createdAt}
       />,
     )
-    await user.click(screen.getByRole('button', { name: /exportar csv/i }))
+    await user.click(screen.getByRole('button', { name: /^exportar$/i }))
     expect(await screen.findByLabelText(/desde/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/hasta/i)).toBeInTheDocument()
   })

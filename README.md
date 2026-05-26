@@ -139,19 +139,20 @@ Nada se infiere del browser. La decisión es explícita en cada uso.
 
 Toda ruta es `lazy()` + `<Suspense>` (code-splitting por ruta) y vive en [`src/app/router.tsx`](src/app/router.tsx). Salvo `/login`, todas pasan por `ProtectedRoute` (gate SUPERADMIN).
 
-| Ruta                                                        | Página                                                                              | Feature        |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
-| `/login`                                                    | Login (email + password / Google)                                                   | `auth`         |
-| `/dashboard`                                                | Resumen operativo                                                                   | `dashboard`    |
-| `/activity-log`                                             | Bitácora de acciones (ActivityLog)                                                  | `activity-log` |
-| `/system-logs`                                              | Stream de logs de Render                                                            | `system-logs`  |
-| `/venues` · `/venues/new` · `/venues/:id`                   | Listado, alta y detalle de venues                                                   | `venues`       |
-| `/venues/:id/{owner,kyc,pricing,terminals/new}`             | Sub-páginas de un venue                                                             | `venues`       |
-| `/venues/:id/merchant`                                      | Asignación de merchants a slots (primary/secondary/tertiary) + procesador preferido | `venues`       |
-| `/terminals` · `/terminals/new` · `/terminals/:id/settings` | TPVs: listado, alta, ajustes                                                        | `terminals`    |
-| `/merchants` · `/merchants/:id`                             | Registro de merchant accounts + detalle (economía, liquidación, readiness)          | `merchants`    |
-| `/merchants/new`                                            | Alta guiada **Blumon** (panel de cards → un POST a `blumon/full-setup`)             | `merchants`    |
-| `/merchants/new-angelpay`                                   | Alta guiada **AngelPay** (panel de cards → un POST a `full-setup-angelpay`)         | `merchants`    |
+| Ruta                                                        | Página                                                                                    | Feature        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| `/login`                                                    | Login (email + password / Google)                                                         | `auth`         |
+| `/dashboard`                                                | Resumen operativo                                                                         | `dashboard`    |
+| `/earnings`                                                 | Ganancias: terminal + cobros en línea, por negocio/merchant/proveedor/tarjeta + tendencia | `earnings`     |
+| `/activity-log`                                             | Bitácora de acciones (ActivityLog)                                                        | `activity-log` |
+| `/system-logs`                                              | Stream de logs de Render                                                                  | `system-logs`  |
+| `/venues` · `/venues/new` · `/venues/:id`                   | Listado, alta y detalle de venues                                                         | `venues`       |
+| `/venues/:id/{owner,kyc,pricing,terminals/new}`             | Sub-páginas de un venue                                                                   | `venues`       |
+| `/venues/:id/merchant`                                      | Asignación de merchants a slots (primary/secondary/tertiary) + procesador preferido       | `venues`       |
+| `/terminals` · `/terminals/new` · `/terminals/:id/settings` | TPVs: listado, alta, ajustes                                                              | `terminals`    |
+| `/merchants` · `/merchants/:id`                             | Registro de merchant accounts + detalle (economía, liquidación, readiness)                | `merchants`    |
+| `/merchants/new`                                            | Alta guiada **Blumon** (panel de cards → un POST a `blumon/full-setup`)                   | `merchants`    |
+| `/merchants/new-angelpay`                                   | Alta guiada **AngelPay** (panel de cards → un POST a `full-setup-angelpay`)               | `merchants`    |
 
 ## Estructura
 
@@ -176,7 +177,7 @@ src/
 │   ├── data-table/     # DataTable + ExportDialog
 │   ├── filters/        # FilterPill + MultiSelectFilterContent
 │   ├── layouts/        # AppLayout (sidebar + MobileTopBar)
-│   └── lib/            # api (axios), datetime (luxon), csv, api-error, utils (cn)
+│   └── lib/            # api (axios), datetime (luxon), csv, xlsx (SheetJS lazy), api-error, utils (cn)
 ├── test/               # setup.ts, mocks/handlers.ts, render.tsx
 └── types/              # tipos compartidos
 e2e/                    # Playwright specs

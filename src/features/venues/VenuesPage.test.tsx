@@ -184,7 +184,7 @@ describe('VenuesPage', () => {
     const user = userEvent.setup()
     renderVenuesPage()
     await waitFor(() => expect(screen.getByText('Restaurante Pez Volador')).toBeInTheDocument())
-    const exportBtn = screen.getByRole('button', { name: /Exportar CSV/i })
+    const exportBtn = screen.getByRole('button', { name: /^exportar$/i })
     await user.click(exportBtn)
     // El dialog muestra los headers de las columnas exportables
     await waitFor(() => expect(screen.getByText('Email org')).toBeInTheDocument())
