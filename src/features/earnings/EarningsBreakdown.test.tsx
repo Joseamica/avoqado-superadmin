@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderWithProviders } from '@/test/render'
 import { EarningsBreakdown } from './EarningsBreakdown'
 import type { EarningsSummary } from './types'
 
@@ -66,14 +67,14 @@ const summary: EarningsSummary = {
 
 describe('EarningsBreakdown', () => {
   it('shows the venue tab by default and switches tabs', () => {
-    render(<EarningsBreakdown summary={summary} />)
+    renderWithProviders(<EarningsBreakdown summary={summary} />)
     expect(screen.getByText('Amaena')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Canal online' }))
     expect(screen.getByText('Amaena online')).toBeInTheDocument()
   })
 
   it('shows the two tramos in the merchant tab', () => {
-    render(<EarningsBreakdown summary={summary} />)
+    renderWithProviders(<EarningsBreakdown summary={summary} />)
     fireEvent.click(screen.getByRole('button', { name: 'Merchant' }))
     expect(screen.getByText('Prov→agg')).toBeInTheDocument()
     expect(screen.getByText('Agg→venue')).toBeInTheDocument()
@@ -81,7 +82,7 @@ describe('EarningsBreakdown', () => {
   })
 
   it('renders the cells of every tab (negocio, merchant, proveedor, tarjeta, canal)', () => {
-    render(<EarningsBreakdown summary={summary} />)
+    renderWithProviders(<EarningsBreakdown summary={summary} />)
     // Tab buttons share names with sortable column headers (e.g. "Proveedor"),
     // so target the tab — always the first match, rendered before the table.
     const clickTab = (name: string) => fireEvent.click(screen.getAllByRole('button', { name })[0])
@@ -95,6 +96,26 @@ describe('EarningsBreakdown', () => {
     expect(screen.getByText('CREDIT')).toBeInTheDocument()
     clickTab('Canal online')
     expect(screen.getByText('Amaena online')).toBeInTheDocument()
+  })
+
+  it('links venue / merchant / provider rows to their detail pages', () => {
+    renderWithProviders(<EarningsBreakdown summary={summary} />)
+    const clickTab = (name: string) => fireEvent.click(screen.getAllByRole('button', { name })[0])
+
+    expect(screen.getByRole('link', { name: 'Abrir Amaena' })).toHaveAttribute(
+      'href',
+      '/earnings/venue/v1',
+    )
+    clickTab('Merchant')
+    expect(screen.getByRole('link', { name: 'Abrir Cuenta Principal' })).toHaveAttribute(
+      'href',
+      '/earnings/merchant/m1',
+    )
+    clickTab('Proveedor')
+    expect(screen.getByRole('link', { name: 'Abrir Menta' })).toHaveAttribute(
+      'href',
+      '/payment-providers/p1',
+    )
   })
 })
 
@@ -113,7 +134,7 @@ describe('EarningsBreakdown · CSV export per tab', () => {
 
   it('exports each tab to CSV (exercises the export column accessors)', async () => {
     const user = userEvent.setup()
-    render(<EarningsBreakdown summary={summary} />)
+    renderWithProviders(<EarningsBreakdown summary={summary} />)
 
     for (const tab of ['Negocio', 'Merchant', 'Proveedor', 'Tarjeta', 'Canal online'] as const) {
       // First match = the tab (column headers share some names but render after).

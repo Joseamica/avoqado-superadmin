@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/shared/data-table/DataTable'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { formatMoney } from '@/shared/lib/money'
+import { iconButtonVariants } from '@/shared/ui/icon-button-variants'
 import type {
   EarningsSummary,
   VenueEarnings,
@@ -13,7 +16,7 @@ import type {
   ChannelEarnings,
 } from './types'
 
-type TabKey = 'venue' | 'merchant' | 'provider' | 'card' | 'channel'
+export type TabKey = 'venue' | 'merchant' | 'provider' | 'card' | 'channel'
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'venue', label: 'Negocio' },
   { key: 'merchant', label: 'Merchant' },
@@ -26,9 +29,24 @@ const intFmt = new Intl.NumberFormat('es-MX')
 const right = { headerClassName: 'text-right', cellClassName: 'text-right' } as const
 const money = (v: number) => <span className="tabular-nums">{formatMoney(v)}</span>
 const count = (v: number) => <span className="tabular-nums">{intFmt.format(v)}</span>
+const actionMeta = { headerClassName: 'w-[44px]', cellClassName: 'text-right' } as const
 
-export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
-  const [tab, setTab] = useState<TabKey>('venue')
+/** Row action: arrow link to an entity's detail page (mirrors MerchantsPage). */
+const detailLink = (to: string, label: string) => (
+  <Link to={to} className={iconButtonVariants({ size: 'sm' })} aria-label={`Abrir ${label}`}>
+    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+  </Link>
+)
+
+export function EarningsBreakdown({
+  summary,
+  tabs,
+}: {
+  summary: EarningsSummary
+  tabs?: readonly TabKey[]
+}) {
+  const visibleTabs = tabs ? TABS.filter((t) => tabs.includes(t.key)) : TABS
+  const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.key ?? 'venue')
 
   const venueColumns = useMemo<ColumnDef<VenueEarnings, unknown>[]>(
     () => [
@@ -58,6 +76,14 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         accessorFn: (r) => r.transactions,
         cell: ({ row }) => count(row.original.transactions),
         meta: right,
+      },
+      {
+        id: 'detalle',
+        header: '',
+        enableSorting: false,
+        cell: ({ row }) =>
+          detailLink(`/earnings/venue/${row.original.venueId}`, row.original.venueName),
+        meta: actionMeta,
       },
     ],
     [],
@@ -115,6 +141,14 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         cell: ({ row }) => count(row.original.transactions),
         meta: right,
       },
+      {
+        id: 'detalle',
+        header: '',
+        enableSorting: false,
+        cell: ({ row }) =>
+          detailLink(`/earnings/merchant/${row.original.merchantAccountId}`, row.original.label),
+        meta: actionMeta,
+      },
     ],
     [],
   )
@@ -146,6 +180,14 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
         accessorFn: (r) => r.transactions,
         cell: ({ row }) => count(row.original.transactions),
         meta: right,
+      },
+      {
+        id: 'detalle',
+        header: '',
+        enableSorting: false,
+        cell: ({ row }) =>
+          detailLink(`/payment-providers/${row.original.providerId}`, row.original.providerName),
+        meta: actionMeta,
       },
     ],
     [],
@@ -232,7 +274,7 @@ export function EarningsBreakdown({ summary }: { summary: EarningsSummary }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-1">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <Button
             key={t.key}
             size="sm"

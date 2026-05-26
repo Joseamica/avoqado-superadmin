@@ -144,6 +144,8 @@ Toda ruta es `lazy()` + `<Suspense>` (code-splitting por ruta) y vive en [`src/a
 | `/login`                                                    | Login (email + password / Google)                                                         | `auth`         |
 | `/dashboard`                                                | Resumen operativo                                                                         | `dashboard`    |
 | `/earnings`                                                 | Ganancias: terminal + cobros en línea, por negocio/merchant/proveedor/tarjeta + tendencia | `earnings`     |
+| `/earnings/venue/:venueId`                                  | Detalle de ganancias de un negocio específico (KPIs + tendencia + breakdown)              | `earnings`     |
+| `/earnings/merchant/:merchantId`                            | Detalle de ganancias de un merchant account específico (KPIs + tendencia + breakdown)     | `earnings`     |
 | `/activity-log`                                             | Bitácora de acciones (ActivityLog)                                                        | `activity-log` |
 | `/system-logs`                                              | Stream de logs de Render                                                                  | `system-logs`  |
 | `/venues` · `/venues/new` · `/venues/:id`                   | Listado, alta y detalle de venues                                                         | `venues`       |

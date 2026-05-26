@@ -4,6 +4,8 @@ import type { EarningsSummary, EarningsTimePoint, Granularity } from './types'
 export interface EarningsRangeParams {
   startDate?: string
   endDate?: string
+  venueId?: string
+  merchantAccountId?: string
 }
 
 export async function fetchEarningsSummary(params: EarningsRangeParams): Promise<EarningsSummary> {

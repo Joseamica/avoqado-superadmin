@@ -4,7 +4,15 @@ import type { Granularity } from './types'
 
 export function useEarningsSummary(range: EarningsRangeParams) {
   return useQuery({
-    queryKey: ['superadmin', 'earnings', 'summary', range.startDate, range.endDate],
+    queryKey: [
+      'superadmin',
+      'earnings',
+      'summary',
+      range.startDate,
+      range.endDate,
+      range.venueId,
+      range.merchantAccountId,
+    ],
     queryFn: () => fetchEarningsSummary(range),
   })
 }
@@ -17,6 +25,8 @@ export function useEarningsTimeSeries(range: EarningsRangeParams, granularity: G
       'time-series',
       range.startDate,
       range.endDate,
+      range.venueId,
+      range.merchantAccountId,
       granularity,
     ],
     queryFn: () => fetchEarningsTimeSeries({ ...range, granularity }),

@@ -65,6 +65,9 @@ const MerchantDetailPage = lazy(() =>
 const EarningsPage = lazy(() =>
   import('@/features/earnings/EarningsPage').then((m) => ({ default: m.EarningsPage })),
 )
+const EarningsDetailPage = lazy(() =>
+  import('@/features/earnings/EarningsDetailPage').then((m) => ({ default: m.EarningsDetailPage })),
+)
 const PaymentProvidersPage = lazy(() =>
   import('@/features/payment-providers/PaymentProvidersPage').then((m) => ({
     default: m.PaymentProvidersPage,
@@ -94,6 +97,8 @@ export function AppRoutes() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/earnings" element={<EarningsPage />} />
+          <Route path="/earnings/venue/:venueId" element={<EarningsDetailPage />} />
+          <Route path="/earnings/merchant/:merchantId" element={<EarningsDetailPage />} />
           <Route path="/activity-log" element={<ActivityLogPage />} />
           <Route path="/system-logs" element={<SystemLogsPage />} />
           <Route path="/venues" element={<VenuesPage />} />
