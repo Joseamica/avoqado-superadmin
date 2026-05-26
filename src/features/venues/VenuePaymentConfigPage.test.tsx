@@ -8,11 +8,10 @@ import { VenuePaymentConfigPage } from './VenuePaymentConfigPage'
 
 const baseURL = 'http://localhost:3000/api/v1'
 
-// Minimal venue detail shape (legacy namespace, wrapped in { success, data })
 const rawVenue = {
   id: 'v1',
-  name: 'Doña Simona',
-  slug: 'dona-simona',
+  name: 'Amaena',
+  slug: 'amaena',
   status: 'ACTIVE' as const,
   organizationId: 'o1',
   organization: { id: 'o1', name: 'Org', email: 'o@x.com' },
@@ -30,48 +29,54 @@ const rawVenue = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
 
-// Capture PUT body so we can assert its contents
+const rawAccounts = [
+  {
+    id: 'm1',
+    displayName: 'Amaena - A',
+    alias: null,
+    externalMerchantId: '776',
+    blumonEnvironment: null,
+    provider: { code: 'ANGELPAY', name: 'AngelPay' },
+  },
+  {
+    id: 'm2',
+    displayName: 'Amaena - B',
+    alias: null,
+    externalMerchantId: '814',
+    blumonEnvironment: null,
+    provider: { code: 'ANGELPAY', name: 'AngelPay' },
+  },
+  {
+    id: 'm3',
+    displayName: 'Amaena - Externo',
+    alias: null,
+    externalMerchantId: 'blumon_1',
+    blumonEnvironment: 'PRODUCTION',
+    provider: { code: 'BLUMON', name: 'Blumon' },
+  },
+]
+
 let capturedPutBody: Record<string, unknown> | null = null
 
 const server = setupServer(
-  // venue detail — legacy /dashboard/superadmin namespace
   http.get(`${baseURL}/dashboard/superadmin/venues/v1`, () =>
     HttpResponse.json({ success: true, data: rawVenue }),
   ),
-
-  // existing payment config — prefills form with primaryAccountId: 'm1'
   http.get(`${baseURL}/superadmin/venue-pricing/config/v1`, () =>
     HttpResponse.json({
       data: {
         primaryAccountId: 'm1',
-        secondaryAccountId: null,
+        secondaryAccountId: 'm2',
         tertiaryAccountId: null,
         preferredProcessor: 'AUTO',
         routingRules: null,
       },
     }),
   ),
-
-  // merchant account options
   http.get(`${baseURL}/superadmin/merchant-accounts`, () =>
-    HttpResponse.json({
-      data: [
-        {
-          id: 'm1',
-          displayName: 'Cuenta A',
-          alias: null,
-          externalMerchantId: '9814',
-          blumonEnvironment: 'SANDBOX',
-          provider: { code: 'BLUMON', name: 'Blumon' },
-        },
-      ],
-    }),
+    HttpResponse.json({ data: rawAccounts }),
   ),
-
-  // terminal brands — no active terminals
   http.get(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ data: [] })),
-
-  // PUT to save config — capture body for assertion
   http.put(`${baseURL}/superadmin/venue-pricing/config/v1`, async ({ request }) => {
     capturedPutBody = (await request.json()) as Record<string, unknown>
     return HttpResponse.json({ data: {} })
@@ -89,56 +94,46 @@ function renderPage() {
   return renderWithProviders(
     <Routes>
       <Route path="/venues/:venueId/merchant" element={<VenuePaymentConfigPage />} />
-      {/* stub destination so navigate() doesn't explode */}
       <Route path="/venues/:venueId" element={<div>venue detail</div>} />
     </Routes>,
     { initialEntries: ['/venues/v1/merchant'] },
   )
 }
 
-describe('VenuePaymentConfigPage', () => {
-  it('renders the page title and venue name after data loads', async () => {
+describe('VenuePaymentConfigPage (slots)', () => {
+  it('muestra el título y los slots en orden con sus etiquetas', async () => {
     renderPage()
-
     await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: 'Configurar pagos', level: 1 }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Slots de pago', level: 1 })).toBeInTheDocument(),
     )
-    await waitFor(() => expect(screen.getByText('Doña Simona')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Principal')).toBeInTheDocument())
+    expect(screen.getByText('Secundaria')).toBeInTheDocument()
+    // Sólo 2 cuentas asignadas → sin Terciaria.
+    expect(screen.queryByText('Terciaria')).not.toBeInTheDocument()
   })
 
-  it('renders the "Cuenta principal *" label', async () => {
+  it('reordenar (subir la secundaria) intercambia primario/secundario al guardar', async () => {
     renderPage()
+    await waitFor(() => expect(screen.getByText('Secundaria')).toBeInTheDocument())
 
-    await waitFor(() => expect(screen.getByText('Cuenta principal *')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Subir Secundaria/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => expect(capturedPutBody).not.toBeNull())
+    expect(capturedPutBody!.primaryAccountId).toBe('m2')
+    expect(capturedPutBody!.secondaryAccountId).toBe('m1')
+    expect(capturedPutBody!.tertiaryAccountId).toBeNull()
   })
 
-  it('submitting resends the pre-loaded primaryAccountId in the PUT body', async () => {
+  it('quitar un slot lo manda como null al guardar', async () => {
     renderPage()
+    await waitFor(() => expect(screen.getByText('Secundaria')).toBeInTheDocument())
 
-    // Wait for form to be hydrated with config data (primary = 'm1' already set)
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: 'Configurar pagos', level: 1 }),
-      ).toBeInTheDocument(),
-    )
-    // Wait for merchant account options to load so hydration can resolve
-    await waitFor(() => expect(screen.queryByText('Cuenta principal *')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Quitar Secundaria/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
-    // Give TanStack Query time to hydrate form state from configQ.isSuccess
-    await waitFor(() => {
-      // The combobox trigger for "Cuenta principal" should show the loaded account label
-      // or the form must at least be rendered; we click Guardar to trigger submit
-      const submitBtn = screen.getByRole('button', { name: /guardar/i })
-      expect(submitBtn).toBeInTheDocument()
-    })
-
-    const submitBtn = screen.getByRole('button', { name: /guardar/i })
-    fireEvent.click(submitBtn)
-
-    // Assert the PUT request was made with the correct primaryAccountId
     await waitFor(() => expect(capturedPutBody).not.toBeNull())
     expect(capturedPutBody!.primaryAccountId).toBe('m1')
+    expect(capturedPutBody!.secondaryAccountId).toBeNull()
   })
 })

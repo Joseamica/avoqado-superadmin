@@ -94,6 +94,7 @@ export async function createPaymentProvider(
     '/superadmin/payment-providers',
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for createPaymentProvider')
   return mapProvider(data.data)
 }
 
@@ -113,6 +114,7 @@ export async function updatePaymentProvider(
     `/superadmin/payment-providers/${encodeURIComponent(id)}`,
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for updatePaymentProvider')
   return mapProvider(data.data)
 }
 
@@ -124,9 +126,86 @@ export async function togglePaymentProvider(id: string): Promise<PaymentProvider
   const { data } = await api.patch<{ success: boolean; data: PaymentProviderRaw }>(
     `/superadmin/payment-providers/${encodeURIComponent(id)}/toggle`,
   )
+  if (!data?.data) throw new Error('Server returned empty response for togglePaymentProvider')
   return mapProvider(data.data)
 }
 
 export async function deletePaymentProvider(id: string): Promise<void> {
   await api.delete(`/superadmin/payment-providers/${encodeURIComponent(id)}`)
+}
+
+/* --- Borrado guiado (Paso 1: providers) --- */
+
+export interface ProviderBlockers {
+  code: string
+  name: string
+  merchants: { id: string; label: string }[]
+  ecommerceMerchants: { id: string; label: string; removable: boolean; reason?: string }[]
+  webhooks: number
+  eventLogs: number
+  costStructures: number
+  canDelete: boolean
+}
+
+/** Lista qué impide borrar (de verdad) un provider. */
+export async function fetchProviderBlockers(id: string): Promise<ProviderBlockers> {
+  const { data } = await api.get<{ success: boolean; data: ProviderBlockers }>(
+    `/superadmin/payment-providers/${encodeURIComponent(id)}/blockers`,
+  )
+  if (!data?.data) throw new Error('Server returned empty response for fetchProviderBlockers')
+  return data.data
+}
+
+/** Borrado REAL del provider — sólo procede si está 100% limpio (si no, el server responde 400). */
+export async function forceDeletePaymentProvider(id: string): Promise<void> {
+  await api.delete(`/superadmin/payment-providers/${encodeURIComponent(id)}`, {
+    params: { force: 'true' },
+  })
+}
+
+/** Quita un merchant account. Puede fallar si tiene historial — el server explica qué falta. */
+export async function deleteMerchantAccount(id: string): Promise<void> {
+  await api.delete(`/superadmin/merchant-accounts/${encodeURIComponent(id)}`)
+}
+
+/** Quita un canal e-commerce. Sólo si no tiene historial (el server responde 400 si no). */
+export async function deleteEcommerceMerchant(id: string): Promise<void> {
+  await api.delete(`/dashboard/superadmin/ecommerce-merchants/${encodeURIComponent(id)}`)
+}
+
+/* --- Borrado guiado (Paso 2: merchants a fondo) --- */
+
+export interface MerchantBlockers {
+  displayName: string
+  payments: number
+  transactionCosts: number
+  costStructures: { id: string }[]
+  venueConfigs: { venueId: string; venueName: string; slot: 'PRIMARY' | 'SECONDARY' | 'TERTIARY' }[]
+  terminals: { id: string; name: string; serialNumber: string | null }[]
+  canDelete: boolean
+}
+
+/** Lista qué impide borrar un merchant (terminales, slots, costos + historial). */
+export async function fetchMerchantBlockers(merchantId: string): Promise<MerchantBlockers> {
+  const { data } = await api.get<{ success: boolean; data: MerchantBlockers }>(
+    `/superadmin/merchant-accounts/${encodeURIComponent(merchantId)}/blockers`,
+  )
+  if (!data?.data) throw new Error('Server returned empty response for fetchMerchantBlockers')
+  return data.data
+}
+
+/** Desasigna una terminal del merchant (deja de procesarlo). */
+export async function detachTerminalFromMerchant(
+  merchantId: string,
+  terminalId: string,
+): Promise<void> {
+  await api.put(
+    `/superadmin/merchant-accounts/${encodeURIComponent(merchantId)}/terminals/${encodeURIComponent(terminalId)}`,
+    { serves: false },
+  )
+}
+
+/** Quita una estructura de costo del proveedor (no removible si la referencian transacciones). */
+export async function deleteCostStructure(id: string): Promise<void> {
+  await api.delete(`/superadmin/cost-structures/${encodeURIComponent(id)}`)
 }

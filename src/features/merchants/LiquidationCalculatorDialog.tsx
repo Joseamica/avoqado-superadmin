@@ -15,6 +15,8 @@ import { REFERENCE_AMOUNT, type MerchantEconomics } from './economics'
 const money = (n: number) =>
   n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
 
+const ratePct = (n: number) => `${(n * 100).toFixed(2)}%`
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,45 +44,74 @@ export function LiquidationCalculatorDialog({ open, onOpenChange, venueName, eco
   const isAggregator = economics.mode === 'aggregator' && e.aggregatorPriceAmount != null
   const v = (n: number | null) => (n == null ? null : n * factor)
 
+  /** rate: fracción sobre el monto (e.g. 0.0325 = 3.25%). null = no mostrar %. */
   const rows: {
     label: string
     amount: number | null
+    rate?: number | null
     tone?: 'cost' | 'margin'
     strong?: boolean
   }[] = []
-  rows.push({ label: 'Costo del proveedor', amount: v(e.providerCostAmount), tone: 'cost' })
-  if (isAggregator) rows.push({ label: 'Precio a agregador', amount: v(e.aggregatorPriceAmount) })
+  const rateOf = (val: number | null) => (val != null ? val / REFERENCE_AMOUNT : null)
+
+  rows.push({
+    label: 'Costo del proveedor',
+    amount: v(e.providerCostAmount),
+    rate: rateOf(e.providerCostAmount),
+    tone: 'cost',
+  })
+  if (isAggregator)
+    rows.push({
+      label: 'Precio a agregador',
+      amount: v(e.aggregatorPriceAmount),
+      rate: rateOf(e.aggregatorPriceAmount),
+    })
   if (e.venueChargeAmount != null)
-    rows.push({ label: 'Paga el venue', amount: v(e.venueChargeAmount) })
+    rows.push({
+      label: 'Paga el venue',
+      amount: v(e.venueChargeAmount),
+      rate: rateOf(e.venueChargeAmount),
+    })
   if (isAggregator && e.venueChargeAmount != null && e.aggregatorPriceAmount != null)
     rows.push({
       label: 'Cobra el agregador',
       amount: v(e.venueChargeAmount - e.aggregatorPriceAmount),
+      rate: rateOf(e.venueChargeAmount - e.aggregatorPriceAmount),
     })
   if (e.avoqadoMarginAggregator != null) {
     rows.push({
       label: 'Margen Avoqado (proveedor)',
       amount: v(e.avoqadoMarginProvider),
+      rate: rateOf(e.avoqadoMarginProvider),
       tone: 'margin',
     })
     rows.push({
       label: 'Margen Avoqado (agregador)',
       amount: v(e.avoqadoMarginAggregator),
+      rate: rateOf(e.avoqadoMarginAggregator),
       tone: 'margin',
     })
     rows.push({
       label: 'Margen Avoqado total',
       amount: v(e.avoqadoMargin),
+      rate: rateOf(e.avoqadoMargin),
       tone: 'margin',
       strong: true,
     })
   } else {
-    rows.push({ label: 'Margen Avoqado', amount: v(e.avoqadoMargin), tone: 'margin', strong: true })
+    rows.push({
+      label: 'Margen Avoqado',
+      amount: v(e.avoqadoMargin),
+      rate: rateOf(e.avoqadoMargin),
+      tone: 'margin',
+      strong: true,
+    })
   }
   if (e.venueChargeAmount != null)
     rows.push({
       label: 'Recibe el venue (neto)',
       amount: amount - (v(e.venueChargeAmount) ?? 0),
+      rate: (REFERENCE_AMOUNT - (e.venueChargeAmount ?? 0)) / REFERENCE_AMOUNT,
       strong: true,
     })
 
@@ -147,6 +178,11 @@ export function LiquidationCalculatorDialog({ open, onOpenChange, venueName, eco
                     className={`text-[13px] ${r.strong ? 'font-semibold text-[var(--ink)]' : 'text-[var(--ink-muted)]'}`}
                   >
                     {r.label}
+                    {r.rate != null && (
+                      <span className="ml-1 text-[11px] text-[var(--ink-faint)]">
+                        ({ratePct(r.rate)})
+                      </span>
+                    )}
                   </dt>
                   <dd
                     className={`text-[13px] tabular-nums ${r.strong ? 'font-semibold ' : ''}${

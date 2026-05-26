@@ -19,17 +19,17 @@ export async function fetchActivityLog(
   const { data } = await api.get<Envelope<ActivityLogResponse>>(PATH, {
     params: cleanParams(params),
   })
-  return data.data
+  return data?.data ?? { logs: [], pagination: { page: 1, pageSize: 50, total: 0, totalPages: 0 } }
 }
 
 export async function fetchActivityLogActions(): Promise<string[]> {
   const { data } = await api.get<Envelope<string[]>>(`${PATH}/actions`)
-  return data.data
+  return Array.isArray(data?.data) ? data.data : []
 }
 
 export async function fetchActivityLogEntities(): Promise<string[]> {
   const { data } = await api.get<Envelope<string[]>>(`${PATH}/entities`)
-  return data.data
+  return Array.isArray(data?.data) ? data.data : []
 }
 
 function cleanParams(params: ActivityLogQueryParams): Record<string, string | number> {

@@ -372,6 +372,33 @@ export function summarizeMessage(message: string): string {
   return result || stripped.split('\n')[0]
 }
 
+/* --- Clipboard helpers --- */
+
+/**
+ * Formatea un log entry para pegar en Slack / ticket / terminal.
+ * Línea única: `[2026-05-26 08:45:32] [ERROR] [App] mensaje limpio`
+ */
+export function formatLogForClipboard(log: SystemLogEntry): string {
+  const ts = log.timestamp.replace('T', ' ').replace(/\.\d+Z$/, '')
+  const level = log.level ? `[${log.level.toUpperCase()}]` : ''
+  const type = log.type ? `[${humanizeType(log.type)}]` : ''
+  const msg = stripAnsi(log.message).split('\n')[0].trim()
+  return [ts, level, type, msg].filter(Boolean).join(' ')
+}
+
+/**
+ * Formatea un array de logs para clipboard. Cada log en su línea,
+ * header con conteo + rango de timestamps.
+ */
+export function formatLogsForClipboard(logs: SystemLogEntry[]): string {
+  if (logs.length === 0) return '(sin logs visibles)'
+  const lines = logs.map(formatLogForClipboard)
+  const oldest = logs[logs.length - 1].timestamp.replace('T', ' ').replace(/\.\d+Z$/, '')
+  const newest = logs[0].timestamp.replace('T', ' ').replace(/\.\d+Z$/, '')
+  const header = `--- ${logs.length} log${logs.length === 1 ? '' : 's'} · ${oldest} → ${newest} ---`
+  return [header, ...lines].join('\n')
+}
+
 function summarizeJsonInline(value: unknown): string {
   if (value === null || value === undefined) return ''
   if (Array.isArray(value)) return `[${value.length} elementos]`

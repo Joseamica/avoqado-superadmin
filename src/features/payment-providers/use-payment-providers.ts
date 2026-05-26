@@ -1,9 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createPaymentProvider,
+  deleteCostStructure,
+  deleteEcommerceMerchant,
+  deleteMerchantAccount,
   deletePaymentProvider,
+  detachTerminalFromMerchant,
+  fetchMerchantBlockers,
   fetchPaymentProvider,
   fetchPaymentProviders,
+  fetchProviderBlockers,
+  forceDeletePaymentProvider,
   togglePaymentProvider,
   updatePaymentProvider,
   type CreatePaymentProviderPayload,
@@ -114,4 +121,104 @@ export function useDeletePaymentProvider() {
       queryClient.invalidateQueries({ queryKey: PAYMENT_PROVIDERS_QUERY_KEY })
     },
   })
+}
+
+/* --- Borrado guiado --- */
+
+/** Bloqueadores de borrado de un provider. Se refetchea tras quitar cada dependencia. */
+export function useProviderBlockers(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'blockers', id ?? null],
+    queryFn: () => {
+      if (!id) throw new Error('id is required')
+      return fetchProviderBlockers(id)
+    },
+    enabled: !!id && enabled,
+    staleTime: 0,
+  })
+}
+
+/** Quita un merchant account (puede fallar con historial — el caller muestra el error). */
+export function useRemoveMerchantAccount(providerId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (merchantId: string) => deleteMerchantAccount(merchantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'blockers', providerId ?? null],
+      })
+      queryClient.invalidateQueries({ queryKey: PAYMENT_PROVIDERS_QUERY_KEY })
+    },
+  })
+}
+
+/** Quita un canal e-commerce (sólo sin historial). */
+export function useRemoveEcommerceMerchant(providerId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ecommerceMerchantId: string) => deleteEcommerceMerchant(ecommerceMerchantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'blockers', providerId ?? null],
+      })
+    },
+  })
+}
+
+/** Borrado REAL del provider — sólo procede si está limpio (si no, 400 con detalle). */
+export function useForceDeletePaymentProvider() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => forceDeletePaymentProvider(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PAYMENT_PROVIDERS_QUERY_KEY })
+    },
+  })
+}
+
+/* --- Borrado guiado: bloqueadores propios del merchant (Paso 2) --- */
+
+export function useMerchantBlockers(merchantId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'merchant-blockers', merchantId ?? null],
+    queryFn: () => {
+      if (!merchantId) throw new Error('merchantId is required')
+      return fetchMerchantBlockers(merchantId)
+    },
+    enabled: !!merchantId && enabled,
+    staleTime: 0,
+  })
+}
+
+function useMerchantBlockerMutation(
+  providerId: string | undefined,
+  merchantId: string,
+  mutationFn: (arg: string) => Promise<void>,
+) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'merchant-blockers', merchantId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: [...PAYMENT_PROVIDERS_QUERY_KEY, 'blockers', providerId ?? null],
+      })
+    },
+  })
+}
+
+/** Desasigna una terminal del merchant. */
+export function useDetachTerminal(providerId: string | undefined, merchantId: string) {
+  return useMerchantBlockerMutation(providerId, merchantId, (terminalId) =>
+    detachTerminalFromMerchant(merchantId, terminalId),
+  )
+}
+
+/** Quita una estructura de costo del merchant. */
+export function useRemoveCostStructure(providerId: string | undefined, merchantId: string) {
+  return useMerchantBlockerMutation(providerId, merchantId, (costStructureId) =>
+    deleteCostStructure(costStructureId),
+  )
 }

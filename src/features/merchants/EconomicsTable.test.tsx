@@ -15,6 +15,25 @@ describe('EconomicsTable', () => {
     expect(screen.getByText('Paga el venue')).toBeInTheDocument()
   })
 
+  it('directo a nivel merchant (sin agregador, sin venuePrice): nota, no filas vacías', () => {
+    const eco = computeMerchantEconomics({
+      cost: { DEBIT: 0.0064, CREDIT: 0.0064, AMEX: 0.028, INTERNATIONAL: 0.0325 },
+      venuePrice: null,
+      revenueShare: {
+        aggregatorPrice: null,
+        avoqadoShareOfProviderMargin: 0.5,
+        avoqadoShareOfAggregatorMargin: null,
+        taxRate: 0.16,
+      },
+    })
+    render(<EconomicsTable economics={eco} />)
+    expect(screen.getByText('Costo del proveedor')).toBeInTheDocument()
+    // No deben aparecer filas vacías de "Paga el venue" ni "Margen Avoqado".
+    expect(screen.queryByText('Paga el venue')).not.toBeInTheDocument()
+    expect(screen.queryByText('Margen Avoqado')).not.toBeInTheDocument()
+    expect(screen.getByText(/El margen depende del pricing de cada venue/)).toBeInTheDocument()
+  })
+
   it('modo aggregator a nivel merchant (sin venuePrice): margen único, sin desglose', () => {
     const eco = computeMerchantEconomics({
       cost: { DEBIT: 0.015, CREDIT: 0.025, AMEX: 0.035, INTERNATIONAL: 0.04 },

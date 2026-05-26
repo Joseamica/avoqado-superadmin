@@ -7,6 +7,12 @@ import { DataTable } from '@/shared/data-table/DataTable'
 import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
 import { QueryError } from '@/shared/components/QueryError'
 import {
+  DateRangePicker,
+  formatDateRangeLabel,
+  type DateRangePreset,
+  type DateRangeValue,
+} from '@/shared/ui/DateRangePicker'
+import {
   DEFAULT_TIMEZONE,
   formatDateTime,
   formatRelative,
@@ -67,10 +73,23 @@ function formatActiveLabel<V extends string>(
   return `${labels[0]}, ${labels[1]} +${labels.length - 2}`
 }
 
+const LOG_DATE_PRESETS: DateRangePreset[] = [
+  { label: '1h', hours: 1 },
+  { label: '24h', hours: 24 },
+  { label: '7d', hours: 168 },
+  { label: '30d', hours: 720 },
+]
+
 export function ActivityLogPage() {
   const [categories, setCategories] = useState<Set<ActivityCategory>>(new Set())
+  const [dateRange, setDateRange] = useState<DateRangeValue>({})
 
-  const query = useActivityLog({ page: 1, pageSize: 100 })
+  const query = useActivityLog({
+    page: 1,
+    pageSize: 100,
+    startDate: dateRange.startTime,
+    endDate: dateRange.endTime,
+  })
 
   const entries = useMemo(() => {
     const logs = query.data?.logs ?? []
@@ -235,6 +254,19 @@ export function ActivityLogPage() {
         pageSize={20}
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
+            <FilterPill
+              label="Fecha"
+              activeLabel={formatDateRangeLabel(dateRange)}
+              activeCount={dateRange.startTime ? 1 : 0}
+              onClear={() => setDateRange({})}
+              popoverClassName="w-auto"
+            >
+              <DateRangePicker
+                value={dateRange}
+                onApply={setDateRange}
+                presets={LOG_DATE_PRESETS}
+              />
+            </FilterPill>
             <FilterPill
               label="Categoría"
               activeLabel={formatActiveLabel(categories, CATEGORY_OPTIONS)}

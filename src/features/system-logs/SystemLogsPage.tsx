@@ -1,9 +1,16 @@
-import { useMemo, useState } from 'react'
-import { Braces, Pause, Play, RefreshCw } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Braces, Check, ClipboardCopy, Copy, Pause, Play, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/data-table/DataTable'
+import {
+  DateRangePicker,
+  formatDateRangeLabel,
+  type DateRangePreset,
+  type DateRangeValue,
+} from '@/shared/ui/DateRangePicker'
 import { HighlightedJson } from '@/shared/components/HighlightedJson'
 import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
 import { QueryError } from '@/shared/components/QueryError'
@@ -16,13 +23,16 @@ import {
 } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
 import { useSystemLogs } from './use-system-logs'
+import { IconButton } from '@/shared/ui/IconButton'
 import {
   extractRequestSource,
+  formatLogsForClipboard,
   humanizeLevel,
   humanizeRequestSource,
   humanizeType,
   LEVEL_TONE,
   parseLogMessage,
+  stripAnsi,
   summarizeMessage,
   type RequestSource,
   type SystemLogEntry,
@@ -76,30 +86,73 @@ const TYPE_TONE: Record<SystemLogType, 'info' | 'muted' | 'accent' | 'success'> 
   deploy: 'success',
 }
 
+/* --- Date range presets for system logs --- */
+
+const LOG_DATE_PRESETS: DateRangePreset[] = [
+  { label: '1h', hours: 1 },
+  { label: '6h', hours: 6 },
+  { label: '24h', hours: 24 },
+  { label: '3 días', hours: 72 },
+  { label: '7 días', hours: 168 },
+]
+
 export function SystemLogsPage() {
   const [levels, setLevels] = useState<Set<SystemLogLevel>>(new Set())
   const [types, setTypes] = useState<Set<SystemLogType>>(new Set())
   const [sources, setSources] = useState<Set<RequestSource>>(new Set())
+  const [dateRange, setDateRange] = useState<DateRangeValue>({})
   // El polling arranca en "live". Cuando el operador necesita leer un log
   // específico sin que la tabla cambie debajo, pausa con el toggle y
   // refresca manualmente con el botón de al lado.
+  // Auto-refresh se desactiva cuando hay un rango de fecha explícito (el
+  // operador está leyendo un periodo histórico, no un live stream).
+  const hasDateRange = !!(dateRange.startTime || dateRange.endTime)
   const [isLive, setIsLive] = useState(true)
+  const effectiveLive = isLive && !hasDateRange
 
   // Si hay UN solo level seleccionado, lo mandamos al server como filter
   // (Render lo aplica más barato que filtrar 100 entries en cliente). Con
   // dos o más, fetch wide y filtrar localmente.
   const serverLevel = levels.size === 1 ? [...levels][0] : undefined
-  const serverType = types.size === 1 ? [...types][0] : undefined
+
+  // «Request» en la UI = "logs que contienen peticiones HTTP" (Winston las
+  // emite por stdout → Render las clasifica como type "app", NO "request").
+  // Si el operador selecciona Request, no mandamos type al server — hacemos
+  // fetch wide y filtramos en cliente con `extractRequestSource`.
+  const wantsRequest = types.has('request')
+  const renderTypes = new Set([...types].filter((t) => t !== 'request'))
+  const serverType = !wantsRequest && renderTypes.size === 1 ? [...renderTypes][0] : undefined
 
   const query = useSystemLogs(
-    { level: serverLevel, type: serverType, limit: 100 },
-    { refetchEverySeconds: isLive ? 10 : false },
+    {
+      level: serverLevel,
+      type: serverType,
+      startTime: dateRange.startTime,
+      endTime: dateRange.endTime,
+      limit: 100,
+    },
+    { refetchEverySeconds: effectiveLive ? 10 : false },
   )
 
   const filteredLogs = useMemo(() => {
     let logs = query.data?.logs ?? []
     if (levels.size > 1) logs = logs.filter((l) => l.level && levels.has(l.level))
-    if (types.size > 1) logs = logs.filter((l) => l.type && types.has(l.type))
+
+    // Tipo: "request" matchea logs cuyo mensaje contiene un path HTTP
+    // (Request End/Start de Winston). Los demás tipos (app, build, deploy)
+    // matchean por la clasificación de Render.
+    if (types.size > 0) {
+      const hasRequest = types.has('request')
+      const otherTypes = new Set([...types].filter((t) => t !== 'request'))
+      if (hasRequest || otherTypes.size > 1) {
+        logs = logs.filter((l) => {
+          if (hasRequest && extractRequestSource(l.message) !== null) return true
+          if (l.type && (otherTypes as Set<string>).has(l.type)) return true
+          return false
+        })
+      }
+    }
+
     // Origen sólo aplica a logs con path detectable. Si el operador escogió
     // "TPV" o "Dashboard", los logs app/build/deploy sin URL caen del view —
     // ese es el punto del filtro (enfocar tráfico de un cliente específico).
@@ -186,13 +239,29 @@ export function SystemLogsPage() {
     [],
   )
 
-  const hasActiveFilters = levels.size > 0 || types.size > 0 || sources.size > 0
+  const hasActiveFilters = levels.size > 0 || types.size > 0 || sources.size > 0 || hasDateRange
 
   const resetAllFilters = () => {
     setLevels(new Set())
     setTypes(new Set())
     setSources(new Set())
+    setDateRange({})
   }
+
+  const copyAllLogs = useCallback(() => {
+    if (filteredLogs.length === 0) {
+      toast.info('No hay logs visibles para copiar')
+      return
+    }
+    const text = formatLogsForClipboard(filteredLogs)
+    navigator.clipboard.writeText(text).then(
+      () =>
+        toast.success(
+          `${filteredLogs.length} log${filteredLogs.length === 1 ? '' : 's'} copiado${filteredLogs.length === 1 ? '' : 's'}`,
+        ),
+      () => toast.error('No se pudo copiar — verifica permisos del navegador'),
+    )
+  }, [filteredLogs])
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
@@ -206,7 +275,11 @@ export function SystemLogsPage() {
             Stream en vivo de stdout / stderr / build / requests directo desde Render.
             <span className="tabular ml-2 text-[var(--ink-faint)]">
               · zona base {timezoneShort(DEFAULT_TIMEZONE)} ·{' '}
-              {isLive ? 'auto-refresh cada 10s' : 'auto-refresh pausado'}
+              {hasDateRange
+                ? 'rango fijo (auto-refresh pausado)'
+                : isLive
+                  ? 'auto-refresh cada 10s'
+                  : 'auto-refresh pausado'}
             </span>
           </p>
         </div>
@@ -219,7 +292,7 @@ export function SystemLogsPage() {
               aria-hidden
               className={cn(
                 'h-1.5 w-1.5 shrink-0 rounded-full',
-                !isLive
+                !effectiveLive
                   ? 'bg-[var(--ink-faint)] shadow-[0_0_0_3px_var(--line)]'
                   : query.isFetching
                     ? 'bg-[var(--accent)] shadow-[0_0_0_3px_var(--accent-faint)]'
@@ -234,7 +307,13 @@ export function SystemLogsPage() {
             */}
             <span className="tabular text-[12px] text-[var(--ink-muted)]">
               <span className="inline-block min-w-[88px]">
-                {!isLive ? 'Pausado' : query.isFetching ? 'Actualizando…' : 'En vivo'}
+                {!effectiveLive
+                  ? hasDateRange
+                    ? 'Histórico'
+                    : 'Pausado'
+                  : query.isFetching
+                    ? 'Actualizando…'
+                    : 'En vivo'}
               </span>
               {query.dataUpdatedAt > 0 && (
                 <span className="text-[var(--ink-faint)]">
@@ -347,6 +426,22 @@ export function SystemLogsPage() {
                 searchPlaceholder="Buscar origen…"
               />
             </FilterPill>
+            <FilterPill
+              label="Fecha"
+              activeLabel={formatDateRangeLabel(dateRange)}
+              activeCount={hasDateRange ? 1 : 0}
+              onClear={() => setDateRange({})}
+              popoverClassName="w-auto"
+            >
+              <DateRangePicker
+                value={dateRange}
+                onApply={setDateRange}
+                presets={LOG_DATE_PRESETS}
+                showTime
+                maxDaysBack={30}
+                maxDaysBackHint="Render retiene logs por máximo 30 días."
+              />
+            </FilterPill>
             {hasActiveFilters && (
               <button
                 type="button"
@@ -356,6 +451,17 @@ export function SystemLogsPage() {
                 Borrar filtros
               </button>
             )}
+            <div className="ml-auto">
+              <IconButton
+                size="sm"
+                aria-label={`Copiar ${filteredLogs.length} logs al portapapeles`}
+                title={`Copiar ${filteredLogs.length} logs visibles`}
+                onClick={copyAllLogs}
+                disabled={filteredLogs.length === 0}
+              >
+                <ClipboardCopy className="h-3.5 w-3.5" aria-hidden />
+              </IconButton>
+            </div>
           </div>
         }
         emptyState={{
@@ -392,6 +498,33 @@ export function SystemLogsPage() {
  *    default y un botón "Ver JSON" para ver el payload coloreado.
  *  - Si no hay JSON: muestra el mensaje completo en texto plano.
  */
+function CopyLogButton({ log }: { log: SystemLogEntry }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    const full = stripAnsi(log.message)
+    navigator.clipboard.writeText(full).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex h-6 items-center gap-1 rounded-[3px] border border-[var(--line-strong)] bg-[var(--canvas-sunken)] px-1.5 text-[10px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
+    >
+      {copied ? (
+        <Check className="h-2.5 w-2.5 text-[var(--success)]" aria-hidden />
+      ) : (
+        <Copy className="h-2.5 w-2.5" aria-hidden />
+      )}
+      {copied ? 'Copiado' : 'Copiar'}
+    </button>
+  )
+}
+
 function LogDetail({ log }: { log: SystemLogEntry }) {
   const parsed = useMemo(() => parseLogMessage(log.message), [log.message])
   const [showJson, setShowJson] = useState(false)
@@ -406,6 +539,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
         <div className="flex items-center gap-2 text-[10.5px] text-[var(--ink-faint)]">
           <Braces className="h-3 w-3" aria-hidden />
           <span>Payload JSON</span>
+          <CopyLogButton log={log} />
         </div>
         <HighlightedJson value={parsed.json} />
       </div>
@@ -426,6 +560,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
             <Braces className="h-2.5 w-2.5" aria-hidden />
             {showJson ? 'Ver mensaje' : 'Ver JSON'}
           </button>
+          <CopyLogButton log={log} />
         </div>
         {showJson ? (
           <HighlightedJson value={parsed.json} />
@@ -443,6 +578,7 @@ function LogDetail({ log }: { log: SystemLogEntry }) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 text-[10.5px] text-[var(--ink-faint)]">
         <span>Mensaje completo</span>
+        <CopyLogButton log={log} />
       </div>
       <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[4px] border border-[var(--line)] bg-[var(--canvas)] p-2 font-mono text-[11.5px] leading-relaxed text-[var(--ink)]">
         {parsed.fullMessage}

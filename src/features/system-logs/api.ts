@@ -18,5 +18,12 @@ export async function fetchSystemLogs(
   }
 
   const { data } = await api.get<Envelope<SystemLogsResponse>>(PATH, { params: cleaned })
-  return data.data
+  return (
+    data?.data ?? {
+      enabled: false,
+      disabledReason: 'Empty response from server.',
+      logs: [],
+      hasMore: false,
+    }
+  )
 }

@@ -84,8 +84,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   // Cuando axios recibe un 401, el interceptor en src/shared/lib/api.ts dispara este evento.
+  // El guard evita llamar setQueryData cuando ya estamos en estado unauthenticated —
+  // cada setQueryData actualiza dataUpdatedAt y notifica observers aunque el dato sea
+  // estructuralmente igual, lo que causa re-renders innecesarios del provider.
   useEffect(() => {
     const onUnauthorized = () => {
+      const cached = queryClient.getQueryData<authService.AuthStatusResponse>(['auth', 'status'])
+      if (cached && !cached.authenticated) return
       writeSessionHint(false)
       disconnectSocket()
       queryClient.setQueryData(['auth', 'status'], { authenticated: false, user: null })

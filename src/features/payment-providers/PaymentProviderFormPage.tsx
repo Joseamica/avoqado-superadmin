@@ -23,11 +23,11 @@ import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
 import {
   useCreatePaymentProvider,
-  useDeletePaymentProvider,
   usePaymentProvider,
   useTogglePaymentProvider,
   useUpdatePaymentProvider,
 } from './use-payment-providers'
+import { ProviderDeleteDialog } from './ProviderDeleteDialog'
 import {
   COUNTRY_OPTIONS,
   humanizeProviderType,
@@ -66,8 +66,8 @@ export function PaymentProviderFormPage() {
   const createMutation = useCreatePaymentProvider()
   const updateMutation = useUpdatePaymentProvider()
   const toggleMutation = useTogglePaymentProvider()
-  const deleteMutation = useDeletePaymentProvider()
 
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
 
   const [form, setForm] = useState({
@@ -396,17 +396,20 @@ export function PaymentProviderFormPage() {
             <AdminSection
               provider={detailQuery.data!}
               isToggling={toggleMutation.isPending}
-              isDeleting={deleteMutation.isPending}
               onToggle={handleToggle}
-              onDelete={async () => {
-                try {
-                  await deleteMutation.mutateAsync(id!)
-                  toast.success('Provider eliminado')
-                  navigate('/payment-providers')
-                } catch (e) {
-                  const info = inspectApiError(e, 'eliminar el provider')
-                  toast.error(info.title, { description: info.description })
-                }
+              onDelete={() => setDeleteOpen(true)}
+            />
+          )}
+
+          {isEdit && detailQuery.data && (
+            <ProviderDeleteDialog
+              open={deleteOpen}
+              onOpenChange={setDeleteOpen}
+              providerId={id!}
+              providerName={detailQuery.data.name}
+              onDeleted={() => {
+                setDeleteOpen(false)
+                navigate('/payment-providers')
               }}
             />
           )}
@@ -777,30 +780,22 @@ function ConfigSchemaSection({
 function AdminSection({
   provider,
   isToggling,
-  isDeleting,
   onToggle,
   onDelete,
 }: {
   provider: PaymentProvider
   isToggling: boolean
-  isDeleting: boolean
   onToggle: () => void
   onDelete: () => void
 }) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [confirmInput, setConfirmInput] = useState('')
-  const expectsTyped = provider.code
-
-  const hasMerchants = (provider.merchantsCount ?? 0) > 0
-
   return (
     <section className="rounded-[8px] border border-[var(--danger)]/30 bg-[var(--danger-faint)]/30 p-5">
       <h2 className="font-display text-[15px] font-semibold text-[var(--danger)]">
         Acciones administrativas
       </h2>
       <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-        Toggle de estado afecta solamente la disponibilidad para nuevos merchants. Eliminar es
-        permanente y sólo posible si no hay merchants vinculados.
+        Desactivar afecta solo la disponibilidad para nuevos merchants. Borrar abre un flujo guiado
+        que primero te deja quitar lo que use el provider.
       </p>
 
       <div className="mt-4 space-y-2">
@@ -830,69 +825,21 @@ function AdminSection({
           {isToggling && <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin" aria-hidden />}
         </button>
 
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            disabled={hasMerchants}
-            className={cn(
-              'flex w-full items-start gap-3 rounded-[6px] border p-3 text-left transition-colors',
-              hasMerchants
-                ? 'cursor-not-allowed border-[var(--line)] bg-[var(--canvas)] opacity-60'
-                : 'border-[var(--line)] bg-[var(--canvas)] hover:border-[var(--danger)]/40 hover:bg-[var(--danger-faint)]/40',
-            )}
-          >
-            <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-[var(--ink)]">Eliminar provider</p>
-              <p className="mt-0.5 text-[11.5px] text-[var(--ink-muted)]">
-                {hasMerchants
-                  ? `No se puede eliminar: ${provider.merchantsCount} merchant(s) lo usan. Reasigna o elimina esos merchants primero.`
-                  : 'Permanente. El provider deja de existir; no aparecerá en ningún form ni listado.'}
-              </p>
-            </div>
-          </button>
-        ) : (
-          <div className="rounded-[6px] border border-[var(--danger)]/40 bg-[var(--canvas)] p-3">
-            <p className="text-[12px] font-semibold text-[var(--danger)]">
-              Confirmá: eliminar {provider.name}
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex w-full items-start gap-3 rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] p-3 text-left transition-colors hover:border-[var(--danger)]/40 hover:bg-[var(--danger-faint)]/40"
+        >
+          <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-[var(--ink)]">Borrar provider…</p>
+            <p className="mt-0.5 text-[11.5px] text-[var(--ink-muted)]">
+              {(provider.merchantsCount ?? 0) > 0
+                ? `${provider.merchantsCount} merchant(s) lo usan. El flujo guiado te deja quitarlos antes de borrar.`
+                : 'Abre el flujo guiado: revisa dependencias y borra de forma permanente cuando esté limpio.'}
             </p>
-            <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-              Escribí{' '}
-              <code className="font-mono text-[11px] text-[var(--ink)]">{expectsTyped}</code> para
-              ejecutar.
-            </p>
-            <div className="mt-2.5 flex gap-2">
-              <input
-                type="text"
-                value={confirmInput}
-                onChange={(e) => setConfirmInput(e.target.value)}
-                placeholder={expectsTyped}
-                autoFocus
-                className="h-8 flex-1 rounded-[4px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2 font-mono text-[12px] uppercase text-[var(--ink)] outline-none focus:border-[var(--danger)]"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDelete(false)
-                  setConfirmInput('')
-                }}
-                className="inline-flex h-8 items-center rounded-[4px] border border-[var(--line-strong)] px-3 text-[12px] text-[var(--ink-muted)] hover:text-[var(--ink)]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={onDelete}
-                disabled={confirmInput.trim().toUpperCase() !== expectsTyped || isDeleting}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[4px] bg-[var(--danger)] px-3 text-[12px] font-semibold text-white hover:bg-[var(--danger)]/90 disabled:opacity-50"
-              >
-                {isDeleting && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-                Eliminar
-              </button>
-            </div>
           </div>
-        )}
+        </button>
       </div>
     </section>
   )

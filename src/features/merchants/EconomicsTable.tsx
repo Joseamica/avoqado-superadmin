@@ -44,7 +44,7 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
               economics={economics}
             />
           )}
-          {(!isAggregator || hasVenueCharge) && (
+          {hasVenueCharge && (
             <Row label="Paga el venue" pick={(e) => e.venueChargeAmount} economics={economics} />
           )}
           {hasAggregatorSplit && (
@@ -80,7 +80,7 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
                 strong
               />
             </>
-          ) : (
+          ) : economics.byCard.DEBIT.avoqadoMargin != null ? (
             <Row
               label="Margen Avoqado"
               pick={(e) => e.avoqadoMargin}
@@ -88,6 +88,17 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
               economics={economics}
               strong
             />
+          ) : (
+            // Sin agregador y sin precio del venue (vista a nivel cuenta): el margen
+            // no se puede calcular aquí porque depende del pricing de cada venue.
+            <tr>
+              <td
+                colSpan={CARD_TYPES.length + 1}
+                className="px-4 py-2.5 text-[12px] text-[var(--ink-faint)]"
+              >
+                El margen depende del pricing de cada venue — se ve abajo, en la sección Venues.
+              </td>
+            </tr>
           )}
         </tbody>
       </table>

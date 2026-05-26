@@ -29,6 +29,11 @@ interface FilterPillProps {
   onClear?: () => void
   /** Alineación del popover relativo al trigger. */
   align?: 'start' | 'center' | 'end'
+  /**
+   * Override del className del PopoverContent. Por default `'w-[280px]'`.
+   * Útil para contenido más ancho como `DateRangePicker` (`'w-auto'`).
+   */
+  popoverClassName?: string
   /** Contenido del popover. Si es un React element acepta una prop `onClose: () => void` que el pill inyecta. */
   children: ReactNode
   className?: string
@@ -40,6 +45,7 @@ export function FilterPill({
   activeCount,
   onClear,
   align = 'start',
+  popoverClassName,
   children,
   className,
 }: FilterPillProps) {
@@ -113,7 +119,7 @@ export function FilterPill({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent align={align} className="w-[280px] p-0">
+        <PopoverContent align={align} className={cn('p-0', popoverClassName ?? 'w-[280px]')}>
           {childrenWithClose}
         </PopoverContent>
       </Popover>

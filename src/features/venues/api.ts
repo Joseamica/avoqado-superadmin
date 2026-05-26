@@ -272,6 +272,7 @@ interface WizardResponse {
 
 export async function createVenueWizard(payload: CreateVenuePayload): Promise<WizardResponse> {
   const { data } = await api.post<{ data: WizardResponse }>('/superadmin/onboarding/venue', payload)
+  if (!data?.data) throw new Error('Server returned empty response for createVenueWizard')
   return data.data
 }
 

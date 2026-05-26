@@ -124,6 +124,7 @@ export async function updateTerminal(
     `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}`,
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for updateTerminal')
   return mapTerminal(data.data)
 }
 
@@ -138,6 +139,7 @@ export async function generateActivationCode(
   const { data } = await api.post<{ data: { code: string; expiresAt: string } }>(
     `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/generate-activation-code`,
   )
+  if (!data?.data) throw new Error('Server returned empty response for generateActivationCode')
   return data.data
 }
 
@@ -204,6 +206,7 @@ export async function createTerminal(
     '/dashboard/superadmin/terminals',
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for createTerminal')
   return {
     ...mapTerminal(data.data),
     activationCode: data.data.activationCode ?? null,

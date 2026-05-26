@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { extractRequestSource } from './types'
+import {
+  extractRequestSource,
+  formatLogForClipboard,
+  formatLogsForClipboard,
+  type SystemLogEntry,
+} from './types'
 
 /**
  * Tests para `extractRequestSource` — la función que mapea un mensaje de log
@@ -59,5 +64,58 @@ describe('extractRequestSource', () => {
     expect(
       extractRequestSource('Forwarding /api/v1/tpv/legacy to /api/v1/dashboard/replacement'),
     ).toBe('tpv')
+  })
+})
+
+const mkLog = (overrides: Partial<SystemLogEntry> = {}): SystemLogEntry => ({
+  id: 'log-1',
+  timestamp: '2026-05-26T14:30:05.123Z',
+  message: 'Request End: GET /api/v1/superadmin/venues - 200 [45ms]',
+  level: 'info',
+  type: 'app',
+  labels: [],
+  ...overrides,
+})
+
+describe('formatLogForClipboard', () => {
+  it('formatea con timestamp, level, type y mensaje', () => {
+    const result = formatLogForClipboard(mkLog())
+    expect(result).toBe(
+      '2026-05-26 14:30:05 [INFO] [App] Request End: GET /api/v1/superadmin/venues - 200 [45ms]',
+    )
+  })
+
+  it('omite level y type cuando son null', () => {
+    const result = formatLogForClipboard(mkLog({ level: null, type: null }))
+    expect(result).toBe(
+      '2026-05-26 14:30:05 Request End: GET /api/v1/superadmin/venues - 200 [45ms]',
+    )
+  })
+
+  it('toma solo la primera línea de un stack trace', () => {
+    const result = formatLogForClipboard(
+      mkLog({ message: 'Error: boom\n    at foo.js:1\n    at bar.js:2', level: 'error' }),
+    )
+    expect(result).toContain('Error: boom')
+    expect(result).not.toContain('at foo')
+  })
+})
+
+describe('formatLogsForClipboard', () => {
+  it('devuelve placeholder cuando no hay logs', () => {
+    expect(formatLogsForClipboard([])).toBe('(sin logs visibles)')
+  })
+
+  it('incluye header con conteo y rango de timestamps', () => {
+    const logs = [
+      mkLog({ timestamp: '2026-05-26T14:30:10.000Z' }),
+      mkLog({ timestamp: '2026-05-26T14:30:05.000Z' }),
+    ]
+    const result = formatLogsForClipboard(logs)
+    const lines = result.split('\n')
+    expect(lines[0]).toMatch(/^--- 2 logs/)
+    expect(lines[0]).toContain('14:30:05')
+    expect(lines[0]).toContain('14:30:10')
+    expect(lines).toHaveLength(3) // header + 2 log lines
   })
 })

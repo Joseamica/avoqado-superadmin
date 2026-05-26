@@ -268,6 +268,7 @@ export interface UpdateMerchantInput {
 
 export async function createMerchant(input: CreateMerchantInput): Promise<MerchantAccount> {
   const { data } = await api.post<{ data: RawMerchant }>('/superadmin/merchant-accounts', input)
+  if (!data?.data) throw new Error('Server returned empty response for createMerchant')
   return mapMerchant(data.data)
 }
 
@@ -279,6 +280,7 @@ export async function updateMerchant(
     `/superadmin/merchant-accounts/${encodeURIComponent(id)}`,
     input,
   )
+  if (!data?.data) throw new Error('Server returned empty response for updateMerchant')
   return mapMerchant(data.data)
 }
 
@@ -286,6 +288,7 @@ export async function toggleMerchant(id: string): Promise<MerchantAccount> {
   const { data } = await api.patch<{ data: RawMerchant }>(
     `/superadmin/merchant-accounts/${encodeURIComponent(id)}/toggle`,
   )
+  if (!data?.data) throw new Error('Server returned empty response for toggleMerchant')
   return mapMerchant(data.data)
 }
 
@@ -312,7 +315,7 @@ export async function fetchAssignableTerminals(merchantId: string): Promise<Assi
   const { data } = await api.get<{ data: AssignableTerminal[] }>(
     `/superadmin/merchant-accounts/${encodeURIComponent(merchantId)}/assignable-terminals`,
   )
-  return data.data
+  return Array.isArray(data?.data) ? data.data : []
 }
 
 /* --- Mutations economía (F2) --- */
@@ -503,6 +506,7 @@ export async function fullSetupBlumon(payload: BlumonFullSetupPayload): Promise<
     '/superadmin/merchant-accounts/blumon/full-setup',
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for fullSetupBlumon')
   return mapMerchant(data.data)
 }
 
@@ -578,6 +582,7 @@ export async function fullSetupAngelPay(
     '/superadmin/merchant-accounts/full-setup-angelpay',
     payload,
   )
+  if (!data?.data) throw new Error('Server returned empty response for fullSetupAngelPay')
   return mapMerchant(data.data)
 }
 
