@@ -118,7 +118,16 @@ export function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-4">
+          {/*
+            `noValidate` desactiva la validación nativa del browser para que
+            zod (via react-hook-form) sea la única autoridad. Sin esto, un
+            `<input type="email">` con valor inválido bloquea el submit con
+            popup nativo del browser y nuestra validación tipada nunca corre
+            — el usuario ve el aviso nativo en lugar del nuestro, y el
+            mensaje varía entre browsers. Con `noValidate`, zod corre
+            siempre y vemos "Email inválido" consistente.
+          */}
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-4" noValidate>
             <Field
               label="Email"
               type="email"
