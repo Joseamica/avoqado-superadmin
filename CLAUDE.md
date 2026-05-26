@@ -8,6 +8,20 @@ This file overrides default behavior for any AI assistant working on this reposi
 
 This app is the **superadmin frontend** for the Avoqado platform. It calls **`avoqado-server`** at the existing namespace **`/api/v1/superadmin/*`** (already protected by `authenticateTokenMiddleware` + `authorizeRole([StaffRole.SUPERADMIN])`). There is **no** separate server, **no** parallel database, **no** namespace `v2` by default.
 
+### Namespace rule — el front sólo llama `/api/v1/superadmin/*` (NUNCA `/dashboard/superadmin/*`)
+
+**Regla dura:** este front consume **únicamente** endpoints bajo `/api/v1/superadmin/*`. La **única** excepción es auth (`/api/v1/dashboard/auth/*`) — la sesión es compartida a propósito y no se duplica (ver más abajo).
+
+**Prohibido** llamar `/api/v1/dashboard/superadmin/*` (ni ningún otro `/dashboard/*` que no sea auth), **aunque el endpoint exista y "funcione"**. Esas son las rutas del **dashboard legacy**: si las consumimos quedamos acoplados a ellas — un cambio del legacy nos rompe, y cuando el router está montado en ambos lados (double-mount), un cambio nuestro rompe al legacy.
+
+**Si necesitas algo que hoy sólo existe en `/dashboard/superadmin/*`:** no lo consumas desde ahí. **Copia** la lógica del controller/service del legacy a una **ruta nueva montada bajo `/superadmin/*`** (en `avoqado-server/src/routes/superadmin.routes.ts`) y apunta el front a `/superadmin/*`. Duplicar un handler chico es barato; el acoplamiento al legacy es caro.
+
+- **Endpoints nuevos** → nacen directo en `/superadmin/*`, nunca en `/dashboard/superadmin/*`.
+- **Endpoints ya double-mounted** (mismo router en ambos paths — ej. `terminals`, `payment-providers`, `payment-analytics`): el front usa **siempre** la variante `/superadmin/*`, nunca la `/dashboard/*`.
+- **Por qué (decoupling):** el objetivo es que el dashboard legacy pueda cambiar o morir sin tocar este app, y viceversa. Un endpoint `/superadmin/*` independiente evoluciona libre; uno compartido te ata a la disciplina aditiva del legacy para siempre.
+
+> **Deuda conocida (2026-05-26):** `venues`, `features`, `ecommerce-merchants` y los TPV `command`/`settings` aún se consumen vía `/dashboard/*`. `terminals` y `app-updates` ya están double-mounted (sólo falta cambiar el string del path en el front). Migrar todo a `/superadmin/*` es trabajo pendiente trackeado; **no agregar más usos de `/dashboard/superadmin/*` mientras tanto.**
+
 ### Auth — cookies HTTP-only, no Firebase
 
 Auth uses the **internal session cookies** issued by `avoqado-server` at `/api/v1/dashboard/auth/*`:
@@ -255,6 +269,7 @@ src/
 ## Forbidden patterns (instant rejection)
 
 - Llamar `/api/v1/admin/*` (el namespace no existe — usa `/superadmin` o `/dashboard/auth`).
+- Llamar `/api/v1/dashboard/superadmin/*` (o cualquier `/dashboard/*` que no sea auth). El front sólo consume `/superadmin/*`; si algo sólo existe en legacy, **copia** el handler a una ruta `/superadmin/*` nueva. Ver "Namespace rule" arriba.
 - Importar `firebase/*` (auth es interno; Firebase no está en deps).
 - `new Date(...)` seguido de `.toLocaleString()` (usa `datetime.ts`).
 - `console.log` committeado (sólo `console.warn` / `console.error` están permitidos por ESLint).

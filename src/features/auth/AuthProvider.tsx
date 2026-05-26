@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 60_000,
     retry: false,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: false,
   })
 
   const loginMutation = useMutation({
