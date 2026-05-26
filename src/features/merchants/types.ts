@@ -51,10 +51,20 @@ export interface MerchantAccount {
   angelpayMerchantName: string | null
   aggregatorId: string | null
   venues: MerchantVenueRef[]
-  terminals: { id: string; serialNumber: string }[]
+  terminals: { id: string; serialNumber: string; inherited: boolean }[]
   counts: { costStructures: number; venueConfigs: number; terminals: number }
   createdAt: string
   updatedAt: string
+}
+
+/** Terminal candidata a anexar a un merchant desde el detalle (`assignable-terminals`). */
+export interface AssignableTerminal {
+  id: string
+  serialNumber: string
+  name: string | null
+  venueId: string
+  venueName: string
+  brand: string | null
 }
 
 export interface ProviderCostStructure {
@@ -116,13 +126,42 @@ export function effectiveRate(rate: number, includesTax: boolean | null, taxRate
   return rate
 }
 
-export function cardRatesFromCost(cost: ProviderCostStructure): CardRates {
+/**
+ * Tasas CRUDAS (tal cual se persisten en el backend), sin aplicar IVA. Úsalo
+ * para seedear inputs EDITABLES: el campo debe mostrar lo que se guarda y el
+ * checkbox "incluyen IVA" decide la interpretación. Para display read-only o
+ * cálculo de margen usa `cardRatesFromCost`/`cardRatesFromPricing` (efectivas).
+ */
+export function rawCardRates(o: {
+  debitRate: number
+  creditRate: number
+  amexRate: number
+  internationalRate: number
+}): CardRates {
   return {
-    DEBIT: effectiveRate(cost.debitRate, cost.includesTax, cost.taxRate),
-    CREDIT: effectiveRate(cost.creditRate, cost.includesTax, cost.taxRate),
-    AMEX: effectiveRate(cost.amexRate, cost.includesTax, cost.taxRate),
-    INTERNATIONAL: effectiveRate(cost.internationalRate, cost.includesTax, cost.taxRate),
+    DEBIT: o.debitRate,
+    CREDIT: o.creditRate,
+    AMEX: o.amexRate,
+    INTERNATIONAL: o.internationalRate,
   }
+}
+
+/** Aplica el IVA por tarjeta (efectiva). Para alimentar la preview de economía. */
+export function effectiveCardRates(
+  rates: CardRates,
+  includesTax: boolean | null,
+  taxRate: number,
+): CardRates {
+  return {
+    DEBIT: effectiveRate(rates.DEBIT, includesTax, taxRate),
+    CREDIT: effectiveRate(rates.CREDIT, includesTax, taxRate),
+    AMEX: effectiveRate(rates.AMEX, includesTax, taxRate),
+    INTERNATIONAL: effectiveRate(rates.INTERNATIONAL, includesTax, taxRate),
+  }
+}
+
+export function cardRatesFromCost(cost: ProviderCostStructure): CardRates {
+  return effectiveCardRates(rawCardRates(cost), cost.includesTax, cost.taxRate)
 }
 
 /* --- Humanizers + tones --- */
@@ -180,10 +219,5 @@ export interface VenuePricingStructure {
 }
 
 export function cardRatesFromPricing(p: VenuePricingStructure): CardRates {
-  return {
-    DEBIT: effectiveRate(p.debitRate, p.includesTax, p.taxRate),
-    CREDIT: effectiveRate(p.creditRate, p.includesTax, p.taxRate),
-    AMEX: effectiveRate(p.amexRate, p.includesTax, p.taxRate),
-    INTERNATIONAL: effectiveRate(p.internationalRate, p.includesTax, p.taxRate),
-  }
+  return effectiveCardRates(rawCardRates(p), p.includesTax, p.taxRate)
 }

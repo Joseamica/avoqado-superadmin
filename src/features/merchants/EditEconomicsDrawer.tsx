@@ -16,7 +16,7 @@ import { MarginPreview } from './MarginPreview'
 import { computeMerchantEconomics } from './economics'
 import { useSaveCost, useSaveRevenueShare } from './use-merchants'
 import type { CardRates, MerchantRevenueShare, ProviderCostStructure } from './types'
-import { cardRatesFromCost } from './types'
+import { effectiveCardRates, rawCardRates } from './types'
 
 const ZERO: CardRates = { DEBIT: 0, CREDIT: 0, AMEX: 0, INTERNATIONAL: 0 }
 
@@ -40,7 +40,8 @@ export function EditEconomicsDrawer({
   const saveCost = useSaveCost()
   const saveRS = useSaveRevenueShare()
 
-  const [rates, setRates] = useState<CardRates>(cost ? cardRatesFromCost(cost) : ZERO)
+  // El campo edita la tasa CRUDA (lo que se persiste); el checkbox decide el IVA.
+  const [rates, setRates] = useState<CardRates>(cost ? rawCardRates(cost) : ZERO)
   const [includesTax, setIncludesTax] = useState<boolean>(cost?.includesTax ?? true)
   const [mode, setMode] = useState<'direct' | 'aggregator'>(
     revenueShare?.aggregatorPrice ? 'aggregator' : 'direct',
@@ -57,7 +58,8 @@ export function EditEconomicsDrawer({
   const saving = saveCost.isPending || saveRS.isPending
 
   const economics = computeMerchantEconomics({
-    cost: rates,
+    // La preview necesita la tasa EFECTIVA (con IVA); el estado guarda la cruda.
+    cost: effectiveCardRates(rates, includesTax, cost?.taxRate ?? 0.16),
     venuePrice: null,
     revenueShare:
       mode === 'aggregator'

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Plug,
   ScrollText,
   Search,
   Settings2,
@@ -62,7 +63,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Configuración',
-    items: [{ to: '/settings', label: 'Sistema', icon: Settings2, disabled: true }],
+    items: [
+      { to: '/payment-providers', label: 'Proveedores de pago', icon: Plug },
+      { to: '/settings', label: 'Sistema', icon: Settings2, disabled: true },
+    ],
   },
 ]
 

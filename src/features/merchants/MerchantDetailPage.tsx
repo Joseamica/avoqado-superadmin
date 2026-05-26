@@ -1,20 +1,36 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { IconButton } from '@/shared/ui/IconButton'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/shared/ui/Dialog'
 import { QueryError } from '@/shared/components/QueryError'
 import { formatDateTime } from '@/shared/lib/datetime'
 import { inspectApiError } from '@/shared/lib/api-error'
-import { useMerchant, useMerchantEconomicsData, useToggleMerchant } from './use-merchants'
+import {
+  useMerchant,
+  useMerchantEconomicsData,
+  useSetTerminalServes,
+  useToggleMerchant,
+} from './use-merchants'
 import { EditEconomicsDrawer } from './EditEconomicsDrawer'
 import { MerchantIdentityDrawer } from './MerchantIdentityDrawer'
 import { DeleteMerchantDialog } from './DeleteMerchantDialog'
+import { AssignTerminalDrawer } from './AssignTerminalDrawer'
 import { computeReadiness } from './readiness'
 import { ReadinessStrip } from './ReadinessStrip'
 import { MoneyFlow } from './MoneyFlow'
 import { EconomicsTable } from './EconomicsTable'
+import { VenueEconomicsSection } from './VenueEconomics'
 import {
   activeTone,
   environmentTone,
@@ -40,6 +56,11 @@ export function MerchantDetailPage() {
     slot: AccountSlot
   } | null>(null)
   const toggleM = useToggleMerchant()
+  const [assigning, setAssigning] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; serialNumber: string } | null>(
+    null,
+  )
+  const setServes = useSetTerminalServes(id ?? '')
 
   if (merchantQ.isError) {
     return (
@@ -69,6 +90,28 @@ export function MerchantDetailPage() {
   }
 
   const readiness = computeReadiness(m, { hasSettlement: eco.hasSettlement })
+
+  function doRemoveTerminal(terminalId: string) {
+    setServes.mutate(
+      { terminalId, serves: false },
+      {
+        onSuccess: () => {
+          toast.success('Terminal quitada')
+          setRemoveTarget(null)
+        },
+        onError: (e) => {
+          const i = inspectApiError(e, 'quitar la terminal')
+          toast.error(i.title, { description: i.description })
+          setRemoveTarget(null)
+        },
+      },
+    )
+  }
+
+  function handleRemoveTerminal(t: { id: string; serialNumber: string; inherited: boolean }) {
+    if (t.inherited) setRemoveTarget({ id: t.id, serialNumber: t.serialNumber })
+    else doRemoveTerminal(t.id)
+  }
 
   return (
     <Shell>
@@ -132,7 +175,10 @@ export function MerchantDetailPage() {
       <ReadinessStrip items={readiness} />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-[10px] border border-[var(--line-strong)] bg-[var(--canvas)] p-5">
+        <div
+          id="section-cost"
+          className="scroll-mt-20 rounded-[10px] border border-[var(--line-strong)] bg-[var(--canvas)] p-5"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-[13px] font-semibold text-[var(--ink)]">Economía</h3>
             <Button size="sm" variant="ghost" onClick={() => setEditingEco(true)}>
@@ -142,14 +188,17 @@ export function MerchantDetailPage() {
           {eco.isError ? (
             <QueryError error={eco.error} context="cargar la economía" onRetry={eco.refetch} />
           ) : eco.economics ? (
-            <MoneyFlow economics={eco.economics} />
+            <MoneyFlow economics={eco.economics} cost={eco.cost} />
           ) : (
             <p className="text-[13px] text-[var(--ink-faint)]">
               Sin estructura de costos — configura el costo del proveedor para ver la economía.
             </p>
           )}
         </div>
-        <div className="rounded-[10px] border border-[var(--line-strong)] bg-[var(--canvas)] p-5">
+        <div
+          id="section-credentials"
+          className="scroll-mt-20 rounded-[10px] border border-[var(--line-strong)] bg-[var(--canvas)] p-5"
+        >
           <h3 className="mb-3 text-[13px] font-semibold text-[var(--ink)]">
             Identidad &amp; banco
           </h3>
@@ -165,10 +214,16 @@ export function MerchantDetailPage() {
       {eco.economics && (
         <Section title="Economía (por tarjeta)">
           <EconomicsTable economics={eco.economics} />
+          {eco.economics.mode === 'aggregator' && (
+            <p className="text-[12px] text-[var(--ink-faint)]">
+              Sólo el tramo proveedor→agregador. El tramo agregador→venue depende del pricing de
+              cada venue y se desglosa por venue más abajo.
+            </p>
+          )}
         </Section>
       )}
 
-      <section className="flex flex-col gap-3">
+      <section id="section-settlement" className="scroll-mt-20 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[var(--ink)]">Liquidación</h2>
           <Button size="sm" variant="ghost" onClick={() => setEditingSettlement(true)}>
@@ -196,44 +251,26 @@ export function MerchantDetailPage() {
         )}
       </section>
 
-      <Section title={`Venues (${eco.venueConfigs.length})`}>
-        {eco.venueConfigs.length === 0 ? (
-          <Empty>No está asignada a ningún venue.</Empty>
-        ) : (
-          <ul className="flex flex-col gap-1.5 text-[13px]">
-            {eco.venueConfigs.map((vc) => (
-              <li
-                key={vc.venueId}
-                className="flex items-center justify-between border-b border-[var(--line)] py-1.5 last:border-0"
-              >
-                <div className="flex items-center gap-2">
-                  <Link to={`/venues/${vc.venueId}`} className="text-[var(--ink)] hover:underline">
-                    {vc.venue.name}
-                  </Link>
-                  <Badge tone="muted" size="sm">
-                    {vc.slot}
-                  </Badge>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    setPricingTarget({
-                      venueId: vc.venueId,
-                      venueName: vc.venue.name,
-                      slot: vc.slot,
-                    })
-                  }
-                >
-                  Editar pricing
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+      <Section id="section-slots" title={`Venues (${eco.venueConfigs.length})`}>
+        <VenueEconomicsSection
+          venueConfigs={eco.venueConfigs}
+          cost={eco.cost}
+          revenueShare={eco.revenueShare}
+          onEditPricing={(vc) =>
+            setPricingTarget({ venueId: vc.venueId, venueName: vc.venue.name, slot: vc.slot })
+          }
+        />
       </Section>
 
-      <Section title={`Terminales (${m.terminals.length})`}>
+      <section id="section-terminals" className="scroll-mt-20 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-[var(--ink)]">
+            Terminales ({m.terminals.length})
+          </h2>
+          <Button size="sm" variant="ghost" onClick={() => setAssigning(true)}>
+            Asignar terminal
+          </Button>
+        </div>
         {m.terminals.length === 0 ? (
           <Empty>
             Ninguna terminal lo procesa todavía (ni asignada ni heredada del slot del venue).
@@ -243,14 +280,28 @@ export function MerchantDetailPage() {
             {m.terminals.map((t) => (
               <li
                 key={t.id}
-                className="flex justify-between border-b border-[var(--line)] py-1.5 last:border-0"
+                className="flex items-center justify-between gap-2 border-b border-[var(--line)] py-1.5 last:border-0"
               >
-                <span className="tabular-nums text-[var(--ink)]">{t.serialNumber || t.id}</span>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums text-[var(--ink)]">{t.serialNumber || t.id}</span>
+                  <Badge tone="muted" size="sm">
+                    {t.inherited ? 'heredada' : 'asignada'}
+                  </Badge>
+                </div>
+                <IconButton
+                  size="sm"
+                  aria-label="Quitar terminal"
+                  title="Quitar terminal"
+                  disabled={setServes.isPending}
+                  onClick={() => handleRemoveTerminal(t)}
+                >
+                  <Unlink className="h-3.5 w-3.5" aria-hidden />
+                </IconButton>
               </li>
             ))}
           </ul>
         )}
-      </Section>
+      </section>
 
       <p className="text-[11.5px] text-[var(--ink-faint)]">
         Actualizada {formatDateTime(m.updatedAt)}
@@ -291,6 +342,37 @@ export function MerchantDetailPage() {
         merchant={m}
         onDeleted={() => navigate('/merchants')}
       />
+      <AssignTerminalDrawer open={assigning} onOpenChange={setAssigning} merchantId={m.id} />
+      <Dialog
+        open={!!removeTarget}
+        onOpenChange={(o) => {
+          if (!o) setRemoveTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Quitar terminal heredada</DialogTitle>
+            <DialogDescription>
+              «{removeTarget?.serialNumber}» procesa este merchant por herencia del slot del venue.
+              Al quitarla, la terminal queda restringida a los demás merchants del venue y deja de
+              heredar cambios futuros del slot. ¿Continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setRemoveTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={setServes.isPending}
+              onClick={() => removeTarget && doRemoveTerminal(removeTarget.id)}
+            >
+              {setServes.isPending ? 'Quitando…' : 'Quitar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Shell>
   )
 }
@@ -299,9 +381,17 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">{children}</div>
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string
+  title: string
+  children: React.ReactNode
+}) {
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className={`flex flex-col gap-3${id ? ' scroll-mt-20' : ''}`}>
       <h2 className="text-[15px] font-semibold text-[var(--ink)]">{title}</h2>
       {children}
     </section>

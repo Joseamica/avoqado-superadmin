@@ -22,7 +22,7 @@ const base: MerchantAccount = {
   angelpayMerchantName: null,
   aggregatorId: null,
   venues: [{ id: 'v1', name: 'Doña Simona', slug: 'dona-simona' }],
-  terminals: [{ id: 't1', serialNumber: 'AVQD-2841548417' }],
+  terminals: [{ id: 't1', serialNumber: 'AVQD-2841548417', inherited: false }],
   counts: { costStructures: 1, venueConfigs: 1, terminals: 1 },
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

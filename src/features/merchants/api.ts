@@ -5,6 +5,7 @@
 import { api } from '@/shared/lib/api'
 import type {
   AccountSlot,
+  AssignableTerminal,
   CardRates,
   CardType,
   MerchantAccount,
@@ -49,7 +50,7 @@ interface RawMerchant {
   angelpayMerchantName: string | null
   aggregatorId: string | null
   venues: { id: string; name: string; slug: string }[]
-  terminals: { id: string; serialNumber: string }[]
+  terminals: { id: string; serialNumber: string; inherited?: boolean }[]
   _count: { costStructures: number; venueConfigs: number; terminals: number }
   createdAt: string
   updatedAt: string
@@ -76,7 +77,11 @@ function mapMerchant(r: RawMerchant): MerchantAccount {
     angelpayMerchantName: r.angelpayMerchantName,
     aggregatorId: r.aggregatorId,
     venues: r.venues ?? [],
-    terminals: r.terminals ?? [],
+    terminals: (r.terminals ?? []).map((t) => ({
+      id: t.id,
+      serialNumber: t.serialNumber,
+      inherited: t.inherited ?? false,
+    })),
     counts: {
       costStructures: r._count?.costStructures ?? 0,
       venueConfigs: r._count?.venueConfigs ?? 0,
@@ -286,6 +291,28 @@ export async function toggleMerchant(id: string): Promise<MerchantAccount> {
 
 export async function deleteMerchant(id: string): Promise<void> {
   await api.delete(`/superadmin/merchant-accounts/${encodeURIComponent(id)}`)
+}
+
+/* --- Gestión de terminales (anexar/quitar, el server preserva la herencia del slot) --- */
+
+/** Anexa (`serves:true`) o quita (`serves:false`) una terminal a este merchant. */
+export async function setTerminalServes(
+  merchantId: string,
+  terminalId: string,
+  serves: boolean,
+): Promise<void> {
+  await api.put(
+    `/superadmin/merchant-accounts/${encodeURIComponent(merchantId)}/terminals/${encodeURIComponent(terminalId)}`,
+    { serves },
+  )
+}
+
+/** Terminales brand-compatibles de los venues del merchant que aún no lo procesan. */
+export async function fetchAssignableTerminals(merchantId: string): Promise<AssignableTerminal[]> {
+  const { data } = await api.get<{ data: AssignableTerminal[] }>(
+    `/superadmin/merchant-accounts/${encodeURIComponent(merchantId)}/assignable-terminals`,
+  )
+  return data.data
 }
 
 /* --- Mutations economía (F2) --- */

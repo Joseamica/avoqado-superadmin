@@ -24,6 +24,7 @@ const cost: ProviderCostStructure = {
 }
 
 let capturedPostBody: Record<string, unknown> | null = null
+let capturedPutBody: Record<string, unknown> | null = null
 
 const server = setupServer(
   // No existing pricing → POST path
@@ -40,6 +41,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
 afterEach(() => {
   server.resetHandlers()
   capturedPostBody = null
+  capturedPutBody = null
 })
 afterAll(() => server.close())
 
@@ -93,6 +95,81 @@ describe('EditVenuePricingDrawer', () => {
 
     expect(screen.getByText('Pricing · Doña Simona')).toBeInTheDocument()
     expect(screen.getByText(/slot PRIMARY/)).toBeInTheDocument()
+  })
+
+  // Regresión: el campo editable debe mostrar la tasa CRUDA guardada, no la
+  // efectiva (×1.16). Si seedeamos con la efectiva, escribir 10 + guardar
+  // re-muestra 11.6 en cada reload (el bug reportado por ops).
+  describe('round-trip IVA (idempotencia)', () => {
+    function withExistingPricing() {
+      server.use(
+        // Pricing existente: tasa CRUDA 10%, includesTax=false → PUT path
+        http.get(`${baseURL}/superadmin/venue-pricing/structures/active/v1/SECONDARY`, () =>
+          HttpResponse.json({
+            data: {
+              id: 'vp-existing',
+              debitRate: 0.1,
+              creditRate: 0.1,
+              amexRate: 0.1,
+              internationalRate: 0.1,
+              includesTax: false,
+              taxRate: 0.16,
+              fixedFeePerTransaction: null,
+              monthlyServiceFee: null,
+              effectiveFrom: '2026-01-01T00:00:00.000Z',
+              effectiveTo: null,
+              active: true,
+            },
+          }),
+        ),
+        http.put(
+          `${baseURL}/superadmin/venue-pricing/structures/vp-existing`,
+          async ({ request }) => {
+            capturedPutBody = (await request.json()) as Record<string, unknown>
+            return HttpResponse.json({ data: { id: 'vp-existing' } })
+          },
+        ),
+      )
+    }
+
+    it('muestra la tasa cruda (10), no la efectiva con IVA (11.6)', async () => {
+      withExistingPricing()
+      renderWithProviders(
+        <EditVenuePricingDrawer
+          open
+          venueId="v1"
+          venueName="Amaena"
+          slot="SECONDARY"
+          cost={cost}
+          onOpenChange={() => {}}
+        />,
+      )
+
+      const debitInput = await screen.findByLabelText<HTMLInputElement>('Débito (%)')
+      expect(debitInput.value).toBe('10')
+    })
+
+    it('guarda la tasa cruda sin doblar el IVA al volver a guardar', async () => {
+      withExistingPricing()
+      renderWithProviders(
+        <EditVenuePricingDrawer
+          open
+          venueId="v1"
+          venueName="Amaena"
+          slot="SECONDARY"
+          cost={cost}
+          onOpenChange={() => {}}
+        />,
+      )
+
+      await screen.findByLabelText('Débito (%)')
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+      await waitFor(() => expect(capturedPutBody).not.toBeNull())
+      // Sin tocar nada, debe re-enviar 0.10 crudo (no 0.116).
+      expect(capturedPutBody!.debitRate).toBe(0.1)
+      expect(capturedPutBody!.includesTax).toBe(false)
+    })
   })
 
   it('muestra estado de carga mientras resuelve el pricing activo', () => {

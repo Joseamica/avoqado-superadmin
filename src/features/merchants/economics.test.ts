@@ -60,5 +60,39 @@ describe('computeMerchantEconomics', () => {
     expect(r.mode).toBe('aggregator')
     expect(r.byCard.DEBIT.avoqadoMargin).toBeCloseTo(0.35, 4)
     expect(r.byCard.DEBIT.aggregatorPriceAmount).toBeCloseTo(2.0, 4)
+    // Sin venuePrice (nivel merchant) → el tramo agregador→venue no se puede calcular.
+    expect(r.byCard.DEBIT.avoqadoMarginAggregator).toBeNull()
+    expect(r.byCard.DEBIT.avoqadoMarginProvider).toBeCloseTo(0.35, 4)
+  })
+
+  it('modo aggregator + venuePrice (por venue) → suma tramo proveedor + tramo agregador', () => {
+    const aggregatorPrice: CardRates = {
+      DEBIT: 0.02,
+      CREDIT: 0.03,
+      AMEX: 0.04,
+      INTERNATIONAL: 0.045,
+    }
+    // venue paga 3% débito; agregador cobra 2%; costo 1.5%.
+    const venuePrice: CardRates = { DEBIT: 0.03, CREDIT: 0.05, AMEX: 0.06, INTERNATIONAL: 0.07 }
+    const r = computeMerchantEconomics({
+      cost,
+      venuePrice,
+      revenueShare: {
+        aggregatorPrice,
+        avoqadoShareOfProviderMargin: 0.5, // 50% del margen proveedor→agregador
+        avoqadoShareOfAggregatorMargin: 1, // 100% del margen agregador→venue
+        taxRate: 0.16,
+      },
+    })
+    expect(r.mode).toBe('aggregator')
+    const d = r.byCard.DEBIT
+    // m1 = (2.0 - 1.5) = 0.5 → ×0.5 = 0.25
+    expect(d.avoqadoMarginProvider).toBeCloseTo(0.25, 4)
+    // m2 = (3.0 - 2.0) = 1.0 → ×1.0 = 1.0
+    expect(d.avoqadoMarginAggregator).toBeCloseTo(1.0, 4)
+    // total = 0.25 + 1.0 = 1.25
+    expect(d.avoqadoMargin).toBeCloseTo(1.25, 4)
+    expect(d.venueChargeAmount).toBeCloseTo(3.0, 4)
+    expect(d.aggregatorPriceAmount).toBeCloseTo(2.0, 4)
   })
 })

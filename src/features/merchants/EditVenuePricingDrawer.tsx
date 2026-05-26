@@ -19,7 +19,8 @@ import { getActiveVenuePricing } from './api'
 import { MERCHANTS_QUERY_KEY, useSaveVenuePricing } from './use-merchants'
 import {
   cardRatesFromCost,
-  cardRatesFromPricing,
+  effectiveCardRates,
+  rawCardRates,
   type AccountSlot,
   type CardRates,
   type ProviderCostStructure,
@@ -59,18 +60,21 @@ export function EditVenuePricingDrawer({
   const [hydrated, setHydrated] = useState(false)
 
   // Hidrata el form una vez que carga el pricing (computado en render, sin useEffect).
+  // El campo edita la tasa CRUDA (lo que se persiste); el checkbox decide el IVA.
   if (open && !hydrated && pricingQ.isSuccess) {
     setHydrated(true)
     if (loaded) {
-      setRates(cardRatesFromPricing(loaded))
+      setRates(rawCardRates(loaded))
       setIncludesTax(loaded.includesTax ?? true)
     }
   }
   if (!open && hydrated) setHydrated(false)
 
+  const taxRate = loaded?.taxRate ?? 0.16
   const economics = computeMerchantEconomics({
     cost: cost ? cardRatesFromCost(cost) : ZERO,
-    venuePrice: rates,
+    // La preview necesita la tasa EFECTIVA (con IVA); el estado guarda la cruda.
+    venuePrice: effectiveCardRates(rates, includesTax, taxRate),
     revenueShare: null,
   })
 
@@ -85,7 +89,7 @@ export function EditVenuePricingDrawer({
         input: {
           rates,
           includesTax,
-          taxRate: loaded?.taxRate ?? 0.16,
+          taxRate,
           fixedFeePerTransaction: loaded?.fixedFeePerTransaction ?? null,
           monthlyServiceFee: loaded?.monthlyServiceFee ?? null,
         },

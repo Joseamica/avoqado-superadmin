@@ -1,26 +1,61 @@
 import { useState } from 'react'
 import { Combobox } from '@/shared/ui/Combobox'
-import { CARD_TYPES, humanizeCardType, type CardType } from './types'
+import { CARD_TYPES, humanizeCardType, type CardType, type ProviderCostStructure } from './types'
 import { REFERENCE_AMOUNT, type MerchantEconomics } from './economics'
 
 const money = (n: number) =>
   n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
 
+const ratePct = (fraction: number) => `${(fraction * 100).toFixed(2)}%`
+const pct = (n: number) => `${(n * 100).toFixed(0)}%`
+
 /**
  * Flujo de dinero escalonado para un tipo de tarjeta. Lee el `MerchantEconomics`
  * ya computado y narra la cadena según el modo. Degrada con elegancia.
  */
-export function MoneyFlow({ economics }: { economics: MerchantEconomics }) {
+export function MoneyFlow({
+  economics,
+  cost,
+}: {
+  economics: MerchantEconomics
+  cost?: ProviderCostStructure | null
+}) {
   const [card, setCard] = useState<CardType>('DEBIT')
   const e = economics.byCard[card]
 
-  const rows: { label: string; amount: string; strong?: boolean; muted?: boolean }[] = []
+  const rows: {
+    label: string
+    amount: string
+    strong?: boolean
+    muted?: boolean
+    indent?: boolean
+  }[] = []
   rows.push({ label: `Sobre ${money(REFERENCE_AMOUNT)} cobrados`, amount: '', muted: true })
-  rows.push({
-    label: 'Costo del proveedor',
-    amount: `−${money(e.providerCostAmount)}`,
-    muted: true,
-  })
+
+  const taxRate = cost?.taxRate ?? 0
+  if (taxRate > 0) {
+    const base = e.providerCostAmount / (1 + taxRate)
+    const baseRate = base / REFERENCE_AMOUNT
+    const taxAmount = e.providerCostAmount - base
+    rows.push({
+      label: `Comisión proveedor (${ratePct(baseRate)})`,
+      amount: `−${money(base)}`,
+      muted: true,
+    })
+    rows.push({
+      label: `+ IVA s/comisión (${pct(taxRate)})`,
+      amount: `−${money(taxAmount)}`,
+      muted: true,
+      indent: true,
+    })
+    rows.push({ label: 'Total costo proveedor', amount: `−${money(e.providerCostAmount)}` })
+  } else {
+    rows.push({
+      label: 'Costo del proveedor',
+      amount: `−${money(e.providerCostAmount)}`,
+      muted: true,
+    })
+  }
 
   if (economics.mode === 'no-pricing') {
     rows.push({
@@ -66,11 +101,7 @@ export function MoneyFlow({ economics }: { economics: MerchantEconomics }) {
             className="flex items-baseline justify-between gap-3 border-b border-[var(--line)] py-1.5 last:border-0"
           >
             <dt
-              className={
-                r.muted
-                  ? 'text-[13px] text-[var(--ink-faint)]'
-                  : 'text-[13px] text-[var(--ink-muted)]'
-              }
+              className={`text-[13px] ${r.muted ? 'text-[var(--ink-faint)]' : 'text-[var(--ink-muted)]'}${r.indent ? ' pl-3' : ''}`}
             >
               {r.label}
             </dt>

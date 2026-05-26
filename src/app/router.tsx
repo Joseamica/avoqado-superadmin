@@ -62,6 +62,16 @@ const MerchantDetailPage = lazy(() =>
     default: m.MerchantDetailPage,
   })),
 )
+const PaymentProvidersPage = lazy(() =>
+  import('@/features/payment-providers/PaymentProvidersPage').then((m) => ({
+    default: m.PaymentProvidersPage,
+  })),
+)
+const PaymentProviderFormPage = lazy(() =>
+  import('@/features/payment-providers/PaymentProviderFormPage').then((m) => ({
+    default: m.PaymentProviderFormPage,
+  })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -120,6 +130,10 @@ export function AppRoutes() {
           <Route path="/merchants/new" element={<BlumonSetupPanel />} />
           <Route path="/merchants/new-angelpay" element={<AngelPaySetupPanel />} />
           <Route path="/merchants/:id" element={<MerchantDetailPage />} />
+          <Route path="/payment-providers" element={<PaymentProvidersPage />} />
+          {/* `/new` ANTES de `:id` para que "new" no se capture como ID. */}
+          <Route path="/payment-providers/new" element={<PaymentProviderFormPage />} />
+          <Route path="/payment-providers/:id" element={<PaymentProviderFormPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

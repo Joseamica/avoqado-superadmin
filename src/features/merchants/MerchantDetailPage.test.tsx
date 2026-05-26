@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '@/test/render'
 import { MerchantDetailPage } from './MerchantDetailPage'
@@ -86,5 +87,34 @@ describe('MerchantDetailPage', () => {
 
     // MoneyFlow renders with cost data
     expect(screen.getByText('Flujo de dinero')).toBeInTheDocument()
+  })
+
+  it('lista terminales con badge heredada/asignada y pide confirmación al quitar una heredada', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/merchant-accounts/m1`, () =>
+        HttpResponse.json({
+          data: {
+            ...rawMerchant,
+            terminals: [{ id: 't1', serialNumber: 'AVQD-1', inherited: true }],
+            _count: { ...rawMerchant._count, terminals: 1 },
+          },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(
+      <Routes>
+        <Route path="/merchants/:id" element={<MerchantDetailPage />} />
+      </Routes>,
+      { initialEntries: ['/merchants/m1'] },
+    )
+
+    await waitFor(() => expect(screen.getByText('Cuenta Principal')).toBeInTheDocument())
+    expect(screen.getByText('AVQD-1')).toBeInTheDocument()
+    expect(screen.getByText('heredada')).toBeInTheDocument()
+
+    // Quitar una heredada NO pega al API directo — abre confirmación primero
+    await user.click(screen.getByRole('button', { name: 'Quitar terminal' }))
+    expect(await screen.findByText('Quitar terminal heredada')).toBeInTheDocument()
   })
 })

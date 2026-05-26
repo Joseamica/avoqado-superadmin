@@ -4,6 +4,7 @@ import {
   deleteMerchant,
   fetchActiveCost,
   fetchAngelPayAccounts,
+  fetchAssignableTerminals,
   fetchHolidays,
   fetchMerchant,
   fetchMerchants,
@@ -12,12 +13,14 @@ import {
   fetchSettlements,
   fetchVenueConfigs,
   fetchVenueOptions,
+  getActiveVenuePricing,
   fullSetupAngelPay,
   fullSetupBlumon,
   saveCost,
   saveRevenueShare,
   saveSettlement,
   saveVenuePricing,
+  setTerminalServes,
   toggleMerchant,
   updateMerchant,
   type AngelPayFullSetupPayload,
@@ -196,6 +199,21 @@ export function useSaveRevenueShare() {
   })
 }
 
+/**
+ * Pricing activo de varios venues/slots en paralelo. Comparte la misma query key
+ * que `EditVenuePricingDrawer` (`[...MERCHANTS_QUERY_KEY, 'venue-pricing', venueId, slot]`)
+ * para reusar cache e invalidación. Devuelve resultados alineados con `configs`.
+ */
+export function useVenuePricings(configs: { venueId: string; slot: AccountSlot }[]) {
+  return useQueries({
+    queries: configs.map((c) => ({
+      queryKey: [...MERCHANTS_QUERY_KEY, 'venue-pricing', c.venueId, c.slot],
+      queryFn: () => getActiveVenuePricing(c.venueId, c.slot),
+      staleTime: 30_000,
+    })),
+  })
+}
+
 export function useSaveVenuePricing() {
   const qc = useQueryClient()
   return useMutation({
@@ -267,6 +285,25 @@ export function useFullSetupAngelPay() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: AngelPayFullSetupPayload) => fullSetupAngelPay(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+export function useAssignableTerminals(merchantId: string | undefined) {
+  return useQuery({
+    queryKey: [...MERCHANTS_QUERY_KEY, 'assignable-terminals', merchantId ?? null],
+    queryFn: () => fetchAssignableTerminals(merchantId as string),
+    enabled: !!merchantId,
+    staleTime: 30_000,
+  })
+}
+
+/** Anexa/quita una terminal. Invalida `MERCHANTS_QUERY_KEY` → refresca detalle, lista y candidatas. */
+export function useSetTerminalServes(merchantId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { terminalId: string; serves: boolean }) =>
+      setTerminalServes(merchantId, vars.terminalId, vars.serves),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }

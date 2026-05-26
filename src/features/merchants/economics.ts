@@ -23,7 +23,13 @@ export interface CardEconomics {
   providerCostAmount: number
   venueChargeAmount: number | null
   aggregatorPriceAmount: number | null
+  /** Margen total que se queda Avoqado (tramo proveedor + tramo agregador). */
   avoqadoMargin: number | null
+  /** Tramo proveedor→agregador (o el único margen en modos no-agregador). */
+  avoqadoMarginProvider: number | null
+  /** Tramo agregador→venue. Sólo en modo aggregator CON venuePrice (per-venue);
+   *  `null` a nivel merchant porque depende del pricing de cada venue. */
+  avoqadoMarginAggregator: number | null
 }
 
 export interface MerchantEconomics {
@@ -61,18 +67,30 @@ export function computeMerchantEconomics(input: EconomicsInput): MerchantEconomi
     let venueChargeAmount: number | null = null
     let aggregatorPriceAmount: number | null = null
     let avoqadoMargin: number | null = null
+    let avoqadoMarginProvider: number | null = null
+    let avoqadoMarginAggregator: number | null = null
 
     if (mode === 'all-avoqado' && input.venuePrice) {
       venueChargeAmount = input.venuePrice[card] * A
       avoqadoMargin = venueChargeAmount - providerCostAmount
+      avoqadoMarginProvider = avoqadoMargin
     } else if (mode === 'direct-split' && input.venuePrice && input.revenueShare) {
       venueChargeAmount = input.venuePrice[card] * A
       const pool = venueChargeAmount - providerCostAmount
       avoqadoMargin = pool * input.revenueShare.avoqadoShareOfProviderMargin
+      avoqadoMarginProvider = avoqadoMargin
     } else if (mode === 'aggregator' && input.revenueShare?.aggregatorPrice) {
       aggregatorPriceAmount = input.revenueShare.aggregatorPrice[card] * A
-      const providerMargin = aggregatorPriceAmount - providerCostAmount
-      avoqadoMargin = providerMargin * input.revenueShare.avoqadoShareOfProviderMargin
+      // Tramo 1 — proveedor→agregador: Avoqado se queda su share del margen.
+      const m1 = aggregatorPriceAmount - providerCostAmount
+      avoqadoMarginProvider = m1 * input.revenueShare.avoqadoShareOfProviderMargin
+      // Tramo 2 — agregador→venue: sólo si conocemos el pricing del venue (per-venue).
+      if (input.venuePrice) {
+        venueChargeAmount = input.venuePrice[card] * A
+        const m2 = venueChargeAmount - aggregatorPriceAmount
+        avoqadoMarginAggregator = m2 * (input.revenueShare.avoqadoShareOfAggregatorMargin ?? 0)
+      }
+      avoqadoMargin = avoqadoMarginProvider + (avoqadoMarginAggregator ?? 0)
     }
 
     byCard[card] = {
@@ -81,6 +99,8 @@ export function computeMerchantEconomics(input: EconomicsInput): MerchantEconomi
       venueChargeAmount,
       aggregatorPriceAmount,
       avoqadoMargin,
+      avoqadoMarginProvider,
+      avoqadoMarginAggregator,
     }
   }
 
