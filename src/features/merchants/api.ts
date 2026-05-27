@@ -656,6 +656,13 @@ export interface RateCorrectionBatch {
   } | null
 }
 
+// Apply/reverse recompute hundreds of payments against the remote DB and can take
+// ~10-30s. The global axios timeout is 20s, which aborts the request client-side
+// even though the backend completes (surfacing a false "sin conexión" error). These
+// long-running ops override it with a generous timeout so the client waits for the
+// real response.
+const RATE_CORRECTION_TIMEOUT_MS = 180_000
+
 export async function previewRateCorrection(
   venueId: string,
   params: RateCorrectionParams,
@@ -663,6 +670,7 @@ export async function previewRateCorrection(
   const { data } = await api.post<{ data: RateCorrectionPreview }>(
     `/superadmin/rate-corrections/venues/${encodeURIComponent(venueId)}/preview`,
     params,
+    { timeout: RATE_CORRECTION_TIMEOUT_MS },
   )
   return data.data
 }
@@ -674,6 +682,7 @@ export async function applyRateCorrection(
   const { data } = await api.post<{ data: RateCorrectionBatch }>(
     `/superadmin/rate-corrections/venues/${encodeURIComponent(venueId)}/apply`,
     params,
+    { timeout: RATE_CORRECTION_TIMEOUT_MS },
   )
   return data.data
 }
@@ -682,6 +691,7 @@ export async function reverseRateCorrection(batchId: string): Promise<RateCorrec
   const { data } = await api.post<{ data: RateCorrectionBatch }>(
     `/superadmin/rate-corrections/${encodeURIComponent(batchId)}/reverse`,
     {},
+    { timeout: RATE_CORRECTION_TIMEOUT_MS },
   )
   return data.data
 }

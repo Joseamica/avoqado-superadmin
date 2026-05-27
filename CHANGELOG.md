@@ -9,6 +9,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Fixed
+
+- **Corrección retroactiva de tasas: el frontend ya no muestra un error falso de "sin conexión / agotó tiempo de espera" cuando el recálculo es lento.** Las peticiones `apply`/`reverse`/`preview` de `/superadmin/rate-corrections/*` usan ahora un timeout de cliente de 3 min (override del global de 20s del `api` client), porque recalcular cientos de pagos contra la DB remota tarda ~10-30s; antes axios abortaba a los 20s aunque el backend sí completara, surgiendo un error que no correspondía.
+
 ### Added
 
 - **Drill-through en Ganancias:** clic en un negocio/merchant abre una página de **detalle** (`/earnings/venue/:id`, `/earnings/merchant/:id`) con su desglose (KPIs + tendencia + breakdown), reusando los endpoints `/superadmin/earnings/*` con filtro `venueId`/`merchantAccountId`.
