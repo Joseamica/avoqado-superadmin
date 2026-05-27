@@ -31,6 +31,24 @@ const money = (v: number) => <span className="tabular-nums">{formatMoney(v)}</sp
 const count = (v: number) => <span className="tabular-nums">{intFmt.format(v)}</span>
 const actionMeta = { headerClassName: 'w-[44px]', cellClassName: 'text-right' } as const
 
+const pct = (n: number) => `${(n * 100).toFixed(2)}%`
+
+/** "Ganancia neta" cell: the net amount, with its margin % (net/volume) and an
+ *  optional "Revenue share" tag underneath. */
+const netCell = (netProfit: number, volume: number, revenueShare?: boolean) => (
+  <div className="flex flex-col items-end gap-0.5">
+    <span className="tabular-nums">{formatMoney(netProfit)}</span>
+    <span className="flex items-center justify-end gap-1.5 text-[11px] text-[var(--ink-faint)]">
+      <span className="tabular-nums">{pct(volume > 0 ? netProfit / volume : 0)}</span>
+      {revenueShare ? (
+        <Badge tone="muted" size="sm">
+          Revenue share
+        </Badge>
+      ) : null}
+    </span>
+  </div>
+)
+
 /** Row action: arrow link to an entity's detail page (mirrors MerchantsPage). */
 const detailLink = (to: string, label: string) => (
   <Link
@@ -72,7 +90,8 @@ export function EarningsBreakdown({
         id: 'netProfit',
         header: 'Ganancia neta',
         accessorFn: (r) => r.netProfit,
-        cell: ({ row }) => money(row.original.netProfit),
+        cell: ({ row }) =>
+          netCell(row.original.netProfit, row.original.volume, row.original.hasRevenueShare),
         meta: right,
       },
       {
@@ -136,7 +155,8 @@ export function EarningsBreakdown({
         id: 'netProfit',
         header: 'Neto',
         accessorFn: (r) => r.netProfit,
-        cell: ({ row }) => money(row.original.netProfit),
+        cell: ({ row }) =>
+          netCell(row.original.netProfit, row.original.volume, row.original.hasRevenueShare),
         meta: right,
       },
       {
@@ -176,7 +196,7 @@ export function EarningsBreakdown({
         id: 'netProfit',
         header: 'Ganancia neta',
         accessorFn: (r) => r.netProfit,
-        cell: ({ row }) => money(row.original.netProfit),
+        cell: ({ row }) => netCell(row.original.netProfit, row.original.volume),
         meta: right,
       },
       {
@@ -220,7 +240,7 @@ export function EarningsBreakdown({
         id: 'netProfit',
         header: 'Ganancia neta',
         accessorFn: (r) => r.netProfit,
-        cell: ({ row }) => money(row.original.netProfit),
+        cell: ({ row }) => netCell(row.original.netProfit, row.original.volume),
         meta: right,
       },
       {
@@ -311,6 +331,16 @@ export function EarningsBreakdown({
               { key: 'terminalNet', header: 'Neto terminales', accessor: (r) => r.terminalNet },
               { key: 'onlineFees', header: 'Comisión online', accessor: (r) => r.onlineFees },
               { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
+              {
+                key: 'margin',
+                header: 'Margen',
+                accessor: (r) => (r.volume > 0 ? r.netProfit / r.volume : 0),
+              },
+              {
+                key: 'revenueShare',
+                header: 'Revenue share',
+                accessor: (r) => (r.hasRevenueShare ? 'Sí' : 'No'),
+              },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -340,6 +370,16 @@ export function EarningsBreakdown({
                 accessor: (r) => r.tramoAggregator,
               },
               { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
+              {
+                key: 'margin',
+                header: 'Margen',
+                accessor: (r) => (r.volume > 0 ? r.netProfit / r.volume : 0),
+              },
+              {
+                key: 'revenueShare',
+                header: 'Revenue share',
+                accessor: (r) => (r.hasRevenueShare ? 'Sí' : 'No'),
+              },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -363,6 +403,11 @@ export function EarningsBreakdown({
               { key: 'providerCode', header: 'Código', accessor: (r) => r.providerCode },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
               { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
+              {
+                key: 'margin',
+                header: 'Margen',
+                accessor: (r) => (r.volume > 0 ? r.netProfit / r.volume : 0),
+              },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}
@@ -383,6 +428,11 @@ export function EarningsBreakdown({
               { key: 'type', header: 'Tipo', accessor: (r) => r.type },
               { key: 'volume', header: 'Volumen', accessor: (r) => r.volume },
               { key: 'netProfit', header: 'Ganancia neta', accessor: (r) => r.netProfit },
+              {
+                key: 'margin',
+                header: 'Margen',
+                accessor: (r) => (r.volume > 0 ? r.netProfit / r.volume : 0),
+              },
               { key: 'transactions', header: 'Transacciones', accessor: (r) => r.transactions },
             ],
           }}

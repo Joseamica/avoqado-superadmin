@@ -42,6 +42,7 @@ const summary = {
       onlineFees: 193.23,
       volume: 1286530.5,
       transactions: 123,
+      hasRevenueShare: false,
     },
   ],
   byMerchant: [
@@ -50,6 +51,7 @@ const summary = {
       label: 'Cuenta IQ',
       providerCode: 'MENTA',
       hasAggregator: false,
+      hasRevenueShare: false,
       netProfit: 22000,
       tramoProvider: 22000,
       tramoAggregator: 0,

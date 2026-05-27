@@ -17,12 +17,14 @@ export interface VenueEarnings {
   onlineFees: number
   volume: number
   transactions: number
+  hasRevenueShare: boolean
 }
 export interface MerchantEarnings {
   merchantAccountId: string
   label: string
   providerCode: string
   hasAggregator: boolean
+  hasRevenueShare: boolean
   netProfit: number
   tramoProvider: number
   tramoAggregator: number

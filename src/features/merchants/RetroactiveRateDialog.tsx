@@ -103,7 +103,7 @@ export function RetroactiveRateDialog({
   // El backend rechaza scopes > 200 pagos (se procesa síncrono). Lo gateamos aquí
   // para no dejar al operador pegarle a un error crudo en inglés: deshabilita el
   // botón y muestra copy en español pidiendo acotar el periodo.
-  const MAX_SYNC_PAYMENTS = 200
+  const MAX_SYNC_PAYMENTS = 500
   const tooMany = !!preview && preview.inScopeCount > MAX_SYNC_PAYMENTS
 
   const canApply =

@@ -113,12 +113,12 @@ describe('RetroactiveRateDialog', () => {
     await waitFor(() => expect(props.onDone).toHaveBeenCalled())
   })
 
-  it('cuando el scope excede 200 pagos: muestra aviso en español y deja el botón deshabilitado aunque se escriba APLICAR', async () => {
+  it('cuando el scope excede 500 pagos: muestra aviso en español y deja el botón deshabilitado aunque se escriba APLICAR', async () => {
     const user = userEvent.setup()
     server.use(
       http.post(`${baseURL}/superadmin/rate-corrections/venues/${venueId}/preview`, () =>
         HttpResponse.json({
-          data: { ...previewBody.data, inScopeCount: 250, afterFeeTotal: 1000 },
+          data: { ...previewBody.data, inScopeCount: 501, afterFeeTotal: 1000 },
         }),
       ),
     )
@@ -128,10 +128,10 @@ describe('RetroactiveRateDialog', () => {
     await screen.findByText('Pagos a recalcular')
 
     // Aviso en español, no el error crudo del backend.
-    expect(await screen.findByText(/Demasiados pagos \(250\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/Demasiados pagos \(501\)/)).toBeInTheDocument()
 
     // Aun escribiendo APLICAR, el botón sigue deshabilitado (gate client-side).
     await user.type(await screen.findByLabelText('Escribe APLICAR para confirmar'), 'APLICAR')
-    expect(screen.getByRole('button', { name: /Recalcular 250 pagos/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Recalcular 501 pagos/ })).toBeDisabled()
   })
 })

@@ -9,6 +9,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Changed
+
+- **Corrección retroactiva de tasas: el tope por corrección subió de 200 a 500 pagos.** Permite recalcular venues medianos (ej. Doña Simona, 318 pagos) en una sola corrida, sin partir por rangos de fecha. Más allá de ~500 el dialog sigue mostrando el aviso "demasiados pagos, acota el periodo" (la transacción interactiva se alarga; venues con miles necesitan otro mecanismo). El límite del front (`MAX_SYNC_PAYMENTS`) y el del backend van a la par.
+
 ### Fixed
 
 - **Corrección retroactiva de tasas: el frontend ya no muestra un error falso de "sin conexión / agotó tiempo de espera" cuando el recálculo es lento.** Las peticiones `apply`/`reverse`/`preview` de `/superadmin/rate-corrections/*` usan ahora un timeout de cliente de 3 min (override del global de 20s del `api` client), porque recalcular cientos de pagos contra la DB remota tarda ~10-30s; antes axios abortaba a los 20s aunque el backend sí completara, surgiendo un error que no correspondía.

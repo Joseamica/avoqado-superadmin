@@ -27,6 +27,7 @@ const summary: EarningsSummary = {
       onlineFees: 400,
       volume: 1200000,
       transactions: 5120,
+      hasRevenueShare: true,
     },
   ],
   byMerchant: [
@@ -35,6 +36,7 @@ const summary: EarningsSummary = {
       label: 'Cuenta Principal',
       providerCode: 'MENTA',
       hasAggregator: true,
+      hasRevenueShare: true,
       netProfit: 100,
       tramoProvider: 80,
       tramoAggregator: 20,
@@ -88,6 +90,9 @@ describe('EarningsBreakdown', () => {
     const clickTab = (name: string) => fireEvent.click(screen.getAllByRole('button', { name })[0])
 
     expect(screen.getByText('Amaena')).toBeInTheDocument() // venue (default)
+    // Amaena: netProfit=36400, volume=1200000 → 36400/1200000 = 3.03%
+    expect(screen.getByText('3.03%')).toBeInTheDocument()
+    expect(screen.getByText('Revenue share')).toBeInTheDocument()
     clickTab('Merchant')
     expect(screen.getByText('Cuenta Principal')).toBeInTheDocument()
     clickTab('Proveedor')
