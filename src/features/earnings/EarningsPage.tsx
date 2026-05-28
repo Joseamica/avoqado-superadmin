@@ -7,6 +7,7 @@ import {
 } from '@/shared/ui/DateRangePicker'
 import { FilterPill } from '@/shared/filters/FilterPill'
 import { QueryError } from '@/shared/components/QueryError'
+import { EARNINGS_ALL_TIME_START } from './api'
 import { useEarningsSummary, useEarningsTimeSeries } from './use-earnings'
 import { EarningsKpis } from './EarningsKpis'
 import { EarningsTrend } from './EarningsTrend'
@@ -24,7 +25,11 @@ export function EarningsPage() {
   const [dateRange, setDateRange] = useState<DateRangeValue>({})
   const [granularity, setGranularity] = useState<Granularity>('daily')
 
-  const range = { startDate: dateRange.startTime, endDate: dateRange.endTime }
+  // Sin filtro = todo el histórico (el backend, sin startDate, asume mes actual).
+  const range = {
+    startDate: dateRange.startTime ?? EARNINGS_ALL_TIME_START,
+    endDate: dateRange.endTime,
+  }
   const summaryQ = useEarningsSummary(range)
   const seriesQ = useEarningsTimeSeries(range, granularity)
 
