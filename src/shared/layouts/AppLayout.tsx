@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Package,
   Plug,
   ScrollText,
   Search,
@@ -50,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
       { to: '/earnings', label: 'Ganancias', icon: Wallet },
+      { to: '/tpv-orders', label: 'Pedidos TPV', icon: Package },
       { to: '/activity-log', label: 'Activity log', icon: Activity },
       { to: '/system-logs', label: 'Logs del sistema', icon: ScrollText },
       { to: '/kyc', label: 'KYC', icon: ShieldCheck, disabled: true },

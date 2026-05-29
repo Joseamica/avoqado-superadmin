@@ -78,6 +78,29 @@ const PaymentProviderFormPage = lazy(() =>
     default: m.PaymentProviderFormPage,
   })),
 )
+const TpvOrdersPage = lazy(() =>
+  import('@/features/tpv-orders/TpvOrdersPage').then((m) => ({ default: m.TpvOrdersPage })),
+)
+const TpvOrderDetailPage = lazy(() =>
+  import('@/features/tpv-orders/TpvOrderDetailPage').then((m) => ({
+    default: m.TpvOrderDetailPage,
+  })),
+)
+const ApproveTpvOrderPage = lazy(() =>
+  import('@/features/tpv-orders/ApproveTpvOrderPage').then((m) => ({
+    default: m.ApproveTpvOrderPage,
+  })),
+)
+const RejectTpvOrderPage = lazy(() =>
+  import('@/features/tpv-orders/RejectTpvOrderPage').then((m) => ({
+    default: m.RejectTpvOrderPage,
+  })),
+)
+const AssignSerialsTpvOrderPage = lazy(() =>
+  import('@/features/tpv-orders/AssignSerialsTpvOrderPage').then((m) => ({
+    default: m.AssignSerialsTpvOrderPage,
+  })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -87,6 +110,18 @@ export function AppRoutes() {
     <Suspense fallback={<RouteLoader />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/*
+          Magic-link routes — públicas, sin sesión. El token JWT en el query
+          string es la autorización (firmado por el backend, audience = action
+          específica). Van FUERA del ProtectedRoute para que el operador del
+          email pueda acceder sin login.
+        */}
+        <Route path="/admin/tpv-orders/:id/approve" element={<ApproveTpvOrderPage />} />
+        <Route path="/admin/tpv-orders/:id/reject" element={<RejectTpvOrderPage />} />
+        <Route
+          path="/admin/tpv-orders/:id/assign-serials"
+          element={<AssignSerialsTpvOrderPage />}
+        />
         <Route
           element={
             <ProtectedRoute>
@@ -143,6 +178,8 @@ export function AppRoutes() {
           {/* `/new` ANTES de `:id` para que "new" no se capture como ID. */}
           <Route path="/payment-providers/new" element={<PaymentProviderFormPage />} />
           <Route path="/payment-providers/:id" element={<PaymentProviderFormPage />} />
+          <Route path="/tpv-orders" element={<TpvOrdersPage />} />
+          <Route path="/tpv-orders/:id" element={<TpvOrderDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
