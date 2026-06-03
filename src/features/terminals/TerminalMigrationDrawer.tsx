@@ -31,19 +31,24 @@ import {
   useMigratePreflight,
   useMigrateStatus,
 } from './use-terminals'
+import { StaffAccessStep } from './StaffAccessStep'
 import type { MerchantAccountOption, MigratePreflightResult } from './api'
 import type { Terminal } from './types'
 
 /**
- * Wizard de migración de una terminal a otro venue. 3 pasos en una máquina de
- * estados (`pick → preflight → progress`):
+ * Wizard de migración de una terminal a otro venue. 4 pasos en una máquina de
+ * estados (`pick → staff → preflight → progress`):
  *
  *   1. **pick** — elegir el venue destino + (opcional) merchants a asignar.
- *      Dispara el preflight de validación.
- *   2. **preflight** — render de blockers (danger, bloquean) + warnings
+ *   2. **staff** — carry-over de acceso: dar a las personas que usaban la
+ *      terminal un rol + PIN en el venue destino (pierden el login al moverla,
+ *      el PIN es por-venue). Se ejecuta ANTES del preflight para que el blocker
+ *      `NO_STAFF_PIN` pase cuando alguien con PIN quedó en el destino. El
+ *      operador puede omitir este paso.
+ *   3. **preflight** — render de blockers (danger, bloquean) + warnings
  *      (atención). Si `canProceed`, una compuerta destructiva de confirmación
  *      tipiada (escribir el serial) antes de ejecutar.
- *   3. **progress** — polling del estado: checklist (comando entregado / rebote
+ *   4. **progress** — polling del estado: checklist (comando entregado / rebote
  *      post-wipe / online bajo el nuevo venue) + nota de timeout ~10 min.
  *      Mientras no se confirme, botón "Cancelar migración". Al confirmar,
  *      "Finalizar".
@@ -74,7 +79,7 @@ interface TerminalMigrationDrawerProps {
   resumeMigration?: ResumeMigration | null
 }
 
-type Step = 'pick' | 'preflight' | 'progress'
+type Step = 'pick' | 'staff' | 'preflight' | 'progress'
 
 export function TerminalMigrationDrawer({
   terminal,
@@ -156,7 +161,21 @@ function MigrationDrawerBody({
     })
   }
 
-  function handlePreflight() {
+  // El paso `pick` ya no dispara el preflight directo: avanza al paso `staff`
+  // (carry-over de acceso) PRIMERO. El preflight corre después, cuando el
+  // operador da acceso u omite — así el blocker `NO_STAFF_PIN` ya está resuelto
+  // si alguien con PIN quedó en el destino.
+  function goToStaff() {
+    if (!toVenueId) {
+      toast.error('Selecciona el venue destino')
+      return
+    }
+    setStep('staff')
+  }
+
+  // Corre el preflight y avanza al paso `preflight`. Es la continuación tanto
+  // del "Dar acceso y continuar" como del "Omitir" del paso de staff.
+  function runPreflightThenAdvance() {
     if (!toVenueId) {
       toast.error('Selecciona el venue destino')
       return
@@ -237,8 +256,18 @@ function MigrationDrawerBody({
             merchantsLoading={merchantsQuery.isLoading}
             selectedMerchants={merchantIds}
             onToggleMerchant={toggleMerchant}
-            onVerify={handlePreflight}
-            verifying={preflightMutation.isPending}
+            onVerify={goToStaff}
+            verifying={false}
+          />
+        )}
+
+        {step === 'staff' && (
+          <StaffAccessStep
+            destVenueId={toVenueId}
+            sourceVenueId={terminal.venueId}
+            destVenueName={destinationVenueName}
+            onDone={runPreflightThenAdvance}
+            onSkip={runPreflightThenAdvance}
           />
         )}
 

@@ -264,6 +264,102 @@ export async function migrateCancel(terminalId: string): Promise<MigrateCancelRe
   return data.data
 }
 
+/* --- Acceso de staff a un venue (carry-over al migrar TPV) --- */
+
+/**
+ * Roles de staff del backend (`StaffRole` en Prisma). Los exponemos al UI
+ * para mostrarlos con su label en español. OWNER/SUPERADMIN existen pero NO
+ * se ofrecen como roles asignables desde el picker (ver `ASSIGNABLE_ROLES`
+ * en `role-labels.ts`).
+ */
+export type StaffRole =
+  | 'OWNER'
+  | 'ADMIN'
+  | 'MANAGER'
+  | 'CASHIER'
+  | 'WAITER'
+  | 'KITCHEN'
+  | 'HOST'
+  | 'VIEWER'
+  | 'SUPERADMIN'
+
+/**
+ * Una persona candidata a recibir acceso en el venue destino. El backend la
+ * arma cruzando el staff de la organización contra el venue origen (la
+ * terminal que se migra) y el venue destino, para que el operador sepa de un
+ * vistazo a quién conviene dar acceso.
+ */
+export interface AccessCandidate {
+  staffId: string
+  name: string
+  email: string
+  /** Estaba en el venue desde el que se mueve la terminal (los que pierden acceso). */
+  inSourceVenue: boolean
+  /** Rol que tenía en el venue origen — se pre-selecciona en el picker. */
+  currentRoleAtSource: StaffRole | null
+  alreadyAtDestination: boolean
+  currentRoleAtDestination: StaffRole | null
+  /** PIN sugerido (libre en el destino) — se pre-llena en el input. */
+  suggestedPin: string | null
+  /** Roles distintos que esta persona ya tiene (para no perderlos en el picker). */
+  rolesHeld: StaffRole[]
+}
+
+/**
+ * Un grant de acceso a aplicar en el venue destino. `pin` opcional (4-6
+ * dígitos) — si se omite, el backend no toca el PIN existente.
+ */
+export interface VenueAccessGrant {
+  staffId: string
+  role: StaffRole
+  pin?: string
+}
+
+/**
+ * Resultado por persona del `grantVenueAccess`. El backend devuelve uno por
+ * cada grant enviado para que el UI confirme qué se aplicó.
+ */
+export interface GrantResult {
+  staffId: string
+  role: StaffRole
+  granted: boolean
+}
+
+/**
+ * Lista de candidatos a recibir acceso en `venueId`. `sourceVenueId` opcional:
+ * cuando se pasa (flujo de migración), las personas del venue origen se marcan
+ * con `inSourceVenue` y traen su rol/PIN pre-seleccionados. Sin él, el picker
+ * muestra a toda la organización sin nada pre-seleccionado.
+ */
+export async function fetchVenueAccessCandidates(
+  venueId: string,
+  sourceVenueId?: string,
+): Promise<AccessCandidate[]> {
+  const { data } = await api.get<{ data: AccessCandidate[] }>(
+    `/superadmin/venues/${encodeURIComponent(venueId)}/staff-access/candidates`,
+    { params: sourceVenueId ? { sourceVenueId } : undefined },
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data
+}
+
+/**
+ * Aplica los grants de acceso en `venueId`. Devuelve un resultado por persona.
+ * En error el backend devuelve mensajes en español (PIN duplicado, PIN en uso,
+ * etc.) que se muestran verbatim al operador.
+ */
+export async function grantVenueAccess(
+  venueId: string,
+  grants: VenueAccessGrant[],
+): Promise<GrantResult[]> {
+  const { data } = await api.post<{ data: GrantResult[] }>(
+    `/superadmin/venues/${encodeURIComponent(venueId)}/staff-access`,
+    { grants },
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data
+}
+
 /**
  * Envía un comando genérico a la terminal (RESTART, CLEAR_CACHE, FACTORY_RESET, etc.).
  * El backend lo encola y lo despacha vía Socket.IO al terminal cuando esté online.

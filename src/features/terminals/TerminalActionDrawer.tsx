@@ -18,6 +18,7 @@ import {
   Settings,
   ShieldOff,
   Trash2,
+  UserPlus,
   Wifi,
   Wrench,
   Zap,
@@ -37,6 +38,7 @@ import {
 } from '@/shared/ui/Drawer'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { TerminalMigrationDrawer } from './TerminalMigrationDrawer'
+import { GrantAccessDrawer } from './GrantAccessDrawer'
 import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime, formatRelative } from '@/shared/lib/datetime'
@@ -134,6 +136,7 @@ function TerminalActionDrawerBody({
   const migrating = terminal.migration?.inProgress ?? false
 
   const [migrationOpen, setMigrationOpen] = useState(false)
+  const [grantAccessOpen, setGrantAccessOpen] = useState(false)
 
   const commandMutation = useTerminalCommand()
   const generateCodeMutation = useGenerateActivationCode()
@@ -350,6 +353,15 @@ function TerminalActionDrawerBody({
           </Link>
         </Section>
 
+        <Section title="Acceso">
+          <ActionRow
+            icon={UserPlus}
+            label="Dar acceso a una persona"
+            description="Otorga a una persona un rol y un PIN para entrar a esta terminal en su venue."
+            onClick={() => setGrantAccessOpen(true)}
+          />
+        </Section>
+
         <Section title="Migración">
           <ActionRow
             icon={ArrowRightLeft}
@@ -380,6 +392,12 @@ function TerminalActionDrawerBody({
         open={migrationOpen}
         onOpenChange={setMigrationOpen}
         resumeMigration={migrating ? terminal.migration : null}
+      />
+
+      <GrantAccessDrawer
+        terminal={terminal}
+        open={grantAccessOpen}
+        onOpenChange={setGrantAccessOpen}
       />
     </>
   )
