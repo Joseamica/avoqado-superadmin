@@ -216,6 +216,7 @@ export function TerminalsPage() {
               {humanizeTerminalStatus(row.original.status)}
             </Badge>
             {row.original.isLocked && <Badge tone="danger">Bloqueada</Badge>}
+            {row.original.migration?.inProgress && <Badge tone="warn">Migrando</Badge>}
           </div>
         ),
         meta: { headerClassName: 'w-[150px]' },

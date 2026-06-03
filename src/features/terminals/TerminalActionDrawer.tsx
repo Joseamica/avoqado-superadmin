@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
+  ArrowRightLeft,
   Box,
   Copy,
   Eraser,
@@ -35,6 +36,7 @@ import {
   DrawerTitle,
 } from '@/shared/ui/Drawer'
 import { Tooltip } from '@/shared/ui/Tooltip'
+import { TerminalMigrationDrawer } from './TerminalMigrationDrawer'
 import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime, formatRelative } from '@/shared/lib/datetime'
@@ -129,6 +131,9 @@ function TerminalActionDrawerBody({
   const inMaintenance = terminal.status === 'MAINTENANCE'
   const locked = terminal.isLocked
   const canActivate = canBeActivated(terminal)
+  const migrating = terminal.migration?.inProgress ?? false
+
+  const [migrationOpen, setMigrationOpen] = useState(false)
 
   const commandMutation = useTerminalCommand()
   const generateCodeMutation = useGenerateActivationCode()
@@ -345,6 +350,20 @@ function TerminalActionDrawerBody({
           </Link>
         </Section>
 
+        <Section title="Migración">
+          <ActionRow
+            icon={ArrowRightLeft}
+            label={migrating ? 'Migración en curso' : 'Migrar a otro venue'}
+            description={
+              migrating
+                ? 'Hay una migración en vuelo. Abre el asistente para ver el progreso o cancelarla.'
+                : 'Re-vincula la terminal a otro venue. Se restablece de fábrica y reaparece bajo el nuevo venue.'
+            }
+            severity="warn"
+            onClick={() => setMigrationOpen(true)}
+          />
+        </Section>
+
         <DangerZone
           danger={danger}
           setDanger={setDanger}
@@ -355,6 +374,13 @@ function TerminalActionDrawerBody({
           isPending={commandMutation.isPending}
         />
       </DrawerBody>
+
+      <TerminalMigrationDrawer
+        terminal={terminal}
+        open={migrationOpen}
+        onOpenChange={setMigrationOpen}
+        resumeMigration={migrating ? terminal.migration : null}
+      />
     </>
   )
 }

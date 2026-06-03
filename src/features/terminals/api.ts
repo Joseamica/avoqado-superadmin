@@ -41,6 +41,12 @@ interface TerminalRawResponse {
   activatedAt: string | null
   venueId: string
   venue: { id: string; name: string; slug: string }
+  migration?: {
+    inProgress: boolean
+    commandId: string
+    fromVenueId: string
+    toVenueId: string
+  } | null
   createdAt: string
   updatedAt: string
 }
@@ -68,6 +74,7 @@ function mapTerminal(raw: TerminalRawResponse): Terminal {
     activatedAt: raw.activatedAt,
     venueId: raw.venueId,
     venue: raw.venue,
+    migration: raw.migration ?? null,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   }
@@ -153,6 +160,108 @@ export async function remoteActivate(terminalId: string): Promise<void> {
   await api.post(
     `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/remote-activate`,
   )
+}
+
+/* --- Migración de terminal a otro venue --- */
+
+/**
+ * Resultado del preflight de migración. El backend valida si la terminal
+ * puede moverse al venue destino sin romper nada: `blockers` (no se puede
+ * proceder hasta resolverlos) y `warnings` (avisos que el operador debe leer
+ * pero no impiden migrar).
+ */
+export interface MigratePreflightResult {
+  canProceed: boolean
+  blockers: Array<{ code: string; message: string }>
+  warnings: Array<{ code: string; message: string }>
+  fromVenueId: string
+  toVenueId: string
+}
+
+/**
+ * Valida la migración de una terminal al venue `toVenueId`. NO ejecuta nada
+ * — sólo reporta bloqueadores y advertencias para que el operador decida.
+ */
+export async function migratePreflight(
+  terminalId: string,
+  toVenueId: string,
+): Promise<MigratePreflightResult> {
+  const { data } = await api.post<{ data: MigratePreflightResult }>(
+    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-preflight`,
+    { toVenueId },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for migratePreflight')
+  return data.data
+}
+
+export interface MigrateExecuteResult {
+  commandId: string
+  fromVenueId: string
+  toVenueId: string
+  startedAt: string
+}
+
+/**
+ * Arranca la migración: re-parenta la terminal al venue destino y dispara el
+ * factory-reset remoto. Devuelve el `commandId` con el que se hace polling del
+ * estado. `assignedMerchantIds` opcional — los merchants a asignar en el
+ * destino (si se omite, la terminal hereda el merchant primario del venue).
+ */
+export async function migrateExecute(
+  terminalId: string,
+  toVenueId: string,
+  assignedMerchantIds?: string[],
+): Promise<MigrateExecuteResult> {
+  const { data } = await api.post<{ data: MigrateExecuteResult }>(
+    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-execute`,
+    { toVenueId, assignedMerchantIds },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for migrateExecute')
+  return data.data
+}
+
+/**
+ * Estado en vivo de una migración. El polling se detiene cuando `confirmed`
+ * es `true` (la terminal reapareció online bajo el venue destino).
+ */
+export interface MigrateStatusResult {
+  commandStatus: string
+  commandDelivered: boolean
+  reboundAfterWipe: boolean
+  currentlyOnline: boolean
+  onlineUnderNewVenue: boolean
+  confirmed: boolean
+  elapsedMs: number
+}
+
+export async function migrateStatus(
+  terminalId: string,
+  commandId: string,
+): Promise<MigrateStatusResult> {
+  const { data } = await api.get<{ data: MigrateStatusResult }>(
+    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-status`,
+    { params: { commandId } },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for migrateStatus')
+  return data.data
+}
+
+export interface MigrateCancelResult {
+  cancelled: boolean
+  restoredVenueId: string
+}
+
+/**
+ * Cancela una migración en curso y restaura la terminal a su venue original.
+ * Sólo es posible mientras la terminal aún no completó el rebote post-wipe;
+ * si ya es tarde, el backend responde error (lo surface el caller via toast).
+ */
+export async function migrateCancel(terminalId: string): Promise<MigrateCancelResult> {
+  const { data } = await api.post<{ data: MigrateCancelResult }>(
+    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-cancel`,
+  )
+  if (!data?.data) throw new Error('Server returned empty response for migrateCancel')
+  return data.data
 }
 
 /**

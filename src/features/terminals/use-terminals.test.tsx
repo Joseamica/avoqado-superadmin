@@ -9,6 +9,10 @@ import {
   useDeleteTerminal,
   useGenerateActivationCode,
   useMerchantAccounts,
+  useMigrateCancel,
+  useMigrateExecute,
+  useMigratePreflight,
+  useMigrateStatus,
   useRemoteActivate,
   useTerminalCommand,
   useTerminalDetail,
@@ -310,5 +314,120 @@ describe('useUpdateTpvSettings', () => {
       patch: { showQuickPayment: false },
     })
     expect(data.showQuickPayment).toBe(false)
+  })
+})
+
+describe('useMigratePreflight', () => {
+  it('valida el destino y resuelve con el resultado', async () => {
+    let receivedBody: unknown = null
+    server.use(
+      http.post(
+        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`,
+        async ({ request }) => {
+          receivedBody = await request.json()
+          return HttpResponse.json({
+            data: {
+              canProceed: true,
+              blockers: [],
+              warnings: [{ code: 'OFFLINE', message: 'La terminal está offline' }],
+              fromVenueId: 'v1',
+              toVenueId: 'v2',
+            },
+          })
+        },
+      ),
+    )
+
+    const { result } = renderHook(() => useMigratePreflight(), { wrapper: AllProviders })
+
+    const data = await result.current.mutateAsync({ terminalId: 't1', toVenueId: 'v2' })
+    expect(receivedBody).toEqual({ toVenueId: 'v2' })
+    expect(data.canProceed).toBe(true)
+    expect(data.warnings).toEqual([{ code: 'OFFLINE', message: 'La terminal está offline' }])
+  })
+})
+
+describe('useMigrateExecute', () => {
+  it('arranca la migración y resuelve con el commandId', async () => {
+    let receivedBody: unknown = null
+    server.use(
+      http.post(
+        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
+        async ({ request }) => {
+          receivedBody = await request.json()
+          return HttpResponse.json({
+            data: {
+              commandId: 'cmd-mig-1',
+              fromVenueId: 'v1',
+              toVenueId: 'v2',
+              startedAt: '2026-06-03T00:00:00.000Z',
+            },
+          })
+        },
+      ),
+    )
+
+    const { result } = renderHook(() => useMigrateExecute(), { wrapper: AllProviders })
+
+    const data = await result.current.mutateAsync({
+      terminalId: 't1',
+      toVenueId: 'v2',
+      assignedMerchantIds: ['m1'],
+    })
+    expect(receivedBody).toEqual({ toVenueId: 'v2', assignedMerchantIds: ['m1'] })
+    expect(data.commandId).toBe('cmd-mig-1')
+  })
+})
+
+describe('useMigrateCancel', () => {
+  it('cancela la migración y resuelve con el venue restaurado', async () => {
+    server.use(
+      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () =>
+        HttpResponse.json({ data: { cancelled: true, restoredVenueId: 'v1' } }),
+      ),
+    )
+
+    const { result } = renderHook(() => useMigrateCancel(), { wrapper: AllProviders })
+
+    const data = await result.current.mutateAsync('t1')
+    expect(data.cancelled).toBe(true)
+    expect(data.restoredVenueId).toBe('v1')
+  })
+})
+
+describe('useMigrateStatus', () => {
+  it('queda disabled cuando falta commandId', () => {
+    const { result } = renderHook(() => useMigrateStatus('t1', undefined), {
+      wrapper: AllProviders,
+    })
+    expect(result.current.fetchStatus).toBe('idle')
+  })
+
+  it('hace polling del estado y resuelve con confirmed', async () => {
+    server.use(
+      http.get(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-status`, ({ request }) => {
+        const url = new URL(request.url)
+        expect(url.searchParams.get('commandId')).toBe('cmd-mig-1')
+        return HttpResponse.json({
+          data: {
+            commandStatus: 'COMPLETED',
+            commandDelivered: true,
+            reboundAfterWipe: true,
+            currentlyOnline: true,
+            onlineUnderNewVenue: true,
+            confirmed: true,
+            elapsedMs: 120_000,
+          },
+        })
+      }),
+    )
+
+    const { result } = renderHook(() => useMigrateStatus('t1', 'cmd-mig-1'), {
+      wrapper: AllProviders,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 4000 })
+    expect(result.current.data?.confirmed).toBe(true)
+    expect(result.current.data?.onlineUnderNewVenue).toBe(true)
   })
 })

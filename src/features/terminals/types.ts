@@ -85,6 +85,17 @@ export interface Terminal {
     name: string
     slug: string
   }
+  /**
+   * Migración a otro venue en curso. `null` cuando no hay ninguna en vuelo.
+   * El backend lo expone por-terminal en la lista para que la consola pueda
+   * mostrar el badge "Migrando" y reanudar el wizard en el paso de progreso.
+   */
+  migration: {
+    inProgress: boolean
+    commandId: string
+    fromVenueId: string
+    toVenueId: string
+  } | null
   createdAt: string
   updatedAt: string
 }

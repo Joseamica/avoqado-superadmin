@@ -55,6 +55,7 @@ function makeTerminal(overrides: Partial<Terminal> = {}): Terminal {
     activatedAt: '2026-01-01T00:00:00.000Z',
     venueId: 'v1',
     venue: { id: 'v1', name: 'Pez Volador', slug: 'pez-volador' },
+    migration: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-05-25T10:00:00.000Z',
     ...overrides,

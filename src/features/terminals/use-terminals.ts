@@ -8,6 +8,10 @@ import {
   fetchTerminals,
   fetchTpvSettings,
   generateActivationCode,
+  migrateCancel,
+  migrateExecute,
+  migratePreflight,
+  migrateStatus,
   remoteActivate,
   sendCommand,
   updateTerminal,
@@ -109,6 +113,76 @@ export function useRemoteActivate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
     },
+  })
+}
+
+/* --- Migración de terminal a otro venue --- */
+
+/**
+ * Preflight de migración. Mutation (no query) porque el operador la dispara
+ * explícitamente al elegir el venue destino — no queremos pre-validar contra
+ * cada venue de la lista. No invalida nada: sólo valida.
+ */
+export function useMigratePreflight() {
+  return useMutation({
+    mutationFn: async (input: { terminalId: string; toVenueId: string }) =>
+      migratePreflight(input.terminalId, input.toVenueId),
+  })
+}
+
+/**
+ * Ejecuta la migración. Invalida la lista de terminals para que el badge
+ * "Migrando" aparezca de inmediato (el backend ya devuelve `migration` en el
+ * listado tras el execute).
+ */
+export function useMigrateExecute() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      terminalId: string
+      toVenueId: string
+      assignedMerchantIds?: string[]
+    }) => migrateExecute(input.terminalId, input.toVenueId, input.assignedMerchantIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
+    },
+  })
+}
+
+/**
+ * Cancela una migración en curso. Invalida la lista para limpiar el badge
+ * "Migrando" cuando el backend confirma la cancelación.
+ */
+export function useMigrateCancel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (terminalId: string) => migrateCancel(terminalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
+    },
+  })
+}
+
+export const MIGRATE_STATUS_QUERY_KEY = ['superadmin', 'terminals', 'migrate-status'] as const
+
+/**
+ * Polling del estado de una migración. Refetch cada 4s mientras la terminal
+ * no haya confirmado su reaparición bajo el venue destino; en cuanto
+ * `confirmed === true` el polling se detiene (`refetchInterval` → false).
+ * Sólo corre cuando hay `terminalId` + `commandId`.
+ */
+export function useMigrateStatus(terminalId: string | undefined, commandId: string | undefined) {
+  return useQuery({
+    queryKey: [...MIGRATE_STATUS_QUERY_KEY, terminalId ?? null, commandId ?? null],
+    queryFn: () => {
+      if (!terminalId || !commandId) throw new Error('terminalId and commandId are required')
+      return migrateStatus(terminalId, commandId)
+    },
+    enabled: !!terminalId && !!commandId,
+    refetchInterval: (query) => (query.state.data?.confirmed ? false : 4_000),
+    refetchIntervalInBackground: false,
+    // Sin stale time — el estado de la migración debe sentirse en vivo.
+    staleTime: 0,
   })
 }
 

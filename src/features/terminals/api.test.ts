@@ -10,6 +10,10 @@ import {
   fetchTerminals,
   fetchTpvSettings,
   generateActivationCode,
+  migrateCancel,
+  migrateExecute,
+  migratePreflight,
+  migrateStatus,
   remoteActivate,
   sendCommand,
   updateTerminal,
@@ -68,6 +72,36 @@ describe('fetchTerminals', () => {
       name: 'TPV Barra',
       isLocked: false,
       assignedMerchantIds: [],
+      migration: null,
+    })
+  })
+
+  it('mapea el campo migration cuando el server lo incluye', async () => {
+    server.use(
+      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+        HttpResponse.json({
+          data: [
+            {
+              ...rawTerminal,
+              migration: {
+                inProgress: true,
+                commandId: 'cmd-mig-1',
+                fromVenueId: 'v1',
+                toVenueId: 'v2',
+              },
+            },
+          ],
+          count: 1,
+        }),
+      ),
+    )
+
+    const result = await fetchTerminals()
+    expect(result[0].migration).toEqual({
+      inProgress: true,
+      commandId: 'cmd-mig-1',
+      fromVenueId: 'v1',
+      toVenueId: 'v2',
     })
   })
 
@@ -204,6 +238,147 @@ describe('remoteActivate', () => {
 
     await expect(remoteActivate('t1')).resolves.toBeUndefined()
     expect(called).toBe(true)
+  })
+})
+
+describe('migratePreflight', () => {
+  it('manda toVenueId en el body y devuelve el resultado', async () => {
+    let receivedBody: unknown = null
+    server.use(
+      http.post(
+        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`,
+        async ({ request }) => {
+          receivedBody = await request.json()
+          return HttpResponse.json({
+            data: {
+              canProceed: false,
+              blockers: [{ code: 'OPEN_ORDERS', message: 'Hay órdenes abiertas' }],
+              warnings: [],
+              fromVenueId: 'v1',
+              toVenueId: 'v2',
+            },
+          })
+        },
+      ),
+    )
+
+    const result = await migratePreflight('t1', 'v2')
+    expect(receivedBody).toEqual({ toVenueId: 'v2' })
+    expect(result.canProceed).toBe(false)
+    expect(result.blockers).toEqual([{ code: 'OPEN_ORDERS', message: 'Hay órdenes abiertas' }])
+  })
+
+  it('lanza error cuando el server responde sin data', async () => {
+    server.use(
+      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`, () =>
+        HttpResponse.json({}),
+      ),
+    )
+    await expect(migratePreflight('t1', 'v2')).rejects.toThrow()
+  })
+})
+
+describe('migrateExecute', () => {
+  it('manda toVenueId + assignedMerchantIds y devuelve commandId', async () => {
+    let receivedBody: unknown = null
+    server.use(
+      http.post(
+        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
+        async ({ request }) => {
+          receivedBody = await request.json()
+          return HttpResponse.json({
+            data: {
+              commandId: 'cmd-mig-1',
+              fromVenueId: 'v1',
+              toVenueId: 'v2',
+              startedAt: '2026-06-03T00:00:00.000Z',
+            },
+          })
+        },
+      ),
+    )
+
+    const result = await migrateExecute('t1', 'v2', ['m1', 'm2'])
+    expect(receivedBody).toEqual({ toVenueId: 'v2', assignedMerchantIds: ['m1', 'm2'] })
+    expect(result.commandId).toBe('cmd-mig-1')
+  })
+
+  it('omite assignedMerchantIds cuando no se pasa', async () => {
+    let receivedBody: Record<string, unknown> | null = null
+    server.use(
+      http.post(
+        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
+        async ({ request }) => {
+          receivedBody = (await request.json()) as Record<string, unknown>
+          return HttpResponse.json({
+            data: {
+              commandId: 'cmd-mig-2',
+              fromVenueId: 'v1',
+              toVenueId: 'v2',
+              startedAt: '2026-06-03T00:00:00.000Z',
+            },
+          })
+        },
+      ),
+    )
+
+    await migrateExecute('t1', 'v2')
+    expect(receivedBody).not.toBeNull()
+    expect(receivedBody!.toVenueId).toBe('v2')
+    expect(receivedBody!.assignedMerchantIds).toBeUndefined()
+  })
+})
+
+describe('migrateStatus', () => {
+  it('manda commandId como query param y devuelve el estado', async () => {
+    let receivedUrl: URL | null = null
+    server.use(
+      http.get(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-status`, ({ request }) => {
+        receivedUrl = new URL(request.url)
+        return HttpResponse.json({
+          data: {
+            commandStatus: 'IN_PROGRESS',
+            commandDelivered: true,
+            reboundAfterWipe: false,
+            currentlyOnline: false,
+            onlineUnderNewVenue: false,
+            confirmed: false,
+            elapsedMs: 30_000,
+          },
+        })
+      }),
+    )
+
+    const result = await migrateStatus('t1', 'cmd-mig-1')
+    expect(receivedUrl).not.toBeNull()
+    expect(receivedUrl!.searchParams.get('commandId')).toBe('cmd-mig-1')
+    expect(result.confirmed).toBe(false)
+    expect(result.commandDelivered).toBe(true)
+  })
+})
+
+describe('migrateCancel', () => {
+  it('hace POST y devuelve el venue restaurado', async () => {
+    let called = false
+    server.use(
+      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () => {
+        called = true
+        return HttpResponse.json({ data: { cancelled: true, restoredVenueId: 'v1' } })
+      }),
+    )
+
+    const result = await migrateCancel('t1')
+    expect(called).toBe(true)
+    expect(result).toEqual({ cancelled: true, restoredVenueId: 'v1' })
+  })
+
+  it('rejects cuando ya es tarde para cancelar (server error)', async () => {
+    server.use(
+      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () =>
+        HttpResponse.json({ message: 'too late' }, { status: 409 }),
+      ),
+    )
+    await expect(migrateCancel('t1')).rejects.toThrow()
   })
 })
 
