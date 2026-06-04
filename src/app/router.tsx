@@ -35,6 +35,11 @@ const VenuePaymentConfigPage = lazy(() =>
     default: m.VenuePaymentConfigPage,
   })),
 )
+const SubscriptionsPage = lazy(() =>
+  import('@/features/subscriptions/SubscriptionsPage').then((m) => ({
+    default: m.SubscriptionsPage,
+  })),
+)
 const TerminalsPage = lazy(() =>
   import('@/features/terminals/TerminalsPage').then((m) => ({ default: m.TerminalsPage })),
 )
@@ -165,6 +170,7 @@ export function AppRoutes() {
             path="/venues/:venueId/pricing"
             element={<VenueResourcePlaceholder resource="pricing" />}
           />
+          <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/terminals" element={<TerminalsPage />} />
           {/* `/new` ANTES de `:terminalId` para que no se trate "new" como ID. */}
           <Route path="/terminals/new" element={<NewTerminalPage />} />

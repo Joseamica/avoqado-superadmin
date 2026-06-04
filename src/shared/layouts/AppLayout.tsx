@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
   Activity,
+  BadgeDollarSign,
   CreditCard,
   LayoutDashboard,
   LogOut,
@@ -61,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Catálogo',
     items: [
       { to: '/venues', label: 'Venues', icon: Store },
+      { to: '/subscriptions', label: 'Suscripciones', icon: BadgeDollarSign },
       { to: '/terminals', label: 'TPVs', icon: Terminal },
       { to: '/merchants', label: 'Merchant accounts', icon: CreditCard },
     ],
