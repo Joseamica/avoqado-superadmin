@@ -501,13 +501,39 @@ export interface BlumonFullSetupPayload {
   }
 }
 
-export async function fullSetupBlumon(payload: BlumonFullSetupPayload): Promise<MerchantAccount> {
-  const { data } = await api.post<{ data: RawMerchant }>(
+/**
+ * Resumen que devuelve `POST blumon/full-setup`. **No** es un `MerchantAccount`:
+ * el endpoint orquesta varios writes y responde un resumen donde `terminals` es
+ * un objeto de conteos. Pasarlo por `mapMerchant` reventaba con
+ * `(r.terminals ?? []).map is not a function` aunque el merchant SÍ se creaba.
+ */
+interface BlumonFullSetupSummary {
+  merchantAccount: { id: string; displayName: string | null; created: boolean }
+  terminals: { autoAttached: number; batchAttached: number; total: number }
+}
+
+export interface BlumonFullSetupResult {
+  merchantAccountId: string
+  merchantCreated: boolean
+  terminalsAttached: number
+}
+
+export async function fullSetupBlumon(
+  payload: BlumonFullSetupPayload,
+): Promise<BlumonFullSetupResult> {
+  const { data } = await api.post<{ data: BlumonFullSetupSummary }>(
     '/superadmin/merchant-accounts/blumon/full-setup',
     payload,
   )
-  if (!data?.data) throw new Error('Server returned empty response for fullSetupBlumon')
-  return mapMerchant(data.data)
+  const summary = data?.data
+  if (!summary?.merchantAccount?.id) {
+    throw new Error('Server returned empty response for fullSetupBlumon')
+  }
+  return {
+    merchantAccountId: summary.merchantAccount.id,
+    merchantCreated: summary.merchantAccount.created ?? false,
+    terminalsAttached: summary.terminals?.total ?? 0,
+  }
 }
 
 export async function fetchVenueOptions(): Promise<VenueOption[]> {
@@ -516,6 +542,42 @@ export async function fetchVenueOptions(): Promise<VenueOption[]> {
   )
   if (!Array.isArray(data?.data)) return []
   return data.data.map((v) => ({ id: v.id, name: v.name, slug: v.slug }))
+}
+
+/** Terminal registrada de un venue, en su forma mínima para el wizard de alta. */
+export interface WizardTerminal {
+  id: string
+  serialNumber: string | null
+  name: string
+  brand: string | null
+  model: string | null
+  type: string
+  status: string
+}
+
+/**
+ * Terminales registradas de un venue (para elegir la principal o atar extras en
+ * el wizard). Reusa el endpoint double-mounted `/superadmin/terminals?venueId=`;
+ * NO importamos el feature `terminals` (cross-feature import está prohibido) — sólo
+ * mapeamos los campos que el wizard necesita.
+ */
+export async function fetchVenueTerminals(venueId: string): Promise<WizardTerminal[]> {
+  const { data } = await api.get<{ data: Array<Record<string, unknown>> }>(
+    '/superadmin/terminals',
+    {
+      params: { venueId },
+    },
+  )
+  if (!Array.isArray(data?.data)) return []
+  return data.data.map((t) => ({
+    id: String(t.id),
+    serialNumber: (t.serialNumber as string | null) ?? null,
+    name: String(t.name ?? ''),
+    brand: (t.brand as string | null) ?? null,
+    model: (t.model as string | null) ?? null,
+    type: String(t.type ?? ''),
+    status: String(t.status ?? ''),
+  }))
 }
 
 /* ─── AngelPay full-setup (F5·B) ─── */
@@ -575,15 +637,26 @@ export interface AngelPayFullSetupPayload {
   }
 }
 
+/** Resultado de `POST full-setup-angelpay` — tampoco es un `MerchantAccount`. */
+export interface AngelPayFullSetupResult {
+  merchantAccountId: string
+  terminalsAttached: number
+}
+
 export async function fullSetupAngelPay(
   payload: AngelPayFullSetupPayload,
-): Promise<MerchantAccount> {
-  const { data } = await api.post<{ data: RawMerchant }>(
-    '/superadmin/merchant-accounts/full-setup-angelpay',
-    payload,
-  )
-  if (!data?.data) throw new Error('Server returned empty response for fullSetupAngelPay')
-  return mapMerchant(data.data)
+): Promise<AngelPayFullSetupResult> {
+  const { data } = await api.post<{
+    data: { merchantAccountId: string; terminalIds?: string[] }
+  }>('/superadmin/merchant-accounts/full-setup-angelpay', payload)
+  const result = data?.data
+  if (!result?.merchantAccountId) {
+    throw new Error('Server returned empty response for fullSetupAngelPay')
+  }
+  return {
+    merchantAccountId: result.merchantAccountId,
+    terminalsAttached: result.terminalIds?.length ?? 0,
+  }
 }
 
 export async function fetchAngelPayAccounts(venueId: string): Promise<AngelPayAccountOption[]> {

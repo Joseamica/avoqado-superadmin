@@ -19,6 +19,17 @@ describe('buildBlumonPayload', () => {
     expect(body.settlementConfig?.amexDays).toBe(3)
   })
 
+  it('propaga las terminales extra seleccionadas (additionalTerminalIds)', () => {
+    const body = buildBlumonPayload({
+      ...INITIAL_DRAFT,
+      venueId: 'v1',
+      serialNumber: '2841',
+      displayName: 'Cuenta',
+      additionalTerminalIds: ['t2', 't3'],
+    })
+    expect(body.additionalTerminalIds).toEqual(['t2', 't3'])
+  })
+
   it('omite cost/pricing cuando no se llenaron', () => {
     const body = buildBlumonPayload({
       ...INITIAL_DRAFT,

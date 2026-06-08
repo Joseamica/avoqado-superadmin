@@ -5,10 +5,13 @@
  */
 import type { CardRates } from './types'
 import type { BlumonFullSetupPayload } from './api'
+import type { RevenueShareDraft } from './revenue-share'
 
 export interface BlumonDraft {
   venueId: string | null
   venueName: string | null
+  /** Cómo se eligió la terminal principal: escribir serial o tomar una existente del venue. */
+  terminalMode: 'serial' | 'existing'
   serialNumber: string
   brand: string
   model: string
@@ -16,10 +19,14 @@ export interface BlumonDraft {
   displayName: string
   businessCategory: string
   accountSlot: 'PRIMARY' | 'SECONDARY' | 'TERTIARY'
+  /** Terminales extra del venue a atar (más allá de la que matchea el serial). */
+  additionalTerminalIds: string[]
   cost: CardRates | null
   costIncludesTax: boolean
   pricing: CardRates | null
   pricingIncludesTax: boolean
+  /** Reparto de ganancias opcional. `null` = default 100% Avoqado (sin record). */
+  revenueShare: RevenueShareDraft | null
   settlement: { DEBIT: number; CREDIT: number; AMEX: number; INTERNATIONAL: number }
 }
 
@@ -28,6 +35,7 @@ export const ZERO_RATES: CardRates = { DEBIT: 0, CREDIT: 0, AMEX: 0, INTERNATION
 export const INITIAL_DRAFT: BlumonDraft = {
   venueId: null,
   venueName: null,
+  terminalMode: 'serial',
   serialNumber: '',
   brand: 'PAX',
   model: 'A910S',
@@ -35,10 +43,12 @@ export const INITIAL_DRAFT: BlumonDraft = {
   displayName: '',
   businessCategory: '',
   accountSlot: 'PRIMARY',
+  additionalTerminalIds: [],
   cost: null,
   costIncludesTax: true,
   pricing: null,
   pricingIncludesTax: true,
+  revenueShare: null,
   settlement: { DEBIT: 1, CREDIT: 1, AMEX: 3, INTERNATIONAL: 3 },
 }
 
@@ -56,7 +66,7 @@ export function buildBlumonPayload(draft: BlumonDraft): BlumonFullSetupPayload {
     businessCategory: draft.businessCategory || undefined,
     target: { type: 'venue', id: draft.venueId as string },
     accountSlot: draft.accountSlot,
-    additionalTerminalIds: [],
+    additionalTerminalIds: draft.additionalTerminalIds,
     ...(draft.cost && {
       costStructureOverrides: {
         debitRate: toPct(draft.cost.DEBIT),

@@ -14,6 +14,7 @@ import {
   fetchSettlements,
   fetchVenueConfigs,
   fetchVenueOptions,
+  fullSetupAngelPay,
   fullSetupBlumon,
   getActiveVenuePricing,
   saveCost,
@@ -411,10 +412,28 @@ describe('saveVenuePricing', () => {
 })
 
 describe('fullSetupBlumon', () => {
-  it('crea merchant con setup completo', async () => {
+  // El endpoint NO devuelve un MerchantAccount: responde un `summary` donde
+  // `terminals` es un objeto de conteos ({autoAttached,batchAttached,total}).
+  // Antes lo pasábamos por mapMerchant → `(r.terminals ?? []).map is not a
+  // function` aunque el merchant SÍ se creaba server-side.
+  it('mapea el summary del full-setup (terminals = objeto de conteos)', async () => {
     server.use(
       http.post(`${baseURL}/superadmin/merchant-accounts/blumon/full-setup`, () =>
-        HttpResponse.json({ data: rawMerchant }),
+        HttpResponse.json({
+          data: {
+            merchantAccount: {
+              id: 'm1',
+              displayName: 'Oman 2',
+              created: true,
+              alreadyExisted: false,
+            },
+            terminals: { autoAttached: 1, batchAttached: 0, total: 1 },
+            costStructure: { id: 'c1' },
+            paymentConfig: { id: 'pc1', slot: 'PRIMARY' },
+            pricingStructure: null,
+            settlements: { created: 5 },
+          },
+        }),
       ),
     )
     const result = await fullSetupBlumon({
@@ -425,7 +444,39 @@ describe('fullSetupBlumon', () => {
       target: { type: 'venue', id: 'v1' },
       accountSlot: 'PRIMARY',
     })
-    expect(result.id).toBe('m1')
+    expect(result.merchantAccountId).toBe('m1')
+    expect(result.merchantCreated).toBe(true)
+    expect(result.terminalsAttached).toBe(1)
+  })
+})
+
+describe('fullSetupAngelPay', () => {
+  // El endpoint responde `{ merchantAccountId, terminalIds, ... }` — tampoco es
+  // un MerchantAccount. Antes navegaba a /merchants/undefined.
+  it('mapea el resultado del full-setup AngelPay', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/merchant-accounts/full-setup-angelpay`, () =>
+        HttpResponse.json({
+          data: {
+            merchantAccountId: 'm9',
+            angelpayUserAccountId: 'ap1',
+            venuePaymentConfigUpdated: true,
+            terminalIds: ['t1', 't2'],
+            costStructureId: null,
+            pricingStructureId: null,
+            settlementIds: [],
+          },
+        }),
+      ),
+    )
+    const result = await fullSetupAngelPay({
+      venueId: 'v1',
+      login: { mode: 'existing', angelpayUserAccountId: 'ap1' },
+      merchant: { mode: 'existing', merchantAccountId: 'm9' },
+      slot: { accountType: 'PRIMARY', mode: 'fill' },
+    })
+    expect(result.merchantAccountId).toBe('m9')
+    expect(result.terminalsAttached).toBe(2)
   })
 })
 

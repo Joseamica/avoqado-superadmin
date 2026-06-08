@@ -65,9 +65,9 @@ export function AngelPaySetupPanel() {
   function handleSubmit() {
     setError(null)
     submit.mutate(buildAngelPayPayload(draft), {
-      onSuccess: (m) => {
+      onSuccess: (result) => {
         toast.success('Merchant AngelPay creado')
-        navigate(`/merchants/${m.id}`)
+        navigate(`/merchants/${result.merchantAccountId}`)
       },
       onError: (err) => {
         const i = inspectApiError(err, 'crear el merchant')

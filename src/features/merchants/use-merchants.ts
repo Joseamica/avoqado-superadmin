@@ -13,6 +13,7 @@ import {
   fetchSettlements,
   fetchVenueConfigs,
   fetchVenueOptions,
+  fetchVenueTerminals,
   getActiveVenuePricing,
   fullSetupAngelPay,
   fullSetupBlumon,
@@ -268,6 +269,16 @@ export function useVenueOptions() {
     queryKey: ['superadmin', 'venue-options'],
     queryFn: fetchVenueOptions,
     staleTime: 5 * 60_000,
+  })
+}
+
+/** Terminales del venue (para el wizard: elegir la principal / atar extras). */
+export function useVenueTerminals(venueId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['superadmin', 'venue-terminals', venueId ?? null],
+    queryFn: () => fetchVenueTerminals(venueId as string),
+    enabled: !!venueId,
+    staleTime: 30_000,
   })
 }
 

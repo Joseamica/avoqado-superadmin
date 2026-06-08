@@ -17,52 +17,90 @@ import { Button } from '@/shared/ui/Button'
 import { IconButton } from '@/shared/ui/IconButton'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { SetupCard, type SetupCardState } from './SetupCard'
-import { useVenueOptions, useFullSetupBlumon } from './use-merchants'
+import {
+  useVenueOptions,
+  useFullSetupBlumon,
+  useVenueTerminals,
+  useSaveRevenueShare,
+} from './use-merchants'
 import {
   VenueDrawer,
   HardwareDrawer,
   MerchantDrawer,
   SlotDrawer,
   SettlementDrawer,
+  AdditionalTerminalsDrawer,
+  RevenueShareDrawer,
 } from './BlumonSetupDrawers'
 import { RatesDrawer } from './SetupDrawerKit'
 import { INITIAL_DRAFT, type BlumonDraft, buildBlumonPayload } from './blumon-setup'
+import { revenueShareToInput } from './revenue-share'
 
-type CardKey = 'venue' | 'hardware' | 'merchant' | 'slot' | 'cost' | 'pricing' | 'settlement'
+type CardKey =
+  | 'venue'
+  | 'hardware'
+  | 'merchant'
+  | 'slot'
+  | 'cost'
+  | 'pricing'
+  | 'settlement'
+  | 'terminals'
+  | 'revenue'
 
 export function BlumonSetupPanel() {
   const navigate = useNavigate()
   const venuesQ = useVenueOptions()
   const submit = useFullSetupBlumon()
+  const saveRS = useSaveRevenueShare()
   const [draft, setDraft] = useState<BlumonDraft>(INITIAL_DRAFT)
   const [openCard, setOpenCard] = useState<CardKey | null>(null)
   const [error, setError] = useState<string | null>(null)
   const patch = (p: Partial<BlumonDraft>) => setDraft((d) => ({ ...d, ...p }))
+  const venueTerminalsQ = useVenueTerminals(draft.venueId)
+  const venueTerminals = venueTerminalsQ.data ?? []
 
   const venueDone = !!draft.venueId
   const hardwareDone = !!(draft.serialNumber && draft.brand && draft.model)
   const merchantDone = !!draft.displayName
   const requiredDone = [venueDone, hardwareDone, merchantDone, true].filter(Boolean).length
   const canSubmit = venueDone && hardwareDone && merchantDone
+  const submitting = submit.isPending || saveRS.isPending
 
   function st(done: boolean, locked: boolean, optional = false): SetupCardState {
     if (locked) return 'locked'
     return done ? 'done' : optional ? 'pending' : 'pending'
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     setError(null)
-    submit.mutate(buildBlumonPayload(draft), {
-      onSuccess: (m) => {
-        toast.success('Merchant Blumon creado')
-        navigate(`/merchants/${m.id}`)
-      },
-      onError: (err) => {
-        const i = inspectApiError(err, 'crear el merchant')
-        setError(i.description)
-        toast.error(i.title, { description: i.description })
-      },
-    })
+    try {
+      const result = await submit.mutateAsync(buildBlumonPayload(draft))
+      // El reparto NO es parte del full-setup: se guarda con el endpoint existente
+      // (saveRevenueShare) usando el id que devuelve el resumen. Si falla, el merchant
+      // ya existe con el default 100% Avoqado — se configura en el detalle.
+      if (draft.revenueShare) {
+        try {
+          await saveRS.mutateAsync({
+            merchantAccountId: result.merchantAccountId,
+            existingId: null,
+            input: revenueShareToInput(draft.revenueShare),
+          })
+        } catch (rsErr) {
+          const i = inspectApiError(rsErr, 'guardar el reparto de ganancias')
+          toast.warning('Merchant creado, pero no se guardó el reparto', {
+            description: `${i.description} Configúralo en el detalle.`,
+          })
+          navigate(`/merchants/${result.merchantAccountId}`)
+          return
+        }
+      }
+      toast.success('Merchant Blumon creado')
+      navigate(`/merchants/${result.merchantAccountId}`)
+    } catch (err) {
+      const i = inspectApiError(err, 'crear el merchant')
+      setError(i.description)
+      toast.error(i.title, { description: i.description })
+    }
   }
 
   const venues = venuesQ.data ?? []
@@ -80,8 +118,8 @@ export function BlumonSetupPanel() {
           <span className="text-[12px] tabular-nums text-[var(--ink-muted)]">
             {requiredDone} de 4 obligatorios
           </span>
-          <Button size="sm" disabled={!canSubmit || submit.isPending} onClick={handleSubmit}>
-            {submit.isPending ? 'Creando…' : 'Crear merchant'}
+          <Button size="sm" disabled={!canSubmit || submitting} onClick={handleSubmit}>
+            {submitting ? 'Creando…' : 'Crear merchant'}
           </Button>
         </div>
       </header>
@@ -162,18 +200,38 @@ export function BlumonSetupPanel() {
           <SetupCard
             icon={Split}
             title="Reparto de ganancias"
-            description="Opcional — usa el default (100% Avoqado); configúralo después"
-            state={st(false, !merchantDone, true)}
+            description={
+              draft.revenueShare
+                ? draft.revenueShare.mode === 'aggregator'
+                  ? 'Split vía agregador configurado'
+                  : 'Split directo configurado'
+                : 'Opcional — usa el default (100% Avoqado)'
+            }
+            state={st(!!draft.revenueShare, !merchantDone, true)}
             lockedReason="Configura el merchant primero"
+            doneLabel={draft.revenueShare ? 'Configurado' : undefined}
             optional
+            onClick={() => setOpenCard('revenue')}
           />
           <SetupCard
             icon={Tablet}
             title="Terminales TPV"
-            description="Se atan por serial; agrega extra desde el detalle"
-            state={st(false, !venueDone, true)}
+            description={
+              draft.additionalTerminalIds.length > 0
+                ? `${draft.additionalTerminalIds.length} terminal${
+                    draft.additionalTerminalIds.length === 1 ? '' : 'es'
+                  } extra · la del serial se ata sola`
+                : 'Opcional — atar terminales extra del venue (la del serial se ata sola)'
+            }
+            state={st(draft.additionalTerminalIds.length > 0, !venueDone, true)}
             lockedReason="Selecciona el venue primero"
+            doneLabel={
+              draft.additionalTerminalIds.length > 0
+                ? `${draft.additionalTerminalIds.length} extra`
+                : undefined
+            }
             optional
+            onClick={() => setOpenCard('terminals')}
           />
         </div>
       </div>
@@ -188,7 +246,13 @@ export function BlumonSetupPanel() {
         />
       )}
       {openCard === 'hardware' && (
-        <HardwareDrawer open onOpenChange={() => setOpenCard(null)} draft={draft} onSave={patch} />
+        <HardwareDrawer
+          open
+          onOpenChange={() => setOpenCard(null)}
+          draft={draft}
+          venueTerminals={venueTerminals}
+          onSave={patch}
+        />
       )}
       {openCard === 'merchant' && (
         <MerchantDrawer open onOpenChange={() => setOpenCard(null)} draft={draft} onSave={patch} />
@@ -224,6 +288,25 @@ export function BlumonSetupPanel() {
           onOpenChange={() => setOpenCard(null)}
           draft={draft}
           onSave={(s) => patch({ settlement: s })}
+        />
+      )}
+      {openCard === 'terminals' && (
+        <AdditionalTerminalsDrawer
+          open
+          onOpenChange={() => setOpenCard(null)}
+          venueTerminals={venueTerminals}
+          mainSerial={draft.serialNumber}
+          mainBrand={draft.brand}
+          value={draft.additionalTerminalIds}
+          onSave={(ids) => patch({ additionalTerminalIds: ids })}
+        />
+      )}
+      {openCard === 'revenue' && (
+        <RevenueShareDrawer
+          open
+          onOpenChange={() => setOpenCard(null)}
+          value={draft.revenueShare}
+          onSave={(d) => patch({ revenueShare: d })}
         />
       )}
     </div>
