@@ -189,6 +189,98 @@ export const KYC_STATUS_TONE: Record<KycStatus, Tone> = {
   REJECTED: 'danger',
 }
 
+/* --- Plan (monetización por tiers) --- */
+
+/**
+ * Espejo de `PlanStateValue` en
+ * `avoqado-server/src/services/access/basePlan.service.ts`. Mismo union que
+ * `SubscriptionState` del feature subscriptions — se duplica aquí a propósito
+ * para que cada feature siga siendo independiente (regla del repo: features no
+ * se importan entre sí).
+ */
+export type PlanStateValue =
+  | 'none'
+  | 'trial'
+  | 'active'
+  | 'canceling'
+  | 'past_due'
+  | 'suspended'
+  | 'canceled'
+
+/** Espejo de `PlanTier` (schema.prisma). En UI, GRATIS se muestra como "Free". */
+export type PlanTier = 'GRATIS' | 'PRO' | 'PREMIUM' | 'ENTERPRISE'
+
+/**
+ * Espejo del `PlanState` que retorna
+ * `GET /api/v1/dashboard/venues/:venueId/plan`
+ * (`avoqado-server/src/services/dashboard/planState.service.ts`). Sólo los
+ * campos que el superadmin usa — el backend manda algunos más
+ * (suspendedAt, gracePeriodEndsAt) que hoy no mostramos.
+ */
+export interface VenuePlanState {
+  hasPlan: boolean
+  state: PlanStateValue
+  planTier: PlanTier | null
+  planName: string | null
+  interval: 'month' | 'year' | null
+  price: { base: number; gross: number; currency: 'MXN' } | null
+  trialEndsAt: string | null
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+  paymentMethod: { brand: string; last4: string; expMonth: number; expYear: number } | null
+  stripeSubscriptionId: string | null
+  /**
+   * Venue GRANDFATHERED (legacy) — exento de paywalls Y del seat cap de Free.
+   * Opera como antes de la monetización. Mapea a `Venue.seatCapExempt` en DB.
+   */
+  grandfathered: boolean
+  retentionOfferEligible: boolean
+}
+
+export function humanizePlanTier(tier: PlanTier | null): string {
+  // `null` = sin plan base activo = el venue opera en Free.
+  if (tier === null) return 'Free'
+  switch (tier) {
+    case 'GRATIS':
+      return 'Free'
+    case 'PRO':
+      return 'Pro'
+    case 'PREMIUM':
+      return 'Premium'
+    case 'ENTERPRISE':
+      return 'Enterprise'
+  }
+}
+
+export function humanizePlanState(state: PlanStateValue): string {
+  switch (state) {
+    case 'none':
+      return 'Sin plan de pago'
+    case 'trial':
+      return 'En prueba'
+    case 'active':
+      return 'Activo'
+    case 'canceling':
+      return 'Por cancelar'
+    case 'past_due':
+      return 'Pago vencido'
+    case 'suspended':
+      return 'Suspendido'
+    case 'canceled':
+      return 'Cancelado'
+  }
+}
+
+export const PLAN_STATE_TONE: Record<PlanStateValue, Tone> = {
+  none: 'muted',
+  trial: 'info',
+  active: 'success',
+  canceling: 'warn',
+  past_due: 'warn',
+  suspended: 'danger',
+  canceled: 'muted',
+}
+
 /**
  * Format de venue.name para uso compacto. Por convención venues tienen
  * nombres "Restaurante Pez Volador" — si el operador busca, usa el slug

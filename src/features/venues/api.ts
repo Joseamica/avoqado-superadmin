@@ -11,7 +11,7 @@
  */
 
 import { api } from '@/shared/lib/api'
-import type { Venue, VenueStatus } from './types'
+import type { PlanStateValue, PlanTier, Venue, VenuePlanState, VenueStatus } from './types'
 
 /**
  * Raw shape exactamente como llega del backend — incluye los campos mock
@@ -382,6 +382,105 @@ export async function fetchMerchantAccountOptions(): Promise<MerchantAccountOpti
     providerName: m.provider?.name ?? '—',
     environment: m.blumonEnvironment ?? null,
   }))
+}
+
+/* ─── Plan administration (monetización por tiers) ─── */
+
+/**
+ * Tiers asignables como plan COMP (permanente, sin Stripe, sin vencimiento).
+ * OJO: el endpoint usa 'FREE' (inglés) aunque el enum de Prisma sea 'GRATIS' —
+ * espejo exacto de `assignCompPlanSchema` en
+ * `avoqado-server/src/routes/dashboard/superadmin.routes.ts`. FREE remueve el
+ * plan base (el venue baja a Free).
+ */
+export type CompPlanTier = 'FREE' | 'PRO' | 'PREMIUM'
+
+/** Tiers válidos para otorgar trial (espejo de `extendPlanTrialSchema`). */
+export type TrialPlanTier = 'PRO' | 'PREMIUM'
+
+// prettier-ignore
+const PLAN_STATE_VALUES: PlanStateValue[] = ['none', 'trial', 'active', 'canceling', 'past_due', 'suspended', 'canceled']
+const PLAN_TIER_VALUES: PlanTier[] = ['GRATIS', 'PRO', 'PREMIUM', 'ENTERPRISE']
+
+/**
+ * Normaliza el `PlanState` crudo del backend al tipo del UI. Misma defensa que
+ * `mapVenue`: valores fuera del union caen a un default seguro en vez de crashear
+ * (el backend puede agregar estados nuevos antes de que este repo se actualice).
+ */
+function mapPlanState(raw: Record<string, unknown>): VenuePlanState {
+  const state = PLAN_STATE_VALUES.includes(raw.state as PlanStateValue)
+    ? (raw.state as PlanStateValue)
+    : 'none'
+  const planTier = PLAN_TIER_VALUES.includes(raw.planTier as PlanTier)
+    ? (raw.planTier as PlanTier)
+    : null
+  const interval = raw.interval === 'month' || raw.interval === 'year' ? raw.interval : null
+  return {
+    hasPlan: raw.hasPlan === true,
+    state,
+    planTier,
+    planName: (raw.planName as string | null) ?? null,
+    interval,
+    price: (raw.price as VenuePlanState['price']) ?? null,
+    trialEndsAt: (raw.trialEndsAt as string | null) ?? null,
+    currentPeriodEnd: (raw.currentPeriodEnd as string | null) ?? null,
+    cancelAtPeriodEnd: raw.cancelAtPeriodEnd === true,
+    paymentMethod: (raw.paymentMethod as VenuePlanState['paymentMethod']) ?? null,
+    stripeSubscriptionId: (raw.stripeSubscriptionId as string | null) ?? null,
+    grandfathered: raw.grandfathered === true,
+    retentionOfferEligible: raw.retentionOfferEligible === true,
+  }
+}
+
+/**
+ * Estado del plan del venue. OJO con el namespace: el GET vive en
+ * `/dashboard/venues/:venueId/plan` (lo comparte el dashboard de operadores),
+ * mientras que las acciones de admin viven en `/dashboard/superadmin/...`.
+ * Ambos devuelven el envelope `{ success, data }`.
+ */
+export async function getVenuePlan(venueId: string): Promise<VenuePlanState> {
+  const { data } = await api.get<SuperadminEnvelope<Record<string, unknown>>>(
+    `/dashboard/venues/${encodeURIComponent(venueId)}/plan`,
+  )
+  if (!data?.data) throw new Error('Server returned empty response for getVenuePlan')
+  return mapPlanState(data.data)
+}
+
+/** Marca/desmarca el venue como GRANDFATHERED (exento de paywalls + seat cap). */
+export async function setVenueGrandfathered(
+  venueId: string,
+  grandfathered: boolean,
+): Promise<VenuePlanState> {
+  const { data } = await api.post<SuperadminEnvelope<Record<string, unknown>>>(
+    `/dashboard/superadmin/venues/${encodeURIComponent(venueId)}/plan/grandfathered`,
+    { grandfathered },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for setVenueGrandfathered')
+  return mapPlanState(data.data)
+}
+
+/** Asigna un plan COMP permanente (sin cobro, sin vencimiento, sin Stripe). FREE lo remueve. */
+export async function assignCompPlan(venueId: string, tier: CompPlanTier): Promise<VenuePlanState> {
+  const { data } = await api.post<SuperadminEnvelope<Record<string, unknown>>>(
+    `/dashboard/superadmin/venues/${encodeURIComponent(venueId)}/plan/comp`,
+    { tier },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for assignCompPlan')
+  return mapPlanState(data.data)
+}
+
+/** Otorga días de prueba de un tier de pago. El backend valida days 1..365. */
+export async function extendPlanTrial(
+  venueId: string,
+  tier: TrialPlanTier,
+  days: number,
+): Promise<VenuePlanState> {
+  const { data } = await api.post<SuperadminEnvelope<Record<string, unknown>>>(
+    `/dashboard/superadmin/venues/${encodeURIComponent(venueId)}/plan/trial`,
+    { tier, days },
+  )
+  if (!data?.data) throw new Error('Server returned empty response for extendPlanTrial')
+  return mapPlanState(data.data)
 }
 
 /** Brands de terminales ACTIVOS del venue (hint de compatibilidad). Best-effort. */

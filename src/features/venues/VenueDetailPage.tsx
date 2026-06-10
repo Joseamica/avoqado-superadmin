@@ -12,6 +12,7 @@ import {
 } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
 import { useVenueDetail } from './use-venues'
+import { VenuePlanSection } from './VenuePlanSection'
 import {
   humanizeKycStatus,
   humanizeVenueStatus,
@@ -102,6 +103,7 @@ export function VenueDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-6">
             <IdentitySection venue={venue} />
+            <VenuePlanSection venueId={venue.id} />
             <OwnerSection venue={venue} />
             {isSuspendedVenue(venue) && venue.suspensionReason && (
               <SuspensionSection venue={venue} />

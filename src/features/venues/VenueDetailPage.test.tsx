@@ -64,6 +64,27 @@ describe('VenueDetailPage', () => {
       http.get(`${baseURL}/dashboard/superadmin/venues/v1`, () =>
         HttpResponse.json({ success: true, data: rawVenue }),
       ),
+      // La sección Plan pide su estado a un namespace aparte (no superadmin).
+      http.get(`${baseURL}/dashboard/venues/v1/plan`, () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            hasPlan: true,
+            state: 'active',
+            planTier: 'PRO',
+            planName: 'Plan Pro',
+            interval: 'month',
+            price: { base: 999, gross: 1158.84, currency: 'MXN' },
+            trialEndsAt: null,
+            currentPeriodEnd: '2026-07-01T00:00:00.000Z',
+            cancelAtPeriodEnd: false,
+            paymentMethod: null,
+            stripeSubscriptionId: 'sub_123',
+            grandfathered: false,
+            retentionOfferEligible: false,
+          },
+        }),
+      ),
     )
     renderAtVenue('v1')
     await waitFor(() =>
@@ -75,6 +96,9 @@ describe('VenueDetailPage', () => {
     expect(screen.getByText('Actividad del mes en curso')).toBeInTheDocument()
     // Sección Identidad
     expect(screen.getByText('Identidad')).toBeInTheDocument()
+    // Sección Plan (plan-admin del superadmin)
+    expect(await screen.findByRole('heading', { level: 2, name: 'Plan' })).toBeInTheDocument()
+    expect(await screen.findByText('Pro')).toBeInTheDocument()
   })
 
   it('muestra "Venue no encontrado" cuando el backend retorna 404', async () => {
