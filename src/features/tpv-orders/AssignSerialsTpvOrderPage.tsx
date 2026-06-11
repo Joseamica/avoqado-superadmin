@@ -175,6 +175,7 @@ export function AssignSerialsTpvOrderPage() {
               {(draft[item.id] ?? []).map((unit, idx) => (
                 <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <Field
+                    id={`${item.id}-${idx}-name`}
                     label={`Unidad ${idx + 1} — nombre`}
                     value={unit.name}
                     onChange={(e) =>
@@ -187,6 +188,7 @@ export function AssignSerialsTpvOrderPage() {
                     }
                   />
                   <Field
+                    id={`${item.id}-${idx}-serial`}
                     label="Serial físico"
                     placeholder="Ej. A910S-2026-001234"
                     value={unit.serial}
