@@ -11,6 +11,7 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Changed
 
+- **CI: Node 22 → 24 (`.nvmrc`).** Alinea el Node de CI con el de desarrollo local (24.x, LTS activo). De paso ataca el ruido `TypeError: Body is unusable: Body has already been read` de MSW 2.14.6 que ensuciaba todos los logs de CI (también los verdes): es una race **Linux-only** del pipeline de intercepción de MSW — reproducida en container `node:22.22.3-bookworm`, ausente en macOS con el mismo Node y mismo MSW. Nunca rompió el build (los tests pasaban igual), pero desorientaba cualquier diagnóstico del CI. Si el ruido persiste con Node 24, el siguiente paso es issue upstream a mswjs/msw.
 - **Ganancias: el período por defecto ahora es "todo el histórico", no el mes actual.** Al entrar a la página (o al detalle de un negocio/merchant) sin filtro de fechas, se piden todas las transacciones desde el inicio — antes el backend, al no recibir `startDate`, asumía el primer día del mes en curso y mostraba sólo el mes actual. El filtro de período sigue disponible para acotar; "Limpiar" regresa al histórico completo.
 - **Corrección retroactiva de tasas: el tope por corrección subió de 200 a 500 pagos.** Permite recalcular venues medianos (ej. Doña Simona, 318 pagos) en una sola corrida, sin partir por rangos de fecha. Más allá de ~500 el dialog sigue mostrando el aviso "demasiados pagos, acota el periodo" (la transacción interactiva se alarga; venues con miles necesitan otro mecanismo). El límite del front (`MAX_SYNC_PAYMENTS`) y el del backend van a la par.
 
