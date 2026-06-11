@@ -4,6 +4,26 @@ This file overrides default behavior for any AI assistant working on this reposi
 
 ---
 
+## 🔴 CRITICAL — Ask which payment tier BEFORE building or changing anything
+
+Avoqado is a tier-gated SaaS (**FREE · PRO · PREMIUM · ENTERPRISE**). Whenever you add a new
+feature, modify existing behavior, or expose a new capability, **STOP and ask the founder which
+paid tier it falls under** — then wire the gating to match. A change shipped without a tier
+decision is unfinished: it either leaks paid value into a lower tier or hides a free capability
+behind a paywall. (Superadmin is where tiers/features get activated per venue — be especially
+deliberate here.)
+
+- **Backend (authoritative):** `avoqado-server/src/services/access/basePlan.service.ts` +
+  `avoqado-server/src/middlewares/checkFeatureAccess.middleware.ts`. Obligatory gating questions:
+  `avoqado-server/.claude/rules/feature-gating.md`. PREMIUM-only codes today: `CFDI`, `INVENTORY_TRACKING`.
+- **Dashboard display/CTA map:** `avoqado-web-dashboard/src/config/plan-catalog.ts`
+  (`TierId`, `PLAN_TIERS`, `getTierForFeature()` → FeatureGate upsell).
+- **Enforcement status:** ✅ only **avoqado-web-dashboard** enforces tiers today.
+  ⚠️ **avoqado-ios** and **avoqado-android** have NO tier gating yet — they will mirror the backend
+  feature codes by exact name. Treat tier codes like permissions: a name mismatch fails silently.
+
+---
+
 ## Backend it talks to
 
 This app is the **superadmin frontend** for the Avoqado platform. It calls **`avoqado-server`** at the existing namespace **`/api/v1/superadmin/*`** (already protected by `authenticateTokenMiddleware` + `authorizeRole([StaffRole.SUPERADMIN])`). There is **no** separate server, **no** parallel database, **no** namespace `v2` by default.
@@ -190,6 +210,7 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 
 - Usa `renderWithProviders` de [`src/test/render.tsx`](src/test/render.tsx) — incluye `QueryClient`, `MemoryRouter`, `AuthProvider` listos para usar.
 - Mocks de API van en [`src/test/mocks/handlers.ts`](src/test/mocks/handlers.ts). Por defecto las queries fallan (queries devuelven `authenticated: false`). En el test específico usa `server.use(http.post(...))` para sobrescribir.
+- **Un solo server MSW por test file — nunca dos.** `setup.ts` NO hace `server.listen()` global: el file que use el server global debe llamar `installGlobalServer()` (de [`src/test/mocks/server.ts`](src/test/mocks/server.ts)) en top-level; el file que arranque su propio `setupServer()` NO llama el helper. Dos servers escuchando a la vez duplican el handler lookup de cada request — en CI Linux eso pierde una race y llena los logs de `TypeError: Body is unusable`.
 - **Lock al TZ**: `process.env.TZ = 'America/Mexico_City'` ya está en `src/test/setup.ts`. Si necesitas un TZ distinto, hazlo dentro del test con `vi.stubEnv('TZ', '...')` y restaura en `afterEach`.
 - Coverage threshold: 60 % lines / functions / statements, 55 % branches. Si el cambio baja la cobertura, **agrega tests** (no bajes el threshold).
 
@@ -381,3 +402,16 @@ capability the MCP should expose, you MUST add or update the matching MCP tool i
 `avoqado-server/scripts/mcp/` as part of the SAME change — never "later".** A capability that
 exists but isn't reachable through the MCP is unfinished. Treat the MCP like permissions: kept
 in lockstep, never an afterthought.
+
+## 🔴 CRITICAL — Keep the sales presentation in sync
+
+The partner sales presentation (`~/Documents/Programming/Avoqado-HQ/operations/marketing/platform-presentation/`)
+is the canonical "what Avoqado does" document — third parties sell from it. It must never fall
+behind the platform.
+
+**Whenever you add, change, or remove a customer-visible capability (feature, module, product,
+payment method, supported sector, tier packaging), you MUST update BOTH deliverables as part of
+the SAME change — never "later":** the full deck (`avoqado-presentacion.html`) AND the one-pager
+(`avoqado-one-pager.html`), then regenerate both PDFs following that folder's `README.md`.
+Updating only one of the two is an incomplete change. Internal refactors and bugfixes with no
+customer-visible impact are exempt.
