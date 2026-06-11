@@ -137,21 +137,27 @@ describe('EarningsBreakdown · CSV export per tab', () => {
     globalThis.URL.revokeObjectURL = origRevoke
   })
 
-  it('exports each tab to CSV (exercises the export column accessors)', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<EarningsBreakdown summary={summary} />)
+  // 5 tabs × 3 interacciones c/u — con coverage instrumentation el default
+  // de 5s es insuficiente en máquinas lentas (CI / runs paralelos).
+  it(
+    'exports each tab to CSV (exercises the export column accessors)',
+    { timeout: 20_000 },
+    async () => {
+      const user = userEvent.setup()
+      renderWithProviders(<EarningsBreakdown summary={summary} />)
 
-    for (const tab of ['Negocio', 'Merchant', 'Proveedor', 'Tarjeta', 'Canal online'] as const) {
-      // First match = the tab (column headers share some names but render after).
-      await user.click(screen.getAllByRole('button', { name: tab })[0])
-      await user.click(screen.getByRole('button', { name: /Exportar/ }))
-      // Dialog opens with CSV as the default format; download invokes rowsToCsv → accessors.
-      await user.click(await screen.findByRole('button', { name: /Descargar/ }))
-      await waitFor(() =>
-        expect(screen.queryByRole('button', { name: /Descargar/ })).not.toBeInTheDocument(),
-      )
-    }
+      for (const tab of ['Negocio', 'Merchant', 'Proveedor', 'Tarjeta', 'Canal online'] as const) {
+        // First match = the tab (column headers share some names but render after).
+        await user.click(screen.getAllByRole('button', { name: tab })[0])
+        await user.click(screen.getByRole('button', { name: /Exportar/ }))
+        // Dialog opens with CSV as the default format; download invokes rowsToCsv → accessors.
+        await user.click(await screen.findByRole('button', { name: /Descargar/ }))
+        await waitFor(() =>
+          expect(screen.queryByRole('button', { name: /Descargar/ })).not.toBeInTheDocument(),
+        )
+      }
 
-    expect(globalThis.URL.createObjectURL).toHaveBeenCalled()
-  })
+      expect(globalThis.URL.createObjectURL).toHaveBeenCalled()
+    },
+  )
 })
