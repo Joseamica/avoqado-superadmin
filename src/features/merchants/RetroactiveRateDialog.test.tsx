@@ -2,9 +2,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders, screen, waitFor, within } from '@/test/render'
 import userEvent from '@testing-library/user-event'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
 import { RetroactiveRateDialog } from './RetroactiveRateDialog'
 import type { CardRates } from './types'
+
+installGlobalServer()
 
 const baseURL = 'http://localhost:3000/api/v1'
 const venueId = 'v1'

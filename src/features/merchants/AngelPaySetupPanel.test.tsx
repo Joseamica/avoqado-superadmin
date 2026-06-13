@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
 import { renderWithProviders } from '@/test/render'
 import { AngelPaySetupPanel } from './AngelPaySetupPanel'
+
+installGlobalServer()
 
 describe('AngelPaySetupPanel', () => {
   it('renderiza el panel con su título, las cards y el CTA deshabilitado', async () => {

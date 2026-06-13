@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { Route, Routes } from 'react-router-dom'
 import { fireEvent, renderWithProviders, screen, waitFor } from '@/test/render'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
 import { AssignSerialsTpvOrderPage } from './AssignSerialsTpvOrderPage'
 import type { AssignSerialsPayload, TerminalOrder } from './types'
+
+installGlobalServer()
 
 const baseURL = 'http://localhost:3000/api/v1'
 

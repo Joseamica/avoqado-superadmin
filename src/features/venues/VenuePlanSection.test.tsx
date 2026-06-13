@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders, screen, waitFor } from '@/test/render'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
 import { VenuePlanSection } from './VenuePlanSection'
+
+installGlobalServer()
 
 const baseURL = 'http://localhost:3000/api/v1'
 const venueId = 'v1'

@@ -2,9 +2,11 @@ import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders, screen, waitFor, within } from '@/test/render'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
 import { TpvOrdersPage } from './TpvOrdersPage'
 import type { TerminalOrder } from './types'
+
+installGlobalServer()
 
 const baseURL = 'http://localhost:3000/api/v1'
 

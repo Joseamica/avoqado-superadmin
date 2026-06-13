@@ -4,7 +4,9 @@ import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/test/render'
 import { AppLayout } from './AppLayout'
 import { Route, Routes } from 'react-router-dom'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
+
+installGlobalServer()
 
 // Stub the realtime hook to avoid spinning up sockets in jsdom.
 vi.mock('@/features/realtime/use-realtime-invalidation', () => ({

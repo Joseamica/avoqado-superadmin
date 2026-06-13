@@ -4,7 +4,9 @@ import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/test/render'
 import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
-import { server } from '@/test/mocks/server'
+import { installGlobalServer, server } from '@/test/mocks/server'
+
+installGlobalServer()
 
 const baseURL = 'http://localhost:3000/api/v1'
 

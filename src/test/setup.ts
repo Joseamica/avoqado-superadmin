@@ -1,15 +1,15 @@
 import '@testing-library/jest-dom/vitest'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
-import { server } from './mocks/server'
 
 // Lock timezone for deterministic date tests — el helper `datetime.ts`
 // usa America/Mexico_City como default; los tests pinean también esa zona.
 process.env.TZ = 'America/Mexico_City'
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+// OJO: aquí NO se hace `server.listen()` global. Cada test file que necesite
+// MSW arranca su propio `setupServer()` o llama `installGlobalServer()` de
+// `src/test/mocks/server.ts`. Dos servers escuchando a la vez duplican el
+// handler lookup por request (ruido "Body is unusable" en CI Linux).
 afterEach(() => {
   cleanup()
-  server.resetHandlers()
 })
-afterAll(() => server.close())
