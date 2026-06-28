@@ -10,6 +10,7 @@ import {
   Menu,
   Package,
   Plug,
+  ReceiptText,
   ScrollText,
   Search,
   Settings2,
@@ -63,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/venues', label: 'Venues', icon: Store },
       { to: '/subscriptions', label: 'Suscripciones', icon: BadgeDollarSign },
+      { to: '/billing', label: 'Facturas CFDI', icon: ReceiptText },
       { to: '/terminals', label: 'TPVs', icon: Terminal },
       { to: '/merchants', label: 'Merchant accounts', icon: CreditCard },
     ],
