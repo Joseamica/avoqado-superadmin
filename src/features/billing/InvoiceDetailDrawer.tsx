@@ -18,7 +18,7 @@ import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime } from '@/shared/lib/datetime'
 import { downloadInvoiceArtifact } from './api'
 import { useInvoice, useInvoiceActions } from './use-billing'
-import { formatCents } from './catalogs'
+import { FORMA_PAGO_OPTIONS, formatCents } from './catalogs'
 import {
   CFDI_STATUS_TONE,
   humanizeCfdiStatus,
@@ -42,11 +42,22 @@ export function InvoiceDetailDrawer({
   onClose: () => void
 }) {
   const query = useInvoice(invoiceId)
-  const { cancel } = useInvoiceActions()
+  const { cancel, registerPayment } = useInvoiceActions()
   const [downloading, setDownloading] = useState<'pdf' | 'xml' | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [motivo, setMotivo] = useState('02')
   const [substituteUuid, setSubstituteUuid] = useState('')
+  const [payOpen, setPayOpen] = useState(false)
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [payForma, setPayForma] = useState('03')
+
+  function handlePay() {
+    if (!invoiceId) return
+    registerPayment.mutate(
+      { id: invoiceId, paymentDate: payDate, formaPago: payForma },
+      { onSuccess: () => setPayOpen(false) },
+    )
+  }
 
   const cfdi = query.data
 
@@ -199,6 +210,91 @@ export function InvoiceDetailDrawer({
                   {cfdi.stampedAt ? formatDateTime(cfdi.stampedAt) : '—'}
                 </span>
               </section>
+
+              {/* Pagos (PPD) — complementos de pago / REP */}
+              {cfdi.type === 'INGRESO' && cfdi.metodoPago === 'PPD' && (
+                <section className="mb-6 border-t border-[var(--line)] pt-4">
+                  <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+                    Pagos (complementos)
+                  </h3>
+                  {(cfdi.payments ?? []).length === 0 ? (
+                    <p className="text-[12.5px] text-[var(--ink-muted)]">Sin pagos registrados.</p>
+                  ) : (
+                    <div className="overflow-hidden rounded-[6px] border border-[var(--line)]">
+                      {(cfdi.payments ?? []).map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2 text-[12.5px] last:border-0"
+                        >
+                          <span className="text-[var(--ink)]">
+                            {p.stampedAt ? formatDateTime(p.stampedAt) : '—'} · {p.formaPago}
+                          </span>
+                          <span className="tabular text-[var(--ink-muted)]">
+                            {formatCents(p.paymentInfo?.montoCents ?? 0)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {cfdi.status === 'STAMPED' &&
+                    cfdi.amountPaidCents < cfdi.totalCents &&
+                    (payOpen ? (
+                      <div className="mt-3 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas-raised)] p-4">
+                        <p className="mb-3 text-[13px] font-semibold text-[var(--ink)]">
+                          Registrar pago
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Field
+                            label="Fecha de pago"
+                            name="payDate"
+                            type="date"
+                            value={payDate}
+                            onChange={(e) => setPayDate(e.target.value)}
+                          />
+                          <div>
+                            <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
+                              Forma de pago
+                            </label>
+                            <Combobox
+                              value={payForma}
+                              onChange={setPayForma}
+                              options={FORMA_PAGO_OPTIONS.filter((o) => o.value !== '99')}
+                              ariaLabel="Forma de pago del cobro"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={handlePay}
+                            disabled={registerPayment.isPending}
+                          >
+                            {registerPayment.isPending
+                              ? 'Timbrando…'
+                              : `Timbrar pago (${formatCents(cfdi.totalCents - cfdi.amountPaidCents)})`}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPayOpen(false)}
+                            disabled={registerPayment.isPending}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => setPayOpen(true)}
+                      >
+                        Registrar pago
+                      </Button>
+                    ))}
+                </section>
+              )}
 
               {/* Acciones */}
               {cfdi.status === 'STAMPED' && (

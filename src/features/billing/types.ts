@@ -88,6 +88,12 @@ export interface PlatformCfdi {
   totalCents: number
   currency: string
   amountPaidCents: number
+  paymentInfo?: {
+    fechaPago?: string
+    formaPago?: string
+    montoCents?: number
+    parcialidad?: number
+  } | null
   status: PlatformCfdiStatus
   facturapiId: string | null
   uuid: string | null

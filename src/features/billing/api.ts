@@ -170,9 +170,23 @@ export async function fetchInvoices(
   return { rows: Array.isArray(data?.data) ? data.data : [], total: data?.meta?.total ?? 0 }
 }
 
-export async function fetchInvoice(id: string): Promise<PlatformCfdi> {
-  const { data } = await api.get<Envelope<PlatformCfdi>>(
+export type InvoiceWithPayments = PlatformCfdi & { payments?: PlatformCfdi[] }
+
+export async function fetchInvoice(id: string): Promise<InvoiceWithPayments> {
+  const { data } = await api.get<Envelope<InvoiceWithPayments>>(
     `/superadmin/billing/invoices/${encodeURIComponent(id)}`,
+  )
+  return data.data
+}
+
+/** Register a payment against a PPD invoice → stamps a complemento de pago (REP). */
+export async function registerPayment(
+  id: string,
+  payload: { paymentDate: string; formaPago: string },
+): Promise<PlatformCfdi> {
+  const { data } = await api.post<Envelope<PlatformCfdi>>(
+    `/superadmin/billing/invoices/${encodeURIComponent(id)}/payments`,
+    payload,
   )
   return data.data
 }

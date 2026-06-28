@@ -9,6 +9,7 @@ import {
   fetchInvoices,
   issueInvoice,
   provisionEmisor,
+  registerPayment as registerPaymentApi,
   searchCustomers,
   upsertEmisor,
   upsertTaxProfile,
@@ -160,5 +161,19 @@ export function useInvoiceActions() {
     },
   })
 
-  return { issue, cancel }
+  const registerPayment = useMutation({
+    mutationFn: (v: { id: string; paymentDate: string; formaPago: string }) =>
+      registerPaymentApi(v.id, { paymentDate: v.paymentDate, formaPago: v.formaPago }),
+    onSuccess: () => {
+      invalidate()
+      qc.invalidateQueries({ queryKey: [...BILLING_QUERY_KEY, 'invoice'] })
+      toast.success('Complemento de pago timbrado')
+    },
+    onError: (e) => {
+      const i = inspectApiError(e, 'registrar el pago')
+      toast.error(i.title, { description: i.description })
+    },
+  })
+
+  return { issue, cancel, registerPayment }
 }
