@@ -320,32 +320,44 @@ export function NewInvoiceDrawer({
                   placeholder="Nombre del cliente…"
                   hint="Escribe al menos 2 letras."
                 />
-                <div className="mt-2 overflow-hidden rounded-[6px] border border-[var(--line)]">
-                  {customerResults.isFetching && (
-                    <p className="flex items-center gap-2 px-3.5 py-2.5 text-[12px] text-[var(--ink-muted)]">
-                      <Search className="h-3.5 w-3.5" aria-hidden /> Buscando…
-                    </p>
-                  )}
-                  {(customerResults.data ?? []).map((row) => (
-                    <button
-                      key={`${row.type}:${row.id}`}
-                      onClick={() => handleSelectCustomer(row)}
-                      className="flex w-full items-center justify-between border-b border-[var(--line)] px-3.5 py-2.5 text-left last:border-0 hover:bg-[var(--canvas-raised)]"
-                    >
-                      <span className="text-[13px] text-[var(--ink)]">{row.name}</span>
-                      <span className="flex items-center gap-2">
-                        {row.hasProfile && (
-                          <Badge tone="success" size="sm">
-                            Con datos
-                          </Badge>
-                        )}
-                        <Badge tone="muted" size="sm">
-                          {humanizeCustomerKind(row.type)}
-                        </Badge>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {search.trim().length >= 2 && (
+                  <div className="mt-2 overflow-hidden rounded-[6px] border border-[var(--line)]">
+                    {customerResults.isFetching ? (
+                      <p className="flex items-center gap-2 px-3.5 py-2.5 text-[12px] text-[var(--ink-muted)]">
+                        <Search className="h-3.5 w-3.5" aria-hidden /> Buscando…
+                      </p>
+                    ) : customerResults.isError ? (
+                      <p className="px-3.5 py-2.5 text-[12px] text-[var(--danger)]">
+                        No se pudo buscar. Reintenta en un momento.
+                      </p>
+                    ) : (customerResults.data?.length ?? 0) === 0 ? (
+                      <p className="px-3.5 py-2.5 text-[12px] text-[var(--ink-muted)]">
+                        Sin resultados para «{search.trim()}». Si es una persona o empresa no
+                        registrada como venue, usa “Receptor externo”.
+                      </p>
+                    ) : (
+                      (customerResults.data ?? []).map((row) => (
+                        <button
+                          key={`${row.type}:${row.id}`}
+                          onClick={() => handleSelectCustomer(row)}
+                          className="flex w-full items-center justify-between border-b border-[var(--line)] px-3.5 py-2.5 text-left last:border-0 hover:bg-[var(--canvas-raised)]"
+                        >
+                          <span className="text-[13px] text-[var(--ink)]">{row.name}</span>
+                          <span className="flex items-center gap-2">
+                            {row.hasProfile && (
+                              <Badge tone="success" size="sm">
+                                Con datos
+                              </Badge>
+                            )}
+                            <Badge tone="muted" size="sm">
+                              {humanizeCustomerKind(row.type)}
+                            </Badge>
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
                 <Button variant="secondary" size="sm" onClick={handleStandalone} className="mt-3">
                   <UserPlus className="h-4 w-4" aria-hidden /> Receptor externo (no es venue)
                 </Button>
