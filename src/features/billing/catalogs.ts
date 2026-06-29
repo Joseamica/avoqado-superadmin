@@ -100,6 +100,20 @@ export function formatCents(cents: number): string {
   return MXN_FMT.format(centsToPesos(cents))
 }
 
+/** Read a File as base64 WITHOUT the `data:...;base64,` prefix (what the backend's Buffer.from expects). */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result)
+      const comma = result.indexOf(',')
+      resolve(comma >= 0 ? result.slice(comma + 1) : result)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 /** Local mirror of the backend total math (IVA add-on) so the UI can preview before issuing. */
 export function previewTotals(
   lines: Array<{

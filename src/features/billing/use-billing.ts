@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { inspectApiError } from '@/shared/lib/api-error'
 import {
-  attachConstancia,
+  uploadConstancia,
   cancelInvoice,
   fetchEmisor,
   fetchInvoice,
@@ -118,11 +118,11 @@ export function useTaxProfileActions() {
   })
 
   const attach = useMutation({
-    mutationFn: (v: { profileId: string; constanciaUrl: string }) =>
-      attachConstancia(v.profileId, v.constanciaUrl),
-    onSuccess: () => toast.success('Constancia adjuntada'),
+    mutationFn: (v: { profileId: string; fileBase64: string; contentType?: string }) =>
+      uploadConstancia(v.profileId, v.fileBase64, v.contentType),
+    onSuccess: () => toast.success('Constancia subida'),
     onError: (e) => {
-      const i = inspectApiError(e, 'adjuntar la constancia')
+      const i = inspectApiError(e, 'subir la constancia')
       toast.error(i.title, { description: i.description })
     },
   })

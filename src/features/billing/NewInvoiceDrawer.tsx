@@ -20,6 +20,7 @@ import {
   fetchTaxProfileById,
   fetchTaxProfileForCustomer,
   issueInvoice,
+  uploadConstancia,
   upsertTaxProfile,
 } from './api'
 import { BILLING_QUERY_KEY, useCustomerSearch } from './use-billing'
@@ -29,6 +30,7 @@ import {
   METODO_PAGO_OPTIONS,
   REGIMEN_FISCAL_OPTIONS,
   USO_CFDI_OPTIONS,
+  fileToBase64,
   formatCents,
   pesosToCents,
   previewTotals,
@@ -83,6 +85,7 @@ export function NewInvoiceDrawer({
   const [regimenFiscal, setRegimenFiscal] = useState('601')
   const [codigoPostal, setCodigoPostal] = useState('')
   const [email, setEmail] = useState('')
+  const [constanciaFile, setConstanciaFile] = useState<File | null>(null)
 
   // Lines + payment
   const [lines, setLines] = useState<LineRow[]>([newLine()])
@@ -113,6 +116,7 @@ export function NewInvoiceDrawer({
     setRegimenFiscal('601')
     setCodigoPostal('')
     setEmail('')
+    setConstanciaFile(null)
     setLines([newLine()])
     setMetodoPago('PUE')
     setFormaPago('04')
@@ -221,6 +225,19 @@ export function NewInvoiceDrawer({
         defaultUsoCfdi: usoCfdi || undefined,
         email: email.trim() || undefined,
       })
+
+      // Best-effort: subir la constancia si se adjuntó (no bloquea el timbrado).
+      if (constanciaFile) {
+        try {
+          await uploadConstancia(
+            profile.id,
+            await fileToBase64(constanciaFile),
+            constanciaFile.type || 'application/pdf',
+          )
+        } catch {
+          toast.warning('No se pudo subir la constancia; la factura se timbrará de todas formas.')
+        }
+      }
 
       const cfdi = await issueInvoice({
         billingTaxProfileId: profile.id,
@@ -391,6 +408,17 @@ export function NewInvoiceDrawer({
                     placeholder="Default del receptor"
                   />
                 </div>
+              </div>
+              <div className="mt-3">
+                <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
+                  Constancia de situación fiscal (PDF/imagen, opcional)
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  onChange={(e) => setConstanciaFile(e.target.files?.[0] ?? null)}
+                  className="block w-full cursor-pointer rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 py-2 text-[13px] text-[var(--ink)] file:mr-3 file:rounded-[4px] file:border-0 file:bg-[var(--canvas-raised)] file:px-2.5 file:py-1 file:text-[12px] file:text-[var(--ink)]"
+                />
               </div>
             </section>
           )}

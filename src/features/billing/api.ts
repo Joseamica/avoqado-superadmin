@@ -116,13 +116,15 @@ export async function upsertTaxProfile(
   return data.data
 }
 
-export async function attachConstancia(
+/** Upload the receptor's constancia (PDF/image, base64) to Firebase via the backend. */
+export async function uploadConstancia(
   profileId: string,
-  constanciaUrl: string,
+  fileBase64: string,
+  contentType?: string,
 ): Promise<BillingTaxProfile> {
   const { data } = await api.post<Envelope<BillingTaxProfile>>(
     `/superadmin/billing/tax-profiles/${encodeURIComponent(profileId)}/constancia`,
-    { constanciaUrl },
+    { fileBase64, contentType },
   )
   return data.data
 }
