@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Download, FileX2 } from 'lucide-react'
+import { Download, FileX2, Mail } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Field } from '@/shared/ui/Field'
@@ -42,7 +42,7 @@ export function InvoiceDetailDrawer({
   onClose: () => void
 }) {
   const query = useInvoice(invoiceId)
-  const { cancel, registerPayment } = useInvoiceActions()
+  const { cancel, registerPayment, sendEmail } = useInvoiceActions()
   const [downloading, setDownloading] = useState<'pdf' | 'xml' | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [motivo, setMotivo] = useState('02')
@@ -318,12 +318,26 @@ export function InvoiceDetailDrawer({
                       <Download className="h-4 w-4" aria-hidden />{' '}
                       {downloading === 'xml' ? 'Descargando…' : 'XML'}
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => invoiceId && sendEmail.mutate({ id: invoiceId })}
+                      disabled={sendEmail.isPending}
+                    >
+                      <Mail className="h-4 w-4" aria-hidden />{' '}
+                      {sendEmail.isPending ? 'Enviando…' : 'Enviar por correo'}
+                    </Button>
                     {!cancelOpen && (
                       <Button variant="danger" size="sm" onClick={() => setCancelOpen(true)}>
                         <FileX2 className="h-4 w-4" aria-hidden /> Cancelar CFDI
                       </Button>
                     )}
                   </div>
+                  {cfdi.emailSentAt && (
+                    <p className="mt-2 text-[11px] text-[var(--ink-faint)]">
+                      Último envío: {formatDateTime(cfdi.emailSentAt)}
+                    </p>
+                  )}
 
                   {cancelOpen && (
                     <div className="mt-4 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas-raised)] p-4">

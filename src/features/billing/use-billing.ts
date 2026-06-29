@@ -10,6 +10,7 @@ import {
   issueInvoice,
   provisionEmisor,
   registerPayment as registerPaymentApi,
+  sendInvoiceEmail as sendInvoiceEmailApi,
   searchCustomers,
   upsertEmisor,
   upsertTaxProfile,
@@ -175,5 +176,17 @@ export function useInvoiceActions() {
     },
   })
 
-  return { issue, cancel, registerPayment }
+  const sendEmail = useMutation({
+    mutationFn: (v: { id: string; email?: string }) => sendInvoiceEmailApi(v.id, v.email),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...BILLING_QUERY_KEY, 'invoice'] })
+      toast.success('CFDI enviado por correo')
+    },
+    onError: (e) => {
+      const i = inspectApiError(e, 'enviar el CFDI por correo')
+      toast.error(i.title, { description: i.description })
+    },
+  })
+
+  return { issue, cancel, registerPayment, sendEmail }
 }

@@ -191,6 +191,15 @@ export async function registerPayment(
   return data.data
 }
 
+/** (Re)send the stamped CFDI (PDF+XML) to the receptor by email. Omit email to use the receptor's. */
+export async function sendInvoiceEmail(id: string, email?: string): Promise<PlatformCfdi> {
+  const { data } = await api.post<Envelope<PlatformCfdi>>(
+    `/superadmin/billing/invoices/${encodeURIComponent(id)}/email`,
+    email ? { email } : {},
+  )
+  return data.data
+}
+
 export async function cancelInvoice(
   id: string,
   motivo: '01' | '02' | '03' | '04',
