@@ -56,8 +56,9 @@ export const LINE_PRESETS: LinePreset[] = [
     key: 'mensualidad',
     label: 'Mensualidad 1599+IVA',
     line: {
-      description: 'Suscripción mensual Avoqado',
-      satProductKey: '81161700',
+      // Clave que Avoqado usa en sus CFDIs reales (Servicios Tecnológicos AVO).
+      description: 'Suscripción mensual plataforma - punto de venta y gestión',
+      satProductKey: '43232611',
       satUnitKey: 'E48',
       quantity: 1,
       unitPricePesos: 1599,
