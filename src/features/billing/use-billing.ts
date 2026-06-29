@@ -163,8 +163,12 @@ export function useInvoiceActions() {
   })
 
   const registerPayment = useMutation({
-    mutationFn: (v: { id: string; paymentDate: string; formaPago: string }) =>
-      registerPaymentApi(v.id, { paymentDate: v.paymentDate, formaPago: v.formaPago }),
+    mutationFn: (v: { id: string; paymentDate: string; formaPago: string; amountCents?: number }) =>
+      registerPaymentApi(v.id, {
+        paymentDate: v.paymentDate,
+        formaPago: v.formaPago,
+        amountCents: v.amountCents,
+      }),
     onSuccess: () => {
       invalidate()
       qc.invalidateQueries({ queryKey: [...BILLING_QUERY_KEY, 'invoice'] })

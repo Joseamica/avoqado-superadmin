@@ -18,7 +18,7 @@ import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime } from '@/shared/lib/datetime'
 import { downloadInvoiceArtifact } from './api'
 import { useInvoice, useInvoiceActions } from './use-billing'
-import { FORMA_PAGO_OPTIONS, formatCents } from './catalogs'
+import { FORMA_PAGO_OPTIONS, centsToPesos, formatCents, pesosToCents } from './catalogs'
 import {
   CFDI_STATUS_TONE,
   humanizeCfdiStatus,
@@ -50,11 +50,24 @@ export function InvoiceDetailDrawer({
   const [payOpen, setPayOpen] = useState(false)
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [payForma, setPayForma] = useState('03')
+  const [payAmountPesos, setPayAmountPesos] = useState('')
 
-  function handlePay() {
+  function openPayForm(remainingCents: number) {
+    setPayAmountPesos(String(centsToPesos(remainingCents)))
+    setPayOpen(true)
+  }
+
+  function handlePay(remainingCents: number) {
     if (!invoiceId) return
+    const amountCents = pesosToCents(Number(payAmountPesos) || 0)
+    if (amountCents <= 0 || amountCents > remainingCents) {
+      toast.error('Monto inválido', {
+        description: 'Debe ser mayor a 0 y no exceder el saldo pendiente.',
+      })
+      return
+    }
     registerPayment.mutate(
-      { id: invoiceId, paymentDate: payDate, formaPago: payForma },
+      { id: invoiceId, paymentDate: payDate, formaPago: payForma, amountCents },
       { onSuccess: () => setPayOpen(false) },
     )
   }
@@ -251,6 +264,16 @@ export function InvoiceDetailDrawer({
                             value={payDate}
                             onChange={(e) => setPayDate(e.target.value)}
                           />
+                          <Field
+                            label="Monto (MXN)"
+                            name="payAmount"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={payAmountPesos}
+                            onChange={(e) => setPayAmountPesos(e.target.value)}
+                            hint={`Saldo pendiente: ${formatCents(cfdi.totalCents - cfdi.amountPaidCents)}`}
+                          />
                           <div>
                             <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
                               Forma de pago
@@ -266,12 +289,12 @@ export function InvoiceDetailDrawer({
                         <div className="mt-4 flex gap-2">
                           <Button
                             size="sm"
-                            onClick={handlePay}
+                            onClick={() => handlePay(cfdi.totalCents - cfdi.amountPaidCents)}
                             disabled={registerPayment.isPending}
                           >
                             {registerPayment.isPending
                               ? 'Timbrando…'
-                              : `Timbrar pago (${formatCents(cfdi.totalCents - cfdi.amountPaidCents)})`}
+                              : `Timbrar pago (${formatCents(pesosToCents(Number(payAmountPesos) || 0))})`}
                           </Button>
                           <Button
                             variant="ghost"
@@ -288,7 +311,7 @@ export function InvoiceDetailDrawer({
                         variant="secondary"
                         size="sm"
                         className="mt-3"
-                        onClick={() => setPayOpen(true)}
+                        onClick={() => openPayForm(cfdi.totalCents - cfdi.amountPaidCents)}
                       >
                         Registrar pago
                       </Button>

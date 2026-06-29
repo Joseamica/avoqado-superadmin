@@ -179,10 +179,10 @@ export async function fetchInvoice(id: string): Promise<InvoiceWithPayments> {
   return data.data
 }
 
-/** Register a payment against a PPD invoice → stamps a complemento de pago (REP). */
+/** Register a payment against a PPD invoice → stamps a complemento de pago (REP). Omit amountCents for full payment. */
 export async function registerPayment(
   id: string,
-  payload: { paymentDate: string; formaPago: string },
+  payload: { paymentDate: string; formaPago: string; amountCents?: number },
 ): Promise<PlatformCfdi> {
   const { data } = await api.post<Envelope<PlatformCfdi>>(
     `/superadmin/billing/invoices/${encodeURIComponent(id)}/payments`,
