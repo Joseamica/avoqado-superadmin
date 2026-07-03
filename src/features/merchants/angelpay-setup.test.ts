@@ -34,4 +34,16 @@ describe('buildAngelPayPayload', () => {
     })
     expect(body.login).toEqual({ mode: 'existing', angelpayUserAccountId: 'acc1' })
   })
+  it('terminalIds del draft llegan al payload (regresión: antes iba [] fijo)', () => {
+    const body = buildAngelPayPayload({
+      ...INITIAL_ANGELPAY_DRAFT,
+      venueId: 'v1',
+      terminalIds: ['t1', 't2'],
+    })
+    expect(body.terminalIds).toEqual(['t1', 't2'])
+  })
+  it('sin terminales seleccionadas manda lista vacía (default del draft)', () => {
+    const body = buildAngelPayPayload({ ...INITIAL_ANGELPAY_DRAFT, venueId: 'v1' })
+    expect(body.terminalIds).toEqual([])
+  })
 })

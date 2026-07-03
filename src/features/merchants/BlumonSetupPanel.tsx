@@ -75,6 +75,15 @@ export function BlumonSetupPanel() {
     setError(null)
     try {
       const result = await submit.mutateAsync(buildBlumonPayload(draft))
+      // El backend NO crea terminales: solo ata las existentes que matcheen el serial
+      // (+ las extra seleccionadas). Si ató cero, avisar — sin terminal atada los
+      // cobros TPV nunca rutean a este merchant.
+      if (result.terminalsAttached === 0) {
+        toast.warning('Merchant creado sin terminales atadas', {
+          description:
+            'Ninguna terminal del venue coincidió con el serial. Registra/ata la terminal desde el detalle o los cobros TPV no usarán este merchant.',
+        })
+      }
       // El reparto NO es parte del full-setup: se guarda con el endpoint existente
       // (saveRevenueShare) usando el id que devuelve el resumen. Si falla, el merchant
       // ya existe con el default 100% Avoqado — se configura en el detalle.

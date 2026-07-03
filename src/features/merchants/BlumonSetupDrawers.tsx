@@ -329,6 +329,7 @@ export function AdditionalTerminalsDrawer({
   mainBrand,
   value,
   onSave,
+  intro,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -337,6 +338,8 @@ export function AdditionalTerminalsDrawer({
   mainBrand: string
   value: string[]
   onSave: (ids: string[]) => void
+  /** Texto introductorio; default = copy del wizard Blumon (terminal principal por serial). */
+  intro?: string
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(value))
 
@@ -363,13 +366,13 @@ export function AdditionalTerminalsDrawer({
       onSave={() => onSave(Array.from(selected))}
     >
       <p className="text-[12.5px] text-[var(--ink-muted)]">
-        La terminal del serial se ata sola. Aquí puedes atar otras terminales {mainBrand} del venue
-        a esta cuenta.
+        {intro ??
+          `La terminal del serial se ata sola. Aquí puedes atar otras terminales ${mainBrand} del venue a esta cuenta.`}
       </p>
       {options.length === 0 ? (
         <p className="text-[12.5px] text-[var(--ink-faint)]">
           {venueTerminals.length === 0
-            ? 'Este venue no tiene otras terminales registradas.'
+            ? 'Este venue no tiene terminales registradas.'
             : `No hay otras terminales ${mainBrand} en este venue.`}
         </p>
       ) : (

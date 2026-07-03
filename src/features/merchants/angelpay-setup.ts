@@ -5,6 +5,7 @@
  */
 import type { CardRates } from './types'
 import type { AngelPayFullSetupPayload } from './api'
+import type { RevenueShareDraft } from './revenue-share'
 
 export interface AngelPayDraft {
   venueId: string | null
@@ -25,6 +26,10 @@ export interface AngelPayDraft {
   costIncludesTax: boolean
   pricing: CardRates | null
   pricingIncludesTax: boolean
+  /** Terminales del venue a atar al merchant (los cobros TPV solo rutean a merchants atados). */
+  terminalIds: string[]
+  /** Reparto de ganancias opcional. `null` = default 100% Avoqado (sin record). */
+  revenueShare: RevenueShareDraft | null
   settlement: { DEBIT: number; CREDIT: number; AMEX: number; INTERNATIONAL: number }
   settlementDayType: 'BUSINESS_DAYS' | 'CALENDAR_DAYS'
   cutoffTime: string
@@ -50,6 +55,8 @@ export const INITIAL_ANGELPAY_DRAFT: AngelPayDraft = {
   costIncludesTax: true,
   pricing: null,
   pricingIncludesTax: true,
+  terminalIds: [],
+  revenueShare: null,
   settlement: { DEBIT: 1, CREDIT: 1, AMEX: 3, INTERNATIONAL: 3 },
   settlementDayType: 'BUSINESS_DAYS',
   cutoffTime: '23:00',
@@ -88,7 +95,7 @@ export function buildAngelPayPayload(draft: AngelPayDraft): AngelPayFullSetupPay
         ? { replacedAccountId: draft.replacedAccountId }
         : {}),
     },
-    terminalIds: [],
+    terminalIds: draft.terminalIds,
     ...(draft.cost ? { cost: rate(draft.cost, draft.costIncludesTax) } : {}),
     ...(draft.pricing ? { pricing: rate(draft.pricing, draft.pricingIncludesTax) } : {}),
     settlement: {
