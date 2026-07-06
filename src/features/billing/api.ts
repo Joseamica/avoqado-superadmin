@@ -217,6 +217,14 @@ export async function cancelInvoice(
   return data.data
 }
 
+/** Discard a STAMP_FAILED invoice (removes the failed row so it stops cluttering the list). Never a stamped one. */
+export async function discardInvoice(id: string): Promise<{ id: string; discarded: boolean }> {
+  const { data } = await api.delete<Envelope<{ id: string; discarded: boolean }>>(
+    `/superadmin/billing/invoices/${encodeURIComponent(id)}`,
+  )
+  return data.data
+}
+
 /** Download the stamped PDF/XML (cookie-auth blob) and trigger a browser save. */
 export async function downloadInvoiceArtifact(id: string, kind: 'pdf' | 'xml'): Promise<void> {
   const res = await api.get(`/superadmin/billing/invoices/${encodeURIComponent(id)}/${kind}`, {

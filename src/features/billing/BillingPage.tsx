@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { AlertTriangle, Eye, FilePlus2, Settings2 } from 'lucide-react'
+import { AlertTriangle, Eye, FilePlus2, RotateCcw, Settings2, Trash2 } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -10,7 +10,7 @@ import { DataTable } from '@/shared/data-table/DataTable'
 import { FilterPill, MultiSelectFilterContent, type MultiSelectOption } from '@/shared/filters'
 import { QueryError } from '@/shared/components/QueryError'
 import { formatDate } from '@/shared/lib/datetime'
-import { useEmisor, useInvoices } from './use-billing'
+import { useEmisor, useInvoices, useInvoiceActions } from './use-billing'
 import { formatCents } from './catalogs'
 import { NewInvoiceDrawer } from './NewInvoiceDrawer'
 import { InvoiceDetailDrawer } from './InvoiceDetailDrawer'
@@ -39,6 +39,26 @@ export function BillingPage() {
   const [statuses, setStatuses] = useState<Set<PlatformCfdiStatus>>(new Set())
   const [newOpen, setNewOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [retryInvoice, setRetryInvoice] = useState<PlatformCfdi | null>(null)
+  const { discard } = useInvoiceActions()
+  const discardMutate = discard.mutate
+
+  const handleRetry = useCallback((cfdi: PlatformCfdi) => {
+    setRetryInvoice(cfdi)
+    setNewOpen(true)
+  }, [])
+  const handleDiscard = useCallback(
+    (cfdi: PlatformCfdi) => {
+      if (
+        window.confirm(
+          `¿Descartar la factura fallida de ${cfdi.receptorNombre}? Esta acción no se puede deshacer.`,
+        )
+      ) {
+        discardMutate(cfdi.id)
+      }
+    },
+    [discardMutate],
+  )
 
   const rows = useMemo(() => invoices.data?.rows ?? [], [invoices.data])
   const filtered = useMemo(
@@ -153,22 +173,46 @@ export function BillingPage() {
       },
       {
         id: 'actions',
-        header: () => <span className="block text-right">Ver</span>,
+        header: () => <span className="block text-right">Acciones</span>,
         enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <IconButton
-              size="sm"
-              aria-label={`Ver CFDI de ${row.original.receptorNombre}`}
-              onClick={() => setDetailId(row.original.id)}
-            >
-              <Eye className="h-4 w-4" aria-hidden />
-            </IconButton>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const c = row.original
+          return (
+            <div className="flex justify-end gap-1">
+              {c.status === 'STAMP_FAILED' && (
+                <>
+                  <IconButton
+                    size="sm"
+                    aria-label={`Reintentar factura de ${c.receptorNombre}`}
+                    title="Reintentar"
+                    onClick={() => handleRetry(c)}
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden />
+                  </IconButton>
+                  <IconButton
+                    size="sm"
+                    aria-label={`Descartar factura fallida de ${c.receptorNombre}`}
+                    title="Descartar"
+                    onClick={() => handleDiscard(c)}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </IconButton>
+                </>
+              )}
+              <IconButton
+                size="sm"
+                aria-label={`Ver CFDI de ${c.receptorNombre}`}
+                title="Ver"
+                onClick={() => setDetailId(c.id)}
+              >
+                <Eye className="h-4 w-4" aria-hidden />
+              </IconButton>
+            </div>
+          )
+        },
       },
     ],
-    [],
+    [handleRetry, handleDiscard],
   )
 
   return (
@@ -190,7 +234,13 @@ export function BillingPage() {
           >
             <Settings2 className="h-4 w-4" aria-hidden /> Configurar emisor
           </Link>
-          <Button onClick={() => setNewOpen(true)} disabled={!emisorReady}>
+          <Button
+            onClick={() => {
+              setRetryInvoice(null)
+              setNewOpen(true)
+            }}
+            disabled={!emisorReady}
+          >
             <FilePlus2 className="h-4 w-4" aria-hidden /> Nueva factura
           </Button>
         </div>
@@ -283,8 +333,12 @@ export function BillingPage() {
 
       <NewInvoiceDrawer
         open={newOpen}
-        onOpenChange={setNewOpen}
+        onOpenChange={(v) => {
+          setNewOpen(v)
+          if (!v) setRetryInvoice(null)
+        }}
         defaultSerie={emisor.data?.serie ?? 'A'}
+        retryFrom={retryInvoice}
       />
       <InvoiceDetailDrawer invoiceId={detailId} onClose={() => setDetailId(null)} />
     </div>

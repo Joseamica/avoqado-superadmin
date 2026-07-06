@@ -26,6 +26,8 @@ export interface PlatformEmisor {
   lugarExpedicion: string
   provider: string
   providerOrgId: string | null
+  /** True when a live key is stored server-side. The key itself is NEVER sent to the browser. */
+  keyConfigured?: boolean
   csdStatus: CsdStatus
   csdExpiresAt: string | null
   csdLastCheckedAt: string | null

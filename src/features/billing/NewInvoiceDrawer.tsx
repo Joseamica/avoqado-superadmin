@@ -17,6 +17,7 @@ import {
 } from '@/shared/ui/Drawer'
 import { inspectApiError } from '@/shared/lib/api-error'
 import {
+  discardInvoice,
   fetchTaxProfileById,
   fetchTaxProfileForCustomer,
   issueInvoice,
@@ -25,11 +26,14 @@ import {
 } from './api'
 import { BILLING_QUERY_KEY, useCustomerSearch } from './use-billing'
 import {
+  CLAVE_PRODSERV_OPTIONS,
+  CLAVE_UNIDAD_OPTIONS,
   FORMA_PAGO_OPTIONS,
   LINE_PRESETS,
   METODO_PAGO_OPTIONS,
   REGIMEN_FISCAL_OPTIONS,
   USO_CFDI_OPTIONS,
+  centsToPesos,
   fileToBase64,
   formatCents,
   pesosToCents,
@@ -40,6 +44,7 @@ import {
   type BillingCustomerKind,
   type BillingTaxProfile,
   type CustomerSearchRow,
+  type PlatformCfdi,
 } from './types'
 
 interface LineRow {
@@ -68,10 +73,13 @@ export function NewInvoiceDrawer({
   open,
   onOpenChange,
   defaultSerie,
+  retryFrom,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   defaultSerie: string
+  /** When set, the drawer opens pre-filled with this failed CFDI's data (Reintentar). */
+  retryFrom?: PlatformCfdi | null
 }) {
   const qc = useQueryClient()
 
@@ -158,6 +166,75 @@ export function NewInvoiceDrawer({
     setSearch('')
     prefillFromProfile(null)
   }
+
+  /** Reintentar: rebuild the whole form from a failed CFDI so the operator can fix & re-stamp. */
+  async function hydrateFromRetry(cfdi: PlatformCfdi) {
+    const rows: LineRow[] = (cfdi.lines ?? []).map((l) => ({
+      id: crypto.randomUUID(),
+      description: l.description,
+      satProductKey: l.satProductKey,
+      satUnitKey: l.satUnitKey,
+      quantity: l.quantity,
+      unitPricePesos: centsToPesos(l.unitPriceCents),
+      taxRate: l.taxRate ?? 0.16,
+      taxExempt: Boolean(l.taxExempt),
+    }))
+    setLines(rows.length ? rows : [newLine()])
+    setMetodoPago(cfdi.metodoPago)
+    setFormaPago(cfdi.formaPago)
+    setSerie(cfdi.serie ?? defaultSerie)
+
+    // Prefer the linked tax profile (keeps org/venue linkage + email); else the CFDI receptor fields.
+    let linked = false
+    if (cfdi.billingTaxProfileId) {
+      try {
+        const profile = await fetchTaxProfileById(cfdi.billingTaxProfileId)
+        if (profile) {
+          prefillFromProfile(profile)
+          if (profile.customerType === 'ORGANIZATION' && profile.organizationId) {
+            setCustomer({
+              type: 'ORGANIZATION',
+              id: profile.organizationId,
+              name: profile.razonSocial,
+              rfc: profile.rfc,
+              hasProfile: true,
+            })
+            setStandalone(false)
+          } else if (profile.customerType === 'VENUE' && profile.venueId) {
+            setCustomer({
+              type: 'VENUE',
+              id: profile.venueId,
+              name: profile.razonSocial,
+              rfc: profile.rfc,
+              hasProfile: true,
+            })
+            setStandalone(false)
+          } else {
+            setCustomer(null)
+            setStandalone(true)
+          }
+          linked = true
+        }
+      } catch {
+        // fall through to the CFDI's own receptor fields
+      }
+    }
+    if (!linked) {
+      setRfc(cfdi.receptorRfc)
+      setRazonSocial(cfdi.receptorNombre)
+      setRegimenFiscal(cfdi.receptorRegimen)
+      setCodigoPostal(cfdi.receptorCp)
+      setCustomer(null)
+      setStandalone(true)
+    }
+    setUsoCfdi(cfdi.usoCfdi) // the invoice's chosen uso wins over the profile default
+  }
+
+  // Reintentar: when opened with `retryFrom`, prefill the form from that failed CFDI.
+  useEffect(() => {
+    if (open && retryFrom) void hydrateFromRetry(retryFrom)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, retryFrom?.id])
 
   const customerType: BillingCustomerKind | null = standalone
     ? 'STANDALONE'
@@ -255,6 +332,15 @@ export function NewInvoiceDrawer({
         serie: serie.trim() || undefined,
         usoCfdi: usoCfdi || undefined,
       })
+
+      // Reintentar: si venimos de una factura fallida, descártala para no dejarla apilada.
+      if (retryFrom) {
+        try {
+          await discardInvoice(retryFrom.id)
+        } catch {
+          // best-effort cleanup — no bloquea el éxito del timbrado
+        }
+      }
 
       qc.invalidateQueries({ queryKey: [...BILLING_QUERY_KEY, 'invoices'] })
       toast.success('CFDI timbrado', {
@@ -461,18 +547,34 @@ export function NewInvoiceDrawer({
                         onChange={(e) => updateLine(l.id, { description: e.target.value })}
                       />
                       <div className="grid grid-cols-2 gap-2.5">
-                        <Field
-                          label="Clave SAT"
-                          name={`l-prod-${l.id}`}
-                          value={l.satProductKey}
-                          onChange={(e) => updateLine(l.id, { satProductKey: e.target.value })}
-                        />
-                        <Field
-                          label="Unidad"
-                          name={`l-unit-${l.id}`}
-                          value={l.satUnitKey}
-                          onChange={(e) => updateLine(l.id, { satUnitKey: e.target.value })}
-                        />
+                        <div>
+                          <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
+                            Clave SAT
+                          </label>
+                          <Combobox
+                            value={l.satProductKey}
+                            onChange={(v) => updateLine(l.id, { satProductKey: v })}
+                            options={CLAVE_PRODSERV_OPTIONS}
+                            allowCustomValue
+                            placeholder="Selecciona o escribe"
+                            searchPlaceholder="Buscar clave de producto…"
+                            ariaLabel="Clave de producto SAT"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
+                            Unidad
+                          </label>
+                          <Combobox
+                            value={l.satUnitKey}
+                            onChange={(v) => updateLine(l.id, { satUnitKey: v })}
+                            options={CLAVE_UNIDAD_OPTIONS}
+                            placeholder="Selecciona"
+                            searchPlaceholder="Buscar unidad…"
+                            emptyLabel="Sin coincidencias"
+                            ariaLabel="Clave de unidad SAT"
+                          />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2.5">
                         <Field

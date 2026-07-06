@@ -44,6 +44,39 @@ export const METODO_PAGO_OPTIONS: ComboboxOption[] = [
   { value: 'PPD', label: 'PPD · Pago en parcialidades o diferido', description: 'Aún no te pagan' },
 ]
 
+/**
+ * c_ClaveUnidad — SAT unit keys. Backed by a STRICT dropdown in the line editor so a free-text
+ * value (like "Uno") can never be sent — that's exactly what Facturapi rejects at stamp time.
+ */
+export const CLAVE_UNIDAD_OPTIONS: ComboboxOption[] = [
+  { value: 'E48', label: 'E48 · Unidad de servicio', description: 'Suscripciones / servicios' },
+  { value: 'H87', label: 'H87 · Pieza', description: 'Hardware / TPV / productos' },
+  { value: 'ACT', label: 'ACT · Actividad' },
+  { value: 'MON', label: 'MON · Mes' },
+  { value: 'HUR', label: 'HUR · Hora' },
+  { value: 'DAY', label: 'DAY · Día' },
+  { value: 'KGM', label: 'KGM · Kilogramo' },
+  { value: 'LTR', label: 'LTR · Litro' },
+  { value: 'MTR', label: 'MTR · Metro' },
+  { value: 'XBX', label: 'XBX · Caja' },
+]
+
+/**
+ * c_ClaveProdServ — common product/service keys for platform billing. Used as suggestions in a
+ * Combobox with allowCustomValue, so a specific SAT key can still be typed when needed.
+ */
+export const CLAVE_PRODSERV_OPTIONS: ComboboxOption[] = [
+  {
+    value: '43232611',
+    label: '43232611 · Software de gestión',
+    description: 'Suscripción plataforma',
+  },
+  { value: '81112500', label: '81112500 · Servicios de aplicaciones (SaaS)' },
+  { value: '43211902', label: '43211902 · Terminal punto de venta (TPV)' },
+  { value: '90101500', label: '90101500 · Servicio de restaurante' },
+  { value: '01010101', label: '01010101 · Sin clasificación (genérico)' },
+]
+
 /** Line presets for the "Nueva factura" quick buttons (price in pesos for the UI). */
 export interface LinePreset {
   key: string

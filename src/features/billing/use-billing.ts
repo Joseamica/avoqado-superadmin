@@ -4,6 +4,7 @@ import { inspectApiError } from '@/shared/lib/api-error'
 import {
   uploadConstancia,
   cancelInvoice,
+  discardInvoice,
   fetchEmisor,
   fetchInvoice,
   fetchInvoices,
@@ -192,5 +193,17 @@ export function useInvoiceActions() {
     },
   })
 
-  return { issue, cancel, registerPayment, sendEmail }
+  const discard = useMutation({
+    mutationFn: (id: string) => discardInvoice(id),
+    onSuccess: () => {
+      invalidate()
+      toast.success('Factura fallida descartada')
+    },
+    onError: (e) => {
+      const i = inspectApiError(e, 'descartar la factura')
+      toast.error(i.title, { description: i.description })
+    },
+  })
+
+  return { issue, cancel, registerPayment, sendEmail, discard }
 }

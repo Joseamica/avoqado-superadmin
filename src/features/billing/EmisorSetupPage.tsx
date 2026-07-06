@@ -135,6 +135,11 @@ export function EmisorSetupPage() {
           <Badge tone={provisioned ? 'success' : 'muted'} size="sm">
             {provisioned ? 'Provisionado en Facturapi' : 'Sin provisionar'}
           </Badge>
+          {e?.keyConfigured && (
+            <Badge tone="success" size="sm">
+              Llave configurada
+            </Badge>
+          )}
           {e?.csdExpiresAt && (
             <span className="tabular text-[var(--ink-muted)]">
               CSD vence {formatDate(e.csdExpiresAt)}
@@ -215,9 +220,34 @@ export function EmisorSetupPage() {
         <p className="mb-4 text-[13px] text-[var(--ink-muted)]">
           Crea la organización de Avoqado en Facturapi, o pega una que ya hayas creado en el panel.
         </p>
+        {provisioned && (
+          <div className="mb-4 rounded-[6px] border border-[var(--line)] bg-[var(--canvas-raised)] px-3.5 py-3 text-[13px]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[var(--ink-muted)]">Organización:</span>
+              <code className="tabular rounded bg-[var(--canvas)] px-1.5 py-0.5 text-[12px] text-[var(--ink)]">
+                {e?.providerOrgId}
+              </code>
+              {e?.keyConfigured ? (
+                <Badge tone="success" size="sm">
+                  Llave configurada ✓
+                </Badge>
+              ) : (
+                <Badge tone="warn" size="sm">
+                  Sin llave
+                </Badge>
+              )}
+            </div>
+            <p className="mt-1.5 text-[12px] text-[var(--ink-faint)]">
+              Por seguridad, la llave nunca se muestra. Solo vuelve a pegarla si necesitas
+              reemplazarla.
+            </p>
+          </div>
+        )}
         <label className="mb-4 flex items-center gap-2.5 text-[13px] text-[var(--ink)]">
           <Checkbox checked={manual} onCheckedChange={(v) => setManual(Boolean(v))} />
-          Ya tengo org id + live key (pegar manual)
+          {provisioned
+            ? 'Reemplazar org id + live key'
+            : 'Ya tengo org id + live key (pegar manual)'}
         </label>
         {manual && (
           <div className="mb-4 grid gap-4 sm:grid-cols-2">
@@ -246,7 +276,9 @@ export function EmisorSetupPage() {
           {provision.isPending
             ? 'Procesando…'
             : manual
-              ? 'Vincular org/key'
+              ? provisioned
+                ? 'Reemplazar org/key'
+                : 'Vincular org/key'
               : 'Provisionar en Facturapi'}
         </Button>
       </section>
