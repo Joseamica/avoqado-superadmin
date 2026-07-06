@@ -103,12 +103,20 @@ const INITIAL_STATE: FormState = {
   activationMode: 'with-code',
 }
 
-/** Catálogo común — el operador puede escribir libre, pero estos son los más usados. */
+/**
+ * Catálogo común — el operador puede escribir libre, pero estos son los más usados.
+ *
+ * PAX/NEXGO/Verifone/Ingenico deben ir en el case canónico exacto
+ * (`avoqado-server/src/lib/providerDeviceCompatibility.ts:TERMINAL_BRANDS`):
+ * el backend solo normaliza mayúsculas para escrituras libres, pero un preset
+ * con el case equivocado (ej. "Verifone" en vez de "VERIFONE") lo escribiría
+ * mal aunque el operador solo haya seleccionado la opción de la lista.
+ */
 const BRAND_OPTIONS: ComboboxOption[] = [
   { value: 'PAX', label: 'PAX', description: 'A910s, A920, etc.' },
   { value: 'NEXGO', label: 'NEXGO', description: 'N3, N5, N86' },
-  { value: 'Verifone', label: 'Verifone', description: 'V200c, V240m' },
-  { value: 'Ingenico', label: 'Ingenico', description: 'Lane series, Move series' },
+  { value: 'VERIFONE', label: 'Verifone', description: 'V200c, V240m' },
+  { value: 'INGENICO', label: 'Ingenico', description: 'Lane series, Move series' },
   { value: 'Star Micronics', label: 'Star Micronics', description: 'Impresoras' },
   { value: 'Epson', label: 'Epson', description: 'Impresoras térmicas' },
   { value: 'Apple', label: 'Apple', description: 'iPad / iPhone' },
