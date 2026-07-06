@@ -197,6 +197,25 @@ The repo runs **Vitest 4** (unit + integration), **React Testing Library**, **Pl
 
 `npm run check` runs typecheck + lint + tests. The Husky `pre-push` hook runs the same — el push **se cancela** si falla algo. No saltes con `--no-verify` salvo emergencia documentada.
 
+#### 🔴 Node version — `npm run check`/`test` requiere Node ^22.12 || >=23 (jsdom + require(esm))
+
+`jsdom`'s `html-encoding-sniffer` depende de `@exodus/bytes`, que es **ESM-only** (`"type": "module"`,
+sin build CJS). `html-encoding-sniffer` lo carga con `require()` plano — eso solo funciona en
+versiones de Node con soporte estable de `require(esm)` (22.12+/23.x/24+). En Node ≤21 (incluido
+21.x, que quedó **fuera** del rango soportado a propósito) truena con un `ERR_REQUIRE_ESM` críptico
+la primera vez que Vitest arranca el entorno `jsdom` — se ve como si los tests estuvieran rotos,
+pero es 100% la versión de Node activa, no el código.
+
+- **Guardado en `engines` de `package.json`** (`^22.12.0 || >=24.0.0`) + `.npmrc` (`engine-strict=true`)
+  — falla claro en `npm install` con Node incompatible.
+- **`scripts/check-node-version.mjs`** corre como hook `pretest`/`pretest:run`/`pretest:coverage` —
+  bloquea con un mensaje accionable **cada vez** que corres los scripts, sin importar cuándo se instaló
+  `node_modules` ni qué version manager (`n`, `nvm`, `asdf`) esté shadowing el `node` del PATH.
+- **Si te truena igual:** confirma qué `node` está activo (`which -a node`, `node --version`) —
+  en esta máquina `n` deja un `node` viejo en `/usr/local/bin` que gana por orden de PATH sobre el
+  `node` correcto de Homebrew en `/opt/homebrew/bin`. Corre explícito:
+  `PATH="/opt/homebrew/bin:$PATH" npm run check`.
+
 ### When to write what kind of test
 
 | Tipo                                 | Cuándo                                                                                                  | Ubicación                                      |

@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -10,9 +13,12 @@
     "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
+    "pretest": "node scripts/check-node-version.mjs",
     "test": "vitest",
+    "pretest:run": "node scripts/check-node-version.mjs",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
+    "pretest:coverage": "node scripts/check-node-version.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
