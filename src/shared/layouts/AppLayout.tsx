@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import {
   Activity,
   BadgeDollarSign,
+  CalendarDays,
   CreditCard,
   LayoutDashboard,
   LogOut,
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
       { to: '/earnings', label: 'Ganancias', icon: Wallet },
+      { to: '/settlement-calendar', label: 'Depósitos', icon: CalendarDays },
       { to: '/tpv-orders', label: 'Pedidos TPV', icon: Package },
       { to: '/activity-log', label: 'Activity log', icon: Activity },
       { to: '/system-logs', label: 'Logs del sistema', icon: ScrollText },

@@ -51,3 +51,6 @@ playwright-report/
 test-results/
 .playwright/
 .gstack/
+
+# graphify knowledge graph output
+graphify-out/

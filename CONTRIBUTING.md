@@ -3,7 +3,7 @@
 Antes de tu primera contribución lee:
 
 1. **[CLAUDE.md](CLAUDE.md)** — reglas de proyecto que aplican a humanos y a agentes IA.
-2. **[.impeccable.md](.impeccable.md)** — dirección de diseño y anti-patrones prohibidos.
+2. **[PRODUCT.md](PRODUCT.md)** — dirección de diseño y anti-patrones prohibidos.
 3. **[README.md](README.md)** — stack, scripts, setup.
 
 ## Setup rápido

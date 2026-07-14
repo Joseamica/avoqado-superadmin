@@ -51,6 +51,10 @@ This app is the **superadmin frontend** for the Avoqado platform. It calls **`av
 
 > **Deuda conocida (2026-05-26):** `venues`, `features`, `ecommerce-merchants` y los TPV `command`/`settings` aún se consumen vía `/dashboard/*`. `terminals` y `app-updates` ya están double-mounted (sólo falta cambiar el string del path en el front). Migrar todo a `/superadmin/*` es trabajo pendiente trackeado; **no agregar más usos de `/dashboard/superadmin/*` mientras tanto.**
 
+### White-Label Builder (PlayTelecom) — todavía NO vive aquí
+
+El wizard que configura dashboards white-label (`WhiteLabelBuilder`, módulo `WHITE_LABEL_DASHBOARD`) sigue montado únicamente en el `/superadmin/` legacy de `avoqado-web-dashboard` (`src/pages/Superadmin/WhiteLabelBuilder/`) — no hay nada de esto en este repo todavía. Contexto completo de PlayTelecom (el cliente white-label real, Bait/Walmart, los dos scopes org-vs-venue): `avoqado-web-dashboard/.claude/rules/playtelecom-vertical.md` y `avoqado-server/.claude/rules/playtelecom-vertical.md`. Si esta pieza migra aquí, sigue el mismo patrón ya usado para la migración de terminales (referencia legacy primero, ruta nueva en `/superadmin/*`, nunca consumir `/dashboard/superadmin/*`).
+
 ### Auth — cookies HTTP-only, no Firebase
 
 Auth uses the **internal session cookies** issued by `avoqado-server` at `/api/v1/dashboard/auth/*`:
@@ -116,11 +120,13 @@ Whenever you implement a write operation that mutates state of value (creates a 
 
 ## Design — read this before any UI work
 
-The repo has a `.impeccable.md` at the root that defines the design system, palette, typography, and the aesthetic commitments ("Editorial Operations Terminal"). **You must read it before designing any new screen or component.**
+The repo has a `PRODUCT.md` at the root that defines the design system, palette, typography, and the aesthetic commitments ("Editorial Operations Terminal"). **You must read it before designing any new screen or component.**
+
+> **Se llamaba `.impeccable.md` hasta el 2026-06-08.** No lo borró nadie: el loader del skill pack `impeccable` (`.claude/skills/impeccable/scripts/load-context.mjs`) renombra en automático el legacy `.impeccable.md` → `PRODUCT.md` la primera vez que corre, y ese rename se coló sin querer en un commit de merchants (`e5d1b91`). El contenido quedó intacto. **No recrees `.impeccable.md`**: el loader sólo migra cuando NO existe un `PRODUCT.md`, así que un archivo nuevo con el nombre viejo quedaría fuera de la convención y tendrías dos docs de diseño compitiendo. La convención upstream además espera un `DESIGN.md` aparte (visual) junto al `PRODUCT.md` (estrategia/voz); hoy no existe — se genera con `/impeccable document`.
 
 ### Design Principles
 
-Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende todas, vuelve a empezar. La versión larga (target audience, use cases, anti-patterns, differentiation) vive en [.impeccable.md](.impeccable.md).
+Cinco lentes que pasan sobre cada decisión visual. Si tu diseño no defiende todas, vuelve a empezar. La versión larga (target audience, use cases, anti-patterns, differentiation) vive en [PRODUCT.md](PRODUCT.md).
 
 1. **Operative speed beats first impression.** Power user 6+ h/día. `⌘K`, density tipográfica y legibilidad tabular ganan sobre hero animations. Touch targets ≥ 36 px y drawer < md porque ops también opera desde móvil.
 2. **Editorial density, never Bloomberg ugliness.** La tipografía conduce el layout y espeja al dashboard principal: **Inter** en el contenido (default global, incluidos overlays portaleados), **Geist** en el shell/sidebar (override de `--font-sans` en el `<aside>`), **Geist Mono** para datos. La jerarquía sale del peso/tamaño y del contraste sans-vs-mono, no de una fuente display. Ritmo variado: secciones respiran, tablas compactan; "mismo padding everywhere" es flat.
@@ -163,14 +169,14 @@ Para **errores de mutations** (clicks de botón), usa `toast.error(title, { desc
 - **`impeccable:audit` is mandatory** after any visible UI change. Run it before pushing. If the audit surfaces severity ≥ "high" issues, fix them in the same PR.
 - **`impeccable:frontend-design`** is the skill to invoke when designing a new screen or component from scratch (loads the design protocol + the AI slop test).
 - **`impeccable:polish`** is the skill to run as the final pass before shipping a page to production (or before review).
-- **Never invent fonts.** Only the three families declared in `.impeccable.md` (Geist Variable, Inter Variable, Geist Mono Variable) — added via `@fontsource-variable/*`. Inter = contenido (default global, incluidos overlays portaleados), Geist = shell (override de `--font-sans` en el `<aside>` del `AppLayout`), Geist Mono = datos.
-- **Never use** the AI slop patterns enumerated in `.impeccable.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, indigo/purple accents, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
+- **Never invent fonts.** Only the three families declared in `PRODUCT.md` (Geist Variable, Inter Variable, Geist Mono Variable) — added via `@fontsource-variable/*`. Inter = contenido (default global, incluidos overlays portaleados), Geist = shell (override de `--font-sans` en el `<aside>` del `AppLayout`), Geist Mono = datos.
+- **Never use** the AI slop patterns enumerated in `PRODUCT.md`: glassmorphism, purple-to-blue gradients, cyan-on-dark, indigo/purple accents, sparklines as decoration, nested cards, hero-metric template, bouncy easings.
 - **Tabular numerals** on every numeric / date cell (`font-variant-numeric: tabular-nums`). Right-align monetary amounts.
 - **Empty states teach** the interface (`"No hay KYC pendientes. Última revisión: hace 3h"`), not "Nothing here".
 
 ### Suggested skill order for new screens
 
-1. Read `.impeccable.md`
+1. Read `PRODUCT.md`
 2. Invoke `impeccable:frontend-design` for the design guidance
 3. Build the screen
 4. Invoke `impeccable:polish` for the final visual pass
@@ -404,7 +410,7 @@ Sólo se exenta de esto: cambios puramente de comentarios o renames internos sin
 | Protected route     | `src/app/ProtectedRoute.tsx`                         |
 | Realtime socket     | `src/features/realtime/socket.ts`                    |
 | Realtime hook       | `src/features/realtime/use-realtime-invalidation.ts` |
-| Design context      | `.impeccable.md`                                     |
+| Design context      | `PRODUCT.md`                                         |
 | Test setup          | `src/test/setup.ts` + `src/test/mocks/handlers.ts`   |
 | Test render wrapper | `src/test/render.tsx`                                |
 | E2E specs           | `e2e/*.spec.ts`                                      |
