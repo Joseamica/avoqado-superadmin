@@ -51,6 +51,9 @@ describe('PricingWizardDrawer', () => {
     // Antes del fix, el input re-formateaba en cada tecla y el punto se borraba → "35".
     expect(input.value).toBe('3.5')
     await user.click(screen.getByRole('button', { name: /Siguiente/i })) // → paso 3
+    // el paso 3 explica el modelo y muestra el desglose por tarjeta (costo → paga el venue → margen)
+    expect(screen.getByText(/El venue paga tu costo \+ 3\.5%/i)).toBeTruthy()
+    expect(screen.getByText(/Paga el venue/i)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Prellenar y revisar/i }))
     // cost=null → costo 0; markup 3.5% con IVA (default) → pricing = 0 + 0.035
     expect(onPrefill.mock.calls[0][0].result.venuePricingInput.rates.DEBIT).toBeCloseTo(0.035, 4)

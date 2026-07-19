@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/Button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { CardRatesInput } from './CardRatesInput'
 import { PercentInput } from './PercentInput'
+import { EconomicsTable } from './EconomicsTable'
 import {
   EMPTY_WIZARD_STATE,
   buildWizardResult,
@@ -20,13 +21,7 @@ import {
   type ChargeModel,
   type WizardResult,
 } from './pricing-wizard'
-import {
-  CARD_TYPES,
-  humanizeCardType,
-  rawCardRates,
-  type AccountSlot,
-  type ProviderCostStructure,
-} from './types'
+import { CARD_TYPES, rawCardRates, type AccountSlot, type ProviderCostStructure } from './types'
 
 export interface PricingWizardResult {
   result: WizardResult
@@ -43,10 +38,7 @@ interface Props {
   onPrefill: (r: PricingWizardResult) => void
 }
 
-const money = (n: number | null) =>
-  n == null
-    ? '—'
-    : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
+const asPct = (d: number) => Math.round(d * 10000) / 100
 
 const labelCls = 'mb-1 block text-[12px] font-medium text-[var(--ink-muted)]'
 
@@ -68,6 +60,12 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
   const economics = useMemo(() => wizardEconomics(s), [s])
   const hasNegative = CARD_TYPES.some((c) => (economics.byCard[c].avoqadoMargin ?? 0) < 0)
   const venue = venues.find((v) => v.venueId === s.venueId) ?? null
+  const modelSummary =
+    s.model === 'flat'
+      ? `El venue paga ${asPct(s.flatRate)}% parejo. Montos por cada $100:`
+      : s.model === 'cost-plus'
+        ? `El venue paga tu costo + ${asPct(s.markup)}% en cada tarjeta. Montos por cada $100:`
+        : 'Desglose de tus dos tramos (proveedor→agregador y agregador→venue). Montos por cada $100:'
 
   function reset() {
     setStep(1)
@@ -289,29 +287,9 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
 
           {step === 3 && (
             <section className="flex flex-col gap-4">
-              <div className="rounded-[8px] border border-[var(--line)] bg-[var(--canvas-sunken)] p-3">
-                <p className="mb-2 text-[12px] font-medium text-[var(--ink)]">
-                  Tu margen neto (por $100)
-                </p>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  {CARD_TYPES.map((c) => {
-                    const m = economics.byCard[c].avoqadoMargin
-                    return (
-                      <div key={c} className="flex items-baseline justify-between">
-                        <dt className="text-[12px] text-[var(--ink-muted)]">
-                          {humanizeCardType(c)}
-                        </dt>
-                        <dd
-                          className={`text-[13px] font-semibold tabular-nums ${
-                            (m ?? 0) < 0 ? 'text-[var(--danger)]' : 'text-[var(--success)]'
-                          }`}
-                        >
-                          {money(m)}
-                        </dd>
-                      </div>
-                    )
-                  })}
-                </dl>
+              <div className="flex flex-col gap-2">
+                <p className="text-[12px] text-[var(--ink-muted)]">{modelSummary}</p>
+                <EconomicsTable economics={economics} />
               </div>
               {hasNegative && (
                 <p className="text-[12px] text-[var(--warn)]" role="alert">
