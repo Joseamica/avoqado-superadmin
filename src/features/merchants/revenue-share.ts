@@ -48,3 +48,14 @@ export function revenueShareToInput(
     taxRate,
   }
 }
+
+/** Draft desde el body que produce el Asistente de pricing (para prellenar el editor). */
+export function draftFromInput(input: SaveRevenueShareInput): RevenueShareDraft {
+  return {
+    mode: input.aggregatorPrice ? 'aggregator' : 'direct',
+    aggregatorPrice: input.aggregatorPrice ?? ZERO_RATES,
+    aggIncludesTax: input.aggregatorPriceIncludesTax,
+    shareProvider: input.avoqadoShareOfProviderMargin,
+    shareAgg: input.avoqadoShareOfAggregatorMargin ?? 0.7,
+  }
+}

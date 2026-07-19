@@ -16,7 +16,7 @@ import { MarginPreview } from './MarginPreview'
 import { MoneyFlowDiagram } from './MoneyFlowDiagram'
 import { RevenueShareFields } from './RevenueShareFields'
 import { computeMerchantEconomics } from './economics'
-import { initRevenueShareDraft, revenueShareToInput } from './revenue-share'
+import { initRevenueShareDraft, revenueShareToInput, type RevenueShareDraft } from './revenue-share'
 import { useSaveCost, useSaveRevenueShare } from './use-merchants'
 import type { CardRates, MerchantRevenueShare, ProviderCostStructure } from './types'
 import { effectiveCardRates, rawCardRates } from './types'
@@ -30,6 +30,12 @@ interface Props {
   cost: ProviderCostStructure | null
   revenueShare: MerchantRevenueShare | null
   onSaved?: () => void
+  /** Valores del Asistente de pricing para prellenar (override del estado guardado). */
+  initialValues?: {
+    rates: CardRates
+    includesTax: boolean
+    revenueShare: RevenueShareDraft
+  }
 }
 
 export function EditEconomicsDrawer({
@@ -39,14 +45,21 @@ export function EditEconomicsDrawer({
   cost,
   revenueShare,
   onSaved,
+  initialValues,
 }: Props) {
   const saveCost = useSaveCost()
   const saveRS = useSaveRevenueShare()
 
   // El campo edita la tasa CRUDA (lo que se persiste); el checkbox decide el IVA.
-  const [rates, setRates] = useState<CardRates>(cost ? rawCardRates(cost) : ZERO)
-  const [includesTax, setIncludesTax] = useState<boolean>(cost?.includesTax ?? true)
-  const [rs, setRs] = useState(() => initRevenueShareDraft(revenueShare))
+  const [rates, setRates] = useState<CardRates>(
+    initialValues?.rates ?? (cost ? rawCardRates(cost) : ZERO),
+  )
+  const [includesTax, setIncludesTax] = useState<boolean>(
+    initialValues?.includesTax ?? cost?.includesTax ?? true,
+  )
+  const [rs, setRs] = useState(
+    () => initialValues?.revenueShare ?? initRevenueShareDraft(revenueShare),
+  )
   const [error, setError] = useState<string | null>(null)
 
   const taxRate = revenueShare?.taxRate ?? 0.16

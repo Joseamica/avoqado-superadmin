@@ -35,6 +35,8 @@ interface Props {
   slot: AccountSlot
   cost: ProviderCostStructure | null
   onSaved?: () => void
+  /** Valores del Asistente de pricing para prellenar (override del fetch). */
+  initialValues?: { rates: CardRates; includesTax: boolean }
 }
 
 export function EditVenuePricingDrawer({
@@ -45,6 +47,7 @@ export function EditVenuePricingDrawer({
   slot,
   cost,
   onSaved,
+  initialValues,
 }: Props) {
   const save = useSaveVenuePricing()
   const pricingQ = useQuery({
@@ -60,9 +63,12 @@ export function EditVenuePricingDrawer({
 
   // Hidrata el form una vez que carga el pricing (computado en render, sin useEffect).
   // El campo edita la tasa CRUDA (lo que se persiste); el checkbox decide el IVA.
-  if (open && !hydrated && pricingQ.isSuccess) {
+  if (open && !hydrated && (initialValues || pricingQ.isSuccess)) {
     setHydrated(true)
-    if (loaded) {
+    if (initialValues) {
+      setRates(initialValues.rates)
+      setIncludesTax(initialValues.includesTax)
+    } else if (loaded) {
       setRates(rawCardRates(loaded))
       setIncludesTax(loaded.includesTax ?? true)
     }

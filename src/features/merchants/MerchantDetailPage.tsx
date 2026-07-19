@@ -23,6 +23,8 @@ import {
   useToggleMerchant,
 } from './use-merchants'
 import { EditEconomicsDrawer } from './EditEconomicsDrawer'
+import { PricingWizardDrawer, type PricingWizardResult } from './PricingWizardDrawer'
+import { draftFromInput } from './revenue-share'
 import { MerchantIdentityDrawer } from './MerchantIdentityDrawer'
 import { DeleteMerchantDialog } from './DeleteMerchantDialog'
 import { AssignTerminalDrawer } from './AssignTerminalDrawer'
@@ -56,6 +58,10 @@ export function MerchantDetailPage() {
     venueName: string
     slot: AccountSlot
   } | null>(null)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [prefill, setPrefill] = useState<PricingWizardResult | null>(null)
+  const [ecoPrefillOpen, setEcoPrefillOpen] = useState(false)
+  const [pricingPrefillOpen, setPricingPrefillOpen] = useState(false)
   const toggleM = useToggleMerchant()
   const [assigning, setAssigning] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<{ id: string; serialNumber: string } | null>(
@@ -182,9 +188,14 @@ export function MerchantDetailPage() {
         >
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-[13px] font-semibold text-[var(--ink)]">Economía</h3>
-            <Button size="sm" variant="ghost" onClick={() => setEditingEco(true)}>
-              Editar
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setWizardOpen(true)}>
+                Asistente
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingEco(true)}>
+                Editar
+              </Button>
+            </div>
           </div>
           {eco.isError ? (
             <QueryError error={eco.error} context="cargar la economía" onRetry={eco.refetch} />
@@ -312,24 +323,69 @@ export function MerchantDetailPage() {
         Actualizada {formatDateTime(m.updatedAt)}
       </p>
 
+      <PricingWizardDrawer
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        cost={eco.cost}
+        venues={eco.venueConfigs.map((c) => ({
+          venueId: c.venueId,
+          venueName: c.venue.name,
+          slot: c.slot,
+        }))}
+        onPrefill={(r) => {
+          setPrefill(r)
+          setEcoPrefillOpen(true)
+        }}
+      />
       <EditEconomicsDrawer
-        open={editingEco}
-        onOpenChange={setEditingEco}
+        open={editingEco || ecoPrefillOpen}
+        onOpenChange={(o) => {
+          if (o) {
+            setEditingEco(true)
+            return
+          }
+          setEditingEco(false)
+          setEcoPrefillOpen(false)
+        }}
         merchantId={m.id}
         cost={eco.cost}
         revenueShare={eco.revenueShare}
-        onSaved={eco.refetch}
+        initialValues={
+          ecoPrefillOpen && prefill
+            ? {
+                rates: prefill.result.costInput.rates,
+                includesTax: prefill.result.costInput.includesTax,
+                revenueShare: draftFromInput(prefill.result.revenueShareInput),
+              }
+            : undefined
+        }
+        onSaved={() => {
+          eco.refetch()
+          if (ecoPrefillOpen) setPricingPrefillOpen(true)
+        }}
       />
-      {pricingTarget && (
+      {(pricingTarget || (pricingPrefillOpen && prefill)) && (
         <EditVenuePricingDrawer
-          open={!!pricingTarget}
+          open={!!pricingTarget || pricingPrefillOpen}
           onOpenChange={(o) => {
-            if (!o) setPricingTarget(null)
+            if (!o) {
+              setPricingTarget(null)
+              setPricingPrefillOpen(false)
+              setPrefill(null)
+            }
           }}
-          venueId={pricingTarget.venueId}
-          venueName={pricingTarget.venueName}
-          slot={pricingTarget.slot}
+          venueId={pricingTarget?.venueId ?? prefill!.venueId}
+          venueName={pricingTarget?.venueName ?? prefill!.venueName}
+          slot={pricingTarget?.slot ?? prefill!.slot}
           cost={eco.cost}
+          initialValues={
+            pricingPrefillOpen && prefill
+              ? {
+                  rates: prefill.result.venuePricingInput.rates,
+                  includesTax: prefill.result.venuePricingInput.includesTax,
+                }
+              : undefined
+          }
           onSaved={eco.refetch}
         />
       )}
