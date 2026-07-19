@@ -1,4 +1,5 @@
 import { CardRatesInput } from './CardRatesInput'
+import { PercentInput } from './PercentInput'
 import type { CardRates } from './types'
 import type { RevenueShareDraft } from './revenue-share'
 
@@ -10,10 +11,6 @@ import type { RevenueShareDraft } from './revenue-share'
  */
 
 const labelCls = 'mb-1 block text-[12px] font-medium text-[var(--ink-muted)]'
-const pctInput =
-  'h-9 w-24 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 text-[13px] tabular-nums focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]'
-
-const toPctStr = (d: number) => String(Math.round(d * 10000) / 100)
 
 interface Props {
   value: RevenueShareDraft
@@ -75,12 +72,10 @@ export function RevenueShareFields({ value, onChange }: Props) {
           <label htmlFor="shp" className={labelCls}>
             Avoqado del margen proveedor (%)
           </label>
-          <input
+          <PercentInput
             id="shp"
-            className={pctInput}
-            inputMode="decimal"
-            value={toPctStr(value.shareProvider)}
-            onChange={(e) => patch({ shareProvider: (parseFloat(e.target.value) || 0) / 100 })}
+            value={value.shareProvider}
+            onChange={(shareProvider) => patch({ shareProvider })}
           />
         </div>
         {value.mode === 'aggregator' && (
@@ -88,12 +83,10 @@ export function RevenueShareFields({ value, onChange }: Props) {
             <label htmlFor="sha" className={labelCls}>
               Avoqado del margen agregador (%)
             </label>
-            <input
+            <PercentInput
               id="sha"
-              className={pctInput}
-              inputMode="decimal"
-              value={toPctStr(value.shareAgg)}
-              onChange={(e) => patch({ shareAgg: (parseFloat(e.target.value) || 0) / 100 })}
+              value={value.shareAgg}
+              onChange={(shareAgg) => patch({ shareAgg })}
             />
             <p className="mt-1.5 max-w-[16rem] text-[12px] text-[var(--ink-faint)]">
               % que se queda Avoqado del markup del agregador (pricing del venue − precio a

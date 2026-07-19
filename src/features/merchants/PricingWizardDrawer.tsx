@@ -11,6 +11,7 @@ import {
 import { Button } from '@/shared/ui/Button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { CardRatesInput } from './CardRatesInput'
+import { PercentInput } from './PercentInput'
 import {
   EMPTY_WIZARD_STATE,
   buildWizardResult,
@@ -42,15 +43,11 @@ interface Props {
   onPrefill: (r: PricingWizardResult) => void
 }
 
-const pct = (d: number) => String(Math.round(d * 10000) / 100)
-const toDec = (raw: string) => (raw.trim() === '' ? 0 : (parseFloat(raw) || 0) / 100)
 const money = (n: number | null) =>
   n == null
     ? '—'
     : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
 
-const pctInput =
-  'h-9 w-28 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 text-[13px] tabular-nums focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]'
 const labelCls = 'mb-1 block text-[12px] font-medium text-[var(--ink-muted)]'
 
 function initialState(cost: ProviderCostStructure | null, venues: Props['venues']): WizardState {
@@ -139,7 +136,7 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                     <Button
                       key={m}
                       type="button"
-                      size="sm"
+                      size="md"
                       variant={s.model === m ? 'primary' : 'secondary'}
                       onClick={() => patch({ model: m })}
                     >
@@ -154,12 +151,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                   <label htmlFor="wiz-flat" className={labelCls}>
                     % que paga el venue
                   </label>
-                  <input
+                  <PercentInput
                     id="wiz-flat"
-                    className={pctInput}
-                    inputMode="decimal"
-                    value={pct(s.flatRate)}
-                    onChange={(e) => patch({ flatRate: toDec(e.target.value) })}
+                    value={s.flatRate}
+                    onChange={(flatRate) => patch({ flatRate })}
                   />
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
@@ -177,12 +172,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                   <label htmlFor="wiz-markup" className={labelCls}>
                     Tu comisión (%)
                   </label>
-                  <input
+                  <PercentInput
                     id="wiz-markup"
-                    className={pctInput}
-                    inputMode="decimal"
-                    value={pct(s.markup)}
-                    onChange={(e) => patch({ markup: toDec(e.target.value) })}
+                    value={s.markup}
+                    onChange={(markup) => patch({ markup })}
                   />
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
@@ -217,12 +210,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                     <label htmlFor="wiz-agg-sp" className={labelCls}>
                       Tu % del margen proveedor→agregador
                     </label>
-                    <input
+                    <PercentInput
                       id="wiz-agg-sp"
-                      className={pctInput}
-                      inputMode="decimal"
-                      value={pct(s.aggShareProvider)}
-                      onChange={(e) => patch({ aggShareProvider: toDec(e.target.value) })}
+                      value={s.aggShareProvider}
+                      onChange={(aggShareProvider) => patch({ aggShareProvider })}
                     />
                   </div>
                   <div>
@@ -245,12 +236,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                     <label htmlFor="wiz-agg-sa" className={labelCls}>
                       Tu % del margen agregador→venue
                     </label>
-                    <input
+                    <PercentInput
                       id="wiz-agg-sa"
-                      className={pctInput}
-                      inputMode="decimal"
-                      value={pct(s.aggShareAggregator)}
-                      onChange={(e) => patch({ aggShareAggregator: toDec(e.target.value) })}
+                      value={s.aggShareAggregator}
+                      onChange={(aggShareAggregator) => patch({ aggShareAggregator })}
                     />
                   </div>
                 </div>
@@ -276,12 +265,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                       <label htmlFor="wiz-share" className={labelCls}>
                         % que es tuyo
                       </label>
-                      <input
+                      <PercentInput
                         id="wiz-share"
-                        className={pctInput}
-                        inputMode="decimal"
-                        value={pct(s.avoqadoShare)}
-                        onChange={(e) => patch({ avoqadoShare: toDec(e.target.value) })}
+                        value={s.avoqadoShare}
+                        onChange={(avoqadoShare) => patch({ avoqadoShare })}
                       />
                     </div>
                   )}
@@ -331,19 +318,26 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                   Ojo: alguna tarjeta sale con margen negativo — pierdes en esa tarjeta.
                 </p>
               )}
-              <div>
-                <span className={labelCls}>¿A qué venue le aplico este pricing?</span>
-                <Combobox
-                  value={s.venueId}
-                  onChange={(v) => patch({ venueId: v })}
-                  options={venues.map((v) => ({
-                    value: v.venueId,
-                    label: `${v.venueName} · ${v.slot}`,
-                  }))}
-                  placeholder="Elegir venue"
-                  ariaLabel="Venue destino"
-                />
-              </div>
+              {venues.length === 0 ? (
+                <p className="text-[13px] text-[var(--ink-faint)]">
+                  Este merchant no está asignado a ningún venue todavía. Asígnalo desde el detalle
+                  de un venue para poder aplicarle este pricing.
+                </p>
+              ) : (
+                <div>
+                  <span className={labelCls}>¿A qué venue le aplico este pricing?</span>
+                  <Combobox
+                    value={s.venueId}
+                    onChange={(v) => patch({ venueId: v })}
+                    options={venues.map((v) => ({
+                      value: v.venueId,
+                      label: `${v.venueName} · ${v.slot}`,
+                    }))}
+                    placeholder="Elegir venue"
+                    ariaLabel="Venue destino"
+                  />
+                </div>
+              )}
             </section>
           )}
         </DrawerBody>
@@ -354,11 +348,11 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
             </Button>
           )}
           {step < 3 ? (
-            <Button type="button" onClick={() => setStep((n) => n + 1)}>
+            <Button type="button" size="lg" onClick={() => setStep((n) => n + 1)}>
               Siguiente
             </Button>
           ) : (
-            <Button type="button" disabled={!venue} onClick={handlePrefill}>
+            <Button type="button" size="lg" disabled={!venue} onClick={handlePrefill}>
               Prellenar y revisar
             </Button>
           )}
