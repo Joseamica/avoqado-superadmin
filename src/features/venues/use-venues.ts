@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { inspectApiError } from '@/shared/lib/api-error'
 import {
-  approveVenueAfterCreate,
   assignCompPlan,
   createVenueWizard,
   extendPlanTrial,
@@ -60,22 +59,16 @@ export function useFeatures() {
 /**
  * Mutation para crear venue desde el wizard.
  *
- * Cuando `approveKyc === true`, después de crear el venue lo aprobamos en
- * un segundo request — el backend ya registra ambas acciones en
- * ActivityLog. Si el approve falla pero el create fue OK, el venue queda
- * creado pero en `PENDING_REVIEW` (estado válido), y el caller decide qué
- * mostrar (probablemente toast warning).
+ * Cuando `approveKyc === true`, se envía `activateImmediately: true` al wizard: el backend crea el
+ * venue directo en `ACTIVE` y lo registra en ActivityLog (`VENUE_CREATED` + `VENUE_APPROVED`) en el
+ * MISMO request. Ya NO hay un 2º POST a `/approve` — esa ruta exigía `PENDING_ACTIVATION` y el
+ * wizard crea el venue en `ONBOARDING`, así que el approve siempre fallaba.
  */
 export function useCreateVenue() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { payload: CreateVenuePayload; approveKyc: boolean }) => {
-      const result = await createVenueWizard(input.payload)
-      if (input.approveKyc) {
-        await approveVenueAfterCreate(result.venueId)
-      }
-      return result
-    },
+    mutationFn: async (input: { payload: CreateVenuePayload; approveKyc: boolean }) =>
+      createVenueWizard({ ...input.payload, activateImmediately: input.approveKyc }),
     onSuccess: () => {
       // Invalidar tanto la lista de venues como la de orgs (puede haber org nueva).
       queryClient.invalidateQueries({ queryKey: VENUES_QUERY_KEY })

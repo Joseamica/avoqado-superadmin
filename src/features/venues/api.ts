@@ -262,27 +262,46 @@ export interface CreateVenuePayload {
     owner: { email: string; firstName: string; lastName: string; role?: string }
   }
   features?: string[]
+  /**
+   * Superadmin: crear el venue directo en ACTIVE (salta la cola de KYC). El wizard del backend
+   * lo resuelve en el MISMO request. NO se hace un 2º POST a `/venues/:id/approve` — esa ruta
+   * exige status `PENDING_ACTIVATION` y el wizard crea el venue en `ONBOARDING`, así que el
+   * approve siempre fallaba.
+   */
+  activateImmediately?: boolean
+}
+
+export interface WizardStep {
+  step: string
+  status: 'success' | 'skipped' | 'error'
+  message?: string
 }
 
 interface WizardResponse {
   venueId: string
   organizationId: string
-  steps: Array<{ step: string; status: 'success' | 'skipped' | 'error'; message?: string }>
+  venueSlug?: string
+  steps: WizardStep[]
 }
 
 export async function createVenueWizard(payload: CreateVenuePayload): Promise<WizardResponse> {
-  const { data } = await api.post<{ data: WizardResponse }>('/superadmin/onboarding/venue', payload)
-  if (!data?.data) throw new Error('Server returned empty response for createVenueWizard')
-  return data.data
+  // OJO: este endpoint responde PLANO — `{ success, venueId, venueSlug, organizationId, steps }` —
+  // NO envuelto en `{ data }` como sus hermanos `/onboarding/organizations`. Toleramos ambas formas
+  // (`data.data ?? data`) para no romper si el backend algún día unifica el envelope.
+  const { data } = await api.post<WizardResponse & { data?: WizardResponse }>(
+    '/superadmin/onboarding/venue',
+    payload,
+  )
+  const body = (data?.data ?? data) as WizardResponse | undefined
+  if (!body?.venueId) throw new Error('Server returned empty response for createVenueWizard')
+  return body
 }
 
-/**
- * Aprobar KYC + activar el venue inmediatamente después de crearlo.
- * El backend ya registra esto en ActivityLog (per el controlador `approveVenue`)
- * con `staffId + timestamp + IP`. No le pedimos justificación al operador.
- */
-export async function approveVenueAfterCreate(venueId: string): Promise<void> {
-  await api.post(`/dashboard/superadmin/venues/${encodeURIComponent(venueId)}/approve`)
+/** Steps del wizard que fallaron (`status: 'error'`). El backend responde 201 aunque un paso
+ *  falle (invitación de owner, features, etc.) — el caller usa esto para avisar en vez de mostrar
+ *  un éxito ciego. */
+export function failedWizardSteps(steps: WizardStep[] | undefined): string[] {
+  return (steps ?? []).filter((s) => s.status === 'error').map((s) => s.step)
 }
 
 export async function fetchVenueDetail(venueId: string): Promise<Venue | null> {

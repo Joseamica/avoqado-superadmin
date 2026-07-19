@@ -98,12 +98,13 @@ describe('NewVenuePage', () => {
     server.use(
       http.post(`${baseURL}/superadmin/onboarding/venue`, async ({ request }) => {
         receivedBody = await request.json()
+        // Forma REAL del backend: plana, sin envelope { data }.
         return HttpResponse.json({
-          data: {
-            venueId: 'new-v',
-            organizationId: 'org1',
-            steps: [{ step: 'create', status: 'success' }],
-          },
+          success: true,
+          venueId: 'new-v',
+          venueSlug: 'test-venue',
+          organizationId: 'org1',
+          steps: [{ step: 'create', status: 'success' }],
         })
       }),
     )

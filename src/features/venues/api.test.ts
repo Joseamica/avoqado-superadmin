@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import {
-  approveVenueAfterCreate,
   createVenueWizard,
+  failedWizardSteps,
   fetchFeatures,
   fetchMerchantAccountOptions,
   fetchOrganizations,
@@ -195,12 +195,15 @@ describe('createVenueWizard', () => {
     server.use(
       http.post(`${baseURL}/superadmin/onboarding/venue`, async ({ request }) => {
         receivedBody = await request.json()
+        // Forma REAL del backend: PLANA, sin envelope { data }.
+        // Ver `createVenueWizard` en avoqado-server/src/controllers/superadmin/onboarding.controller.ts
+        // (`res.status(201).json({ success, venueId, venueSlug, organizationId, steps })`).
         return HttpResponse.json({
-          data: {
-            venueId: 'new-v',
-            organizationId: 'org1',
-            steps: [{ step: 'create', status: 'success' }],
-          },
+          success: true,
+          venueId: 'new-v',
+          venueSlug: 'nuevo-venue',
+          organizationId: 'org1',
+          steps: [{ step: 'create', status: 'success' }],
         })
       }),
     )
@@ -217,17 +220,29 @@ describe('createVenueWizard', () => {
   })
 })
 
-describe('approveVenueAfterCreate', () => {
-  it('hace POST al endpoint de approve', async () => {
-    let called = false
-    server.use(
-      http.post(`${baseURL}/dashboard/superadmin/venues/v1/approve`, () => {
-        called = true
-        return HttpResponse.json({ success: true, data: {} })
-      }),
-    )
-    await approveVenueAfterCreate('v1')
-    expect(called).toBe(true)
+describe('failedWizardSteps', () => {
+  it('devuelve sólo los steps con status "error"', () => {
+    expect(
+      failedWizardSteps([
+        { step: 'venue', status: 'success' },
+        { step: 'invitations', status: 'error', message: 'email inválido' },
+        { step: 'pricing', status: 'skipped' },
+        { step: 'features', status: 'error' },
+      ]),
+    ).toEqual(['invitations', 'features'])
+  })
+
+  it('vacío cuando todos los steps son success/skipped', () => {
+    expect(
+      failedWizardSteps([
+        { step: 'venue', status: 'success' },
+        { step: 'pricing', status: 'skipped' },
+      ]),
+    ).toEqual([])
+  })
+
+  it('tolera undefined', () => {
+    expect(failedWizardSteps(undefined)).toEqual([])
   })
 })
 

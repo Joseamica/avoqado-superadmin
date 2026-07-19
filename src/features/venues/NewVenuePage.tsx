@@ -9,6 +9,7 @@ import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
 import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { useCreateVenue, useFeatures, useOrganizations } from './use-venues'
+import { failedWizardSteps } from './api'
 import type {
   CreateVenuePayload,
   EntityType,
@@ -386,11 +387,21 @@ export function NewVenuePage() {
         payload,
         approveKyc: form.approveKyc,
       })
-      toast.success('Venue creado', {
-        description: form.approveKyc
-          ? 'KYC pre-aprobado. Listo para refinar configuración.'
-          : 'Status inicial: ONBOARDING. Pasa por /kyc cuando los docs estén listos.',
-      })
+      // El wizard responde 201 aunque un paso secundario falle (invitación del owner, features…).
+      // No mostramos un éxito ciego: si algún step falló, avisamos qué quedó pendiente y aun así
+      // llevamos al detalle para que el operador lo termine ahí.
+      const failed = failedWizardSteps(result.steps)
+      if (failed.length > 0) {
+        toast.warning('Venue creado con pasos incompletos', {
+          description: `Fallaron: ${failed.join(', ')}. Revísalos en el detalle del venue.`,
+        })
+      } else {
+        toast.success('Venue creado', {
+          description: form.approveKyc
+            ? 'KYC pre-aprobado, venue ACTIVE. Listo para refinar configuración.'
+            : 'Status inicial: ONBOARDING. Pasa por /kyc cuando los docs estén listos.',
+        })
+      }
       navigate(`/venues/${result.venueId}`)
     } catch (error) {
       const info = inspectApiError(error, 'crear el venue')

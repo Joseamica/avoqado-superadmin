@@ -154,13 +154,18 @@ describe('useVenueDetail', () => {
 })
 
 describe('useCreateVenue', () => {
-  it('hace POST a /superadmin/onboarding/venue', async () => {
+  it('hace POST a /superadmin/onboarding/venue con activateImmediately=false cuando approveKyc=false', async () => {
+    let receivedBody: Record<string, unknown> | null = null
     server.use(
-      http.post(`${baseURL}/superadmin/onboarding/venue`, () =>
-        HttpResponse.json({
-          data: { venueId: 'new-v', organizationId: 'org1', steps: [] },
-        }),
-      ),
+      http.post(`${baseURL}/superadmin/onboarding/venue`, async ({ request }) => {
+        receivedBody = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({
+          success: true,
+          venueId: 'new-v',
+          organizationId: 'org1',
+          steps: [],
+        })
+      }),
     )
     const { result } = renderHook(() => useCreateVenue(), { wrapper: AllProviders })
     const out = await result.current.mutateAsync({
@@ -171,16 +176,22 @@ describe('useCreateVenue', () => {
       approveKyc: false,
     })
     expect(out.venueId).toBe('new-v')
+    expect(receivedBody!.activateImmediately).toBe(false)
   })
 
-  it('hace el approve adicional cuando approveKyc=true', async () => {
+  it('cuando approveKyc=true manda activateImmediately en el body y NO llama al /approve legacy', async () => {
+    let receivedBody: Record<string, unknown> | null = null
     let approveCalled = false
     server.use(
-      http.post(`${baseURL}/superadmin/onboarding/venue`, () =>
-        HttpResponse.json({
-          data: { venueId: 'new-v', organizationId: 'org1', steps: [] },
-        }),
-      ),
+      http.post(`${baseURL}/superadmin/onboarding/venue`, async ({ request }) => {
+        receivedBody = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({
+          success: true,
+          venueId: 'new-v',
+          organizationId: 'org1',
+          steps: [],
+        })
+      }),
       http.post(`${baseURL}/dashboard/superadmin/venues/new-v/approve`, () => {
         approveCalled = true
         return HttpResponse.json({ success: true, data: {} })
@@ -194,7 +205,11 @@ describe('useCreateVenue', () => {
       },
       approveKyc: true,
     })
-    expect(approveCalled).toBe(true)
+    // La activación ahora ocurre DENTRO del wizard (un solo request), no con un 2º POST a
+    // /dashboard/superadmin/venues/:id/approve (que además fallaba: exige PENDING_ACTIVATION
+    // y el wizard crea el venue en ONBOARDING).
+    expect(receivedBody!.activateImmediately).toBe(true)
+    expect(approveCalled).toBe(false)
   })
 })
 
