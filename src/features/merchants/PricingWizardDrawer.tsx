@@ -178,10 +178,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
                       type="checkbox"
-                      checked={s.markupIncludesTax}
-                      onChange={(e) => patch({ markupIncludesTax: e.target.checked })}
+                      checked={!s.markupIncludesTax}
+                      onChange={(e) => patch({ markupIncludesTax: !e.target.checked })}
                     />
-                    Esa comisión lleva IVA
+                    Súmale IVA aparte
                   </label>
                 </div>
               )}
@@ -229,7 +229,7 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                         checked={!s.aggMarkupIncludesTax}
                         onChange={(e) => patch({ aggMarkupIncludesTax: !e.target.checked })}
                       />
-                      Súmale IVA a tu markup
+                      Súmale IVA aparte
                     </label>
                   </div>
                   <div>
