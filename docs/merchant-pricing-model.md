@@ -4,7 +4,20 @@
 > account. No es cómo está el código hoy, sino **cómo el founder cobra** — para que
 > cualquiera (humano o agente) lo entienda sin tener que re-preguntarlo.
 
-## El modelo es de **dos tramos** (agregador), no cost-plus simple
+## Dos formas de cobrarle a un venue
+
+El founder usa **una de dos**, según el caso — ambas comparten el **reparto 50/50 con el procesador**:
+
+1. **Solo revenue share** (sin extra) — le cobra al venue un precio (que **puede ser menor que su
+   costo**, p. ej. AMEX 2.6 % cuando le cuesta 3 %), y el **margen `precio − costo` se reparte 50/50**
+   con el procesador. En las tarjetas caras **pierde** (compartido 50/50); en las baratas gana.
+2. **Con precio extra (agregador)** — además del precio base, le **monta un markup extra** encima, y
+   decide si ese extra lo reparte o se lo queda 100 %.
+
+En el **Pricing Wizard** ambas son el modo **"Vía agregador"**: la #1 es con **markup = 0**, la #2
+con markup > 0. (El modo "Costo + comisión" es otro caso más simple, sin precio base separado.)
+
+## El modelo detallado (forma 2 — dos tramos)
 
 Hay **tres precios** por tarjeta, y **dos márgenes** que se reparten distinto:
 
