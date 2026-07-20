@@ -30,12 +30,12 @@ export interface WizardState {
   hasPartner: boolean
   avoqadoShare: number // 0..1 ; se ignora si !hasPartner (usa 1)
   // aggregator
-  aggregatorPrice: CardRates
+  aggregatorPrice: CardRates // precio base al venue (antes de tu markup)
   aggIncludesTax: boolean
-  aggShareProvider: number // 0..1
-  aggVenuePricing: CardRates
-  aggVenueIncludesTax: boolean
-  aggShareAggregator: number // 0..1
+  aggShareProvider: number // tramo 1 (costo→precio base), 0..1
+  aggMarkup: number // tu markup encima del precio base (tramo 2), decimal
+  aggMarkupIncludesTax: boolean // ¿el markup ya es final (true) o se le suma IVA (false)?
+  aggShareAggregator: number // tramo 2 (el markup), 0..1
   // destino del pricing
   venueId: string
 }
@@ -55,8 +55,8 @@ export const EMPTY_WIZARD_STATE: WizardState = {
   aggregatorPrice: { ...ZERO_RATES },
   aggIncludesTax: true,
   aggShareProvider: 0.5,
-  aggVenuePricing: { ...ZERO_RATES },
-  aggVenueIncludesTax: true,
+  aggMarkup: 0,
+  aggMarkupIncludesTax: true,
   aggShareAggregator: 1,
   venueId: '',
 }
@@ -78,6 +78,13 @@ function effectiveShare(s: WizardState): number {
   return s.hasPartner ? s.avoqadoShare : 1
 }
 
+/** Modo agregador: pricing efectivo del venue = precio base efectivo + tu markup efectivo. */
+function aggVenuePriceEff(s: WizardState): CardRates {
+  const baseEff = mapRates((c) => eff(s.aggregatorPrice[c], s.aggIncludesTax, s.taxRate))
+  const markupEff = eff(s.aggMarkup, s.aggMarkupIncludesTax, s.taxRate)
+  return mapRates((c) => baseEff[c] + markupEff)
+}
+
 /** Pricing efectivo (con IVA) que paga el venue, por tarjeta, según el modelo. */
 function venuePriceEff(s: WizardState): CardRates {
   const costEff = mapRates((c) => eff(s.cost[c], s.costIncludesTax, s.taxRate))
@@ -85,7 +92,7 @@ function venuePriceEff(s: WizardState): CardRates {
     return mapRates(() => eff(s.flatRate, s.flatIncludesTax, s.taxRate))
   }
   if (s.model === 'aggregator') {
-    return mapRates((c) => eff(s.aggVenuePricing[c], s.aggVenueIncludesTax, s.taxRate))
+    return aggVenuePriceEff(s)
   }
   // cost-plus
   const markupEff = eff(s.markup, s.markupIncludesTax, s.taxRate)
@@ -112,8 +119,9 @@ export function buildWizardResult(s: WizardState): WizardResult {
         taxRate: s.taxRate,
       },
       venuePricingInput: {
-        rates: s.aggVenuePricing,
-        includesTax: s.aggVenueIncludesTax,
+        // Pricing al venue = precio base + tu markup (calculado efectivo, ya con IVA).
+        rates: aggVenuePriceEff(s),
+        includesTax: true,
         taxRate: s.taxRate,
       },
     }
@@ -158,7 +166,7 @@ export function wizardEconomics(s: WizardState): MerchantEconomics {
   if (s.model === 'aggregator') {
     return computeMerchantEconomics({
       cost: costEff,
-      venuePrice: mapRates((c) => eff(s.aggVenuePricing[c], s.aggVenueIncludesTax, s.taxRate)),
+      venuePrice: aggVenuePriceEff(s),
       revenueShare: {
         aggregatorPrice: mapRates((c) => eff(s.aggregatorPrice[c], s.aggIncludesTax, s.taxRate)),
         avoqadoShareOfProviderMargin: s.aggShareProvider,

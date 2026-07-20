@@ -189,7 +189,7 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
               {s.model === 'aggregator' && (
                 <div className="flex flex-col gap-3">
                   <div>
-                    <span className={labelCls}>¿Cuánto le cobras al agregador?</span>
+                    <span className={labelCls}>Precio base al venue (antes de tu markup)</span>
                     <CardRatesInput
                       value={s.aggregatorPrice}
                       onChange={(aggregatorPrice) => patch({ aggregatorPrice })}
@@ -206,7 +206,7 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                   </div>
                   <div>
                     <label htmlFor="wiz-agg-sp" className={labelCls}>
-                      Tu % del margen proveedor→agregador
+                      Del margen (tu costo → precio base), ¿qué % es tuyo?
                     </label>
                     <PercentInput
                       id="wiz-agg-sp"
@@ -215,24 +215,26 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                     />
                   </div>
                   <div>
-                    <span className={labelCls}>¿Cuánto le cobra el agregador al venue?</span>
-                    <CardRatesInput
-                      value={s.aggVenuePricing}
-                      onChange={(aggVenuePricing) => patch({ aggVenuePricing })}
-                      idPrefix="wiz-agg-venue"
+                    <label htmlFor="wiz-agg-markup" className={labelCls}>
+                      Tu markup encima del precio base (%)
+                    </label>
+                    <PercentInput
+                      id="wiz-agg-markup"
+                      value={s.aggMarkup}
+                      onChange={(aggMarkup) => patch({ aggMarkup })}
                     />
                     <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                       <input
                         type="checkbox"
-                        checked={s.aggVenueIncludesTax}
-                        onChange={(e) => patch({ aggVenueIncludesTax: e.target.checked })}
+                        checked={!s.aggMarkupIncludesTax}
+                        onChange={(e) => patch({ aggMarkupIncludesTax: !e.target.checked })}
                       />
-                      Ya incluye IVA
+                      Súmale IVA a tu markup
                     </label>
                   </div>
                   <div>
                     <label htmlFor="wiz-agg-sa" className={labelCls}>
-                      Tu % del margen agregador→venue
+                      De tu markup, ¿qué % es tuyo?
                     </label>
                     <PercentInput
                       id="wiz-agg-sa"

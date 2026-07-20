@@ -68,26 +68,31 @@ describe('buildWizardResult', () => {
     expect(r.venuePricingInput.rates.DEBIT).toBeCloseTo(0.089488, 6)
   })
 
-  it('agregador: revenue share con precio agregador + dos shares', () => {
+  it('agregador: pricing venue = precio base + markup; guarda el precio base crudo + dos shares', () => {
     const r = buildWizardResult({
       ...base,
       model: 'aggregator',
-      aggregatorPrice: { DEBIT: 0.025, CREDIT: 0.025, AMEX: 0.035, INTERNATIONAL: 0.035 },
-      aggIncludesTax: true,
+      // precio base al venue (crudo, +IVA como el caso real)
+      aggregatorPrice: { DEBIT: 0.019, CREDIT: 0.026, AMEX: 0.026, INTERNATIONAL: 0.028 },
+      aggIncludesTax: false,
       aggShareProvider: 0.5,
-      aggVenuePricing: { DEBIT: 0.035, CREDIT: 0.035, AMEX: 0.035, INTERNATIONAL: 0.035 },
-      aggVenueIncludesTax: true,
+      aggMarkup: 0.035, // tu 3.5% encima
+      aggMarkupIncludesTax: true, // íntegro (final), no se le suma IVA
       aggShareAggregator: 1,
     })
+    // el precio base va CRUDO al revenue share
     expect(r.revenueShareInput.aggregatorPrice).toEqual({
-      DEBIT: 0.025,
-      CREDIT: 0.025,
-      AMEX: 0.035,
-      INTERNATIONAL: 0.035,
+      DEBIT: 0.019,
+      CREDIT: 0.026,
+      AMEX: 0.026,
+      INTERNATIONAL: 0.028,
     })
+    expect(r.revenueShareInput.aggregatorPriceIncludesTax).toBe(false)
     expect(r.revenueShareInput.avoqadoShareOfProviderMargin).toBe(0.5)
     expect(r.revenueShareInput.avoqadoShareOfAggregatorMargin).toBe(1)
-    expect(r.venuePricingInput.rates.DEBIT).toBe(0.035)
+    // pricing venue = precio base efectivo + markup. AMEX: 0.026*1.16 + 0.035 = 0.06516
+    expect(r.venuePricingInput.rates.AMEX).toBeCloseTo(0.06516, 5)
+    expect(r.venuePricingInput.includesTax).toBe(true)
   })
 })
 
@@ -117,5 +122,21 @@ describe('wizardEconomics', () => {
     })
     // intl efectivo 3.83% > 3.5% → margen negativo
     expect(eco.byCard.INTERNATIONAL.avoqadoMargin! < 0).toBe(true)
+  })
+
+  it('agregador: neto = tramo 1 (compartido 50/50) + markup del tramo 2 (100%)', () => {
+    const eco = wizardEconomics({
+      ...base,
+      model: 'aggregator',
+      aggregatorPrice: { DEBIT: 0.019, CREDIT: 0.026, AMEX: 0.026, INTERNATIONAL: 0.028 },
+      aggIncludesTax: false,
+      aggShareProvider: 0.5,
+      aggMarkup: 0.035,
+      aggMarkupIncludesTax: true,
+      aggShareAggregator: 1,
+    })
+    // AMEX: costo 3.48%, precio base 3.016% → tramo1 (3.016-3.48)*0.5 = -0.232;
+    // tramo2 markup 3.5 → neto ≈ 3.268 por $100
+    expect(eco.byCard.AMEX.avoqadoMargin).toBeCloseTo(3.268, 2)
   })
 })
