@@ -338,6 +338,10 @@ export function MerchantDetailPage() {
         }}
       />
       <EditEconomicsDrawer
+        // El drawer está montado siempre; sin esta key, su estado se fija al cargar la
+        // página (con lo guardado) y NO toma el `initialValues` del Asistente al abrirse.
+        // Cambiar la key al entrar/salir del prefill fuerza un re-montaje que sí lo aplica.
+        key={ecoPrefillOpen ? 'eco-prefill' : 'eco-manual'}
         open={editingEco || ecoPrefillOpen}
         onOpenChange={(o) => {
           if (o) {

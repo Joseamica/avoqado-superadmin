@@ -117,4 +117,52 @@ describe('MerchantDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Quitar terminal' }))
     expect(await screen.findByText('Quitar terminal heredada')).toBeInTheDocument()
   })
+
+  it('el Asistente prellena el reparto que calculó (100%), no el guardado (50%)', async () => {
+    server.use(
+      // El merchant YA tiene un reparto 50% guardado — el bug era que el drawer se quedaba con ESE.
+      http.get(`${baseURL}/superadmin/merchant-revenue-shares/by-merchant`, () =>
+        HttpResponse.json({
+          data: {
+            id: 'rs1',
+            aggregatorPrice: null,
+            aggregatorPriceIncludesTax: false,
+            avoqadoShareOfProviderMargin: '0.5',
+            avoqadoShareOfAggregatorMargin: null,
+            taxRate: '0.16',
+            active: true,
+          },
+        }),
+      ),
+      // Un venue asignado para que el Asistente tenga destino.
+      http.get(`${baseURL}/superadmin/venue-pricing/configs-by-merchant/m1`, () =>
+        HttpResponse.json({
+          data: [{ venue: { id: 'v1', name: 'Berthe', slug: 'berthe' }, secondaryAccountId: 'm1' }],
+        }),
+      ),
+      http.get(`${baseURL}/superadmin/venue-pricing/structures/active/v1/SECONDARY`, () =>
+        HttpResponse.json({ data: null }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(
+      <Routes>
+        <Route path="/merchants/:id" element={<MerchantDetailPage />} />
+      </Routes>,
+      { initialEntries: ['/merchants/m1'] },
+    )
+    await waitFor(() => expect(screen.getByText('Cuenta Principal')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Asistente' }))
+    await user.click(screen.getByRole('button', { name: /Siguiente/i })) // paso 1 → 2
+    await user.click(screen.getByRole('button', { name: /Costo \+ comisión/i }))
+    await user.type(screen.getByLabelText(/Tu comisión/i), '3.5') // cost-plus, SIN socio → 100%
+    await user.click(screen.getByRole('button', { name: /Siguiente/i })) // paso 2 → 3
+    await user.click(screen.getByRole('button', { name: /Prellenar y revisar/i }))
+
+    const shareInput = (await screen.findByLabelText(
+      /Avoqado del margen proveedor/i,
+    )) as HTMLInputElement
+    expect(shareInput.value).toBe('100')
+  })
 })
