@@ -602,6 +602,8 @@ interface AngelPayRatePayload {
 export interface AngelPayFullSetupPayload {
   venueId: string
   aggregatorId?: string
+  /** apiKey AngelPay ya validado (F·apiKey) — si viene, el server auto-registra el webhook. */
+  apiKey?: string
   login:
     | { mode: 'existing'; angelpayUserAccountId: string }
     | { mode: 'new'; email: string; pin: string; environment: 'QA' | 'PROD' }
@@ -657,6 +659,28 @@ export async function fullSetupAngelPay(
     merchantAccountId: result.merchantAccountId,
     terminalsAttached: result.terminalIds?.length ?? 0,
   }
+}
+
+export interface VerifyAngelPayApiKeyInput {
+  apiKey: string
+  environment: 'QA' | 'PROD'
+}
+
+/**
+ * Valida un apiKey de AngelPay en vivo contra el ambiente indicado y devuelve
+ * el merchant_id numérico asociado (para autollenar `externalMerchantId`).
+ * A diferencia del resto de este archivo, el endpoint responde PLANO
+ * `{ merchantId }` — NO el envelope `{success,data}` — así que NO se
+ * desenvuelve `data.data` aquí (contrastar con `fullSetupAngelPay` arriba).
+ */
+export async function verifyAngelPayApiKey(
+  input: VerifyAngelPayApiKeyInput,
+): Promise<{ merchantId: string }> {
+  const { data } = await api.post<{ merchantId: string }>(
+    '/superadmin/merchant-accounts/verify-apikey',
+    input,
+  )
+  return data
 }
 
 export async function fetchAngelPayAccounts(venueId: string): Promise<AngelPayAccountOption[]> {

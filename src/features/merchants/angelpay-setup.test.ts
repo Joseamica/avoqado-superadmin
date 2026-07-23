@@ -46,4 +46,17 @@ describe('buildAngelPayPayload', () => {
     const body = buildAngelPayPayload({ ...INITIAL_ANGELPAY_DRAFT, venueId: 'v1' })
     expect(body.terminalIds).toEqual([])
   })
+  it('apiKey presente se incluye en el payload', () => {
+    const body = buildAngelPayPayload({
+      ...INITIAL_ANGELPAY_DRAFT,
+      venueId: 'v1',
+      apiKey: 'ANGELPAY-KEY-abc',
+    })
+    expect(body.apiKey).toBe('ANGELPAY-KEY-abc')
+  })
+  it('apiKey vacío se omite del payload (default del draft)', () => {
+    const body = buildAngelPayPayload({ ...INITIAL_ANGELPAY_DRAFT, venueId: 'v1' })
+    expect(body.apiKey).toBeUndefined()
+    expect('apiKey' in body).toBe(false)
+  })
 })

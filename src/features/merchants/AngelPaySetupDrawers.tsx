@@ -1,7 +1,11 @@
 import { useState } from 'react'
+import axios from 'axios'
 import { Combobox } from '@/shared/ui/Combobox'
+import { Button } from '@/shared/ui/Button'
+import { inspectApiError } from '@/shared/lib/api-error'
 import { CardDrawer } from './SetupDrawerKit'
 import { CARD_TYPES, humanizeCardType } from './types'
+import { useVerifyAngelPayApiKey } from './use-merchants'
 import type { AngelPayDraft } from './angelpay-setup'
 import type { AngelPayAccountOption, VenueOption } from './api'
 
@@ -164,6 +168,11 @@ export function CuentaDrawer({
   )
 }
 
+type ApiKeyVerifyState =
+  | { kind: 'idle' }
+  | { kind: 'valid'; merchantId: string }
+  | { kind: 'invalid'; message: string }
+
 export function MerchantDrawer({
   open,
   onOpenChange,
@@ -174,13 +183,41 @@ export function MerchantDrawer({
   onOpenChange: (o: boolean) => void
   draft: AngelPayDraft
   onSave: (
-    p: Pick<AngelPayDraft, 'externalMerchantId' | 'merchantName' | 'affiliation' | 'displayName'>,
+    p: Pick<
+      AngelPayDraft,
+      'externalMerchantId' | 'merchantName' | 'affiliation' | 'displayName' | 'apiKey'
+    >,
   ) => void
 }) {
+  const [apiKey, setApiKey] = useState(draft.apiKey)
+  const [verifyState, setVerifyState] = useState<ApiKeyVerifyState>({ kind: 'idle' })
   const [externalMerchantId, setExt] = useState(draft.externalMerchantId)
   const [merchantName, setName] = useState(draft.merchantName)
   const [affiliation, setAff] = useState(draft.affiliation)
   const [displayName, setDisplay] = useState(draft.displayName)
+  const verifyApiKey = useVerifyAngelPayApiKey()
+
+  async function handleVerify() {
+    const trimmed = apiKey.trim()
+    if (!trimmed) return
+    try {
+      // `draft.environment` viaja completo en `draft` (mismo patrón que CuentaDrawer) —
+      // no hace falta un prop `environment` aparte para el ambiente QA/PROD a validar.
+      const result = await verifyApiKey.mutateAsync({
+        apiKey: trimmed,
+        environment: draft.environment,
+      })
+      setExt(result.merchantId)
+      setVerifyState({ kind: 'valid', merchantId: result.merchantId })
+    } catch (err) {
+      const isBadKey = axios.isAxiosError(err) && err.response?.status === 401
+      const message = isBadKey
+        ? 'apiKey inválida o de otro ambiente'
+        : inspectApiError(err, 'validar el apiKey').description
+      setVerifyState({ kind: 'invalid', message })
+    }
+  }
+
   return (
     <CardDrawer
       open={open}
@@ -192,20 +229,66 @@ export function MerchantDrawer({
           merchantName: merchantName.trim(),
           affiliation: affiliation.trim(),
           displayName: displayName.trim(),
+          apiKey: apiKey.trim(),
         })
       }
     >
+      <div>
+        <label className={labelCls} htmlFor="ap-apikey">
+          AngelPay apiKey (opcional — valida y autollena el merchant ID)
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            id="ap-apikey"
+            className={inputCls}
+            type="password"
+            value={apiKey}
+            onChange={(e) => {
+              setApiKey(e.target.value)
+              setVerifyState({ kind: 'idle' })
+            }}
+            autoComplete="off"
+            placeholder="Pega el apiKey de AngelPay"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={handleVerify}
+            disabled={!apiKey.trim() || verifyApiKey.isPending}
+          >
+            {verifyApiKey.isPending ? 'Verificando…' : 'Verificar'}
+          </Button>
+        </div>
+        {verifyState.kind === 'valid' && (
+          <p className="mt-1 text-[12px] text-[var(--success)]" role="status">
+            ✅ Válida — merchant {verifyState.merchantId}
+          </p>
+        )}
+        {verifyState.kind === 'invalid' && (
+          <p className="mt-1 text-[12px] text-[var(--danger)]" role="alert">
+            ❌ {verifyState.message}
+          </p>
+        )}
+      </div>
       <div>
         <label className={labelCls} htmlFor="ap-ext">
           ID del merchant (numérico)
         </label>
         <input
           id="ap-ext"
-          className={inputCls}
+          className={`${inputCls} disabled:cursor-not-allowed disabled:bg-[var(--canvas-raised)] disabled:text-[var(--ink-muted)]`}
           inputMode="numeric"
           value={externalMerchantId}
           onChange={(e) => setExt(e.target.value.replace(/\D/g, ''))}
+          disabled={verifyState.kind === 'valid'}
+          aria-describedby={verifyState.kind === 'valid' ? 'ap-ext-locked' : undefined}
         />
+        {verifyState.kind === 'valid' && (
+          <p id="ap-ext-locked" className="mt-1 text-[11px] text-[var(--ink-faint)]">
+            Autollenado desde el apiKey verificado.
+          </p>
+        )}
       </div>
       <div>
         <label className={labelCls} htmlFor="ap-name">

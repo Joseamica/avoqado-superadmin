@@ -19,6 +19,8 @@ export interface AngelPayDraft {
   merchantName: string
   affiliation: string
   displayName: string
+  /** apiKey AngelPay pegado en el drawer de Merchant. Vacío = flujo manual (sin auto-webhook). */
+  apiKey: string
   accountType: 'PRIMARY' | 'SECONDARY' | 'TERTIARY'
   slotMode: 'fill' | 'replace'
   replacedAccountId: string | null
@@ -48,6 +50,7 @@ export const INITIAL_ANGELPAY_DRAFT: AngelPayDraft = {
   merchantName: '',
   affiliation: '',
   displayName: '',
+  apiKey: '',
   accountType: 'PRIMARY',
   slotMode: 'fill',
   replacedAccountId: null,
@@ -77,6 +80,7 @@ export function buildAngelPayPayload(draft: AngelPayDraft): AngelPayFullSetupPay
   })
   return {
     venueId: draft.venueId as string,
+    ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
     login:
       draft.loginMode === 'existing'
         ? { mode: 'existing', angelpayUserAccountId: draft.angelpayUserAccountId as string }

@@ -24,6 +24,7 @@ import {
   setTerminalServes,
   toggleMerchant,
   updateMerchant,
+  verifyAngelPayApiKey,
 } from './api'
 
 const baseURL = 'http://localhost:3000/api/v1'
@@ -477,6 +478,20 @@ describe('fullSetupAngelPay', () => {
     })
     expect(result.merchantAccountId).toBe('m9')
     expect(result.terminalsAttached).toBe(2)
+  })
+})
+
+describe('verifyAngelPayApiKey', () => {
+  // El endpoint responde PLANO `{ merchantId }` — sin envelope `{success,data}` — a
+  // diferencia del resto de mutations de este archivo (ver fullSetupAngelPay arriba).
+  it('resuelve con el merchantId plano de la respuesta', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/merchant-accounts/verify-apikey`, () =>
+        HttpResponse.json({ merchantId: '990' }),
+      ),
+    )
+    const result = await verifyAngelPayApiKey({ apiKey: 'x', environment: 'PROD' })
+    expect(result).toEqual({ merchantId: '990' })
   })
 })
 

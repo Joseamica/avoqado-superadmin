@@ -131,6 +131,7 @@ describe('MerchantDrawer', () => {
       merchantName: 'Tacos MX',
       affiliation: '778899',
       displayName: 'Principal',
+      apiKey: '',
     })
   })
 })

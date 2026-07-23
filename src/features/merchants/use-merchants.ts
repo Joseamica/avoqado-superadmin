@@ -24,6 +24,7 @@ import {
   setTerminalServes,
   toggleMerchant,
   updateMerchant,
+  verifyAngelPayApiKey,
   type AngelPayFullSetupPayload,
   type BlumonFullSetupPayload,
   type CreateMerchantInput,
@@ -305,6 +306,11 @@ export function useFullSetupAngelPay() {
     mutationFn: (payload: AngelPayFullSetupPayload) => fullSetupAngelPay(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
+}
+
+/** Valida un apiKey AngelPay en vivo. Pura validación — sin invalidación de queries. */
+export function useVerifyAngelPayApiKey() {
+  return useMutation({ mutationFn: verifyAngelPayApiKey })
 }
 
 export function useAssignableTerminals(merchantId: string | undefined) {
