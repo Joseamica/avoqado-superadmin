@@ -14,6 +14,7 @@ const venue = (venueId: string, venueName: string, net: number) => ({
   count: 1,
   hasAggregator: false,
   aggregatorNames: [],
+  merchants: [],
 })
 
 const days: CalendarDay[] = [

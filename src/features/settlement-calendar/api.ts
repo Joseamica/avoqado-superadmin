@@ -8,5 +8,15 @@ export async function fetchSettlementCalendar(month: string): Promise<Settlement
     { params: { month } },
   )
   if (!data?.data) throw new Error('El servidor devolvió una respuesta vacía para el calendario')
-  return data.data
+
+  // El backend es un deploy aparte y el front puede ir adelante. Si `merchants`
+  // aún no viene, la pantalla debe seguir mostrando los totales — que son
+  // correctos — y quedarse sin desglose, no romperse: es una pantalla de dinero.
+  return {
+    ...data.data,
+    days: (data.data.days ?? []).map((d) => ({
+      ...d,
+      venues: (d.venues ?? []).map((v) => ({ ...v, merchants: v.merchants ?? [] })),
+    })),
+  }
 }

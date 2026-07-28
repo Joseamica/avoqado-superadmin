@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,12 +24,26 @@ const day = (
   venues,
 })
 
+const merchant = (label: string, affiliation: string, gross: number, commission: number) => ({
+  merchantAccountId: `ma-${affiliation}`,
+  label,
+  affiliation,
+  providerName: 'AngelPay',
+  aggregatorName: null,
+  settlementDays: 1,
+  gross,
+  commission,
+  net: gross - commission,
+  count: 1,
+})
+
 const venue = (
   venueId: string,
   venueName: string,
   net: number,
   hasAggregator = false,
   aggregatorNames: string[] = [],
+  merchants: ReturnType<typeof merchant>[] = [],
 ) => ({
   venueId,
   venueName,
@@ -39,6 +53,7 @@ const venue = (
   count: 2,
   hasAggregator,
   aggregatorNames,
+  merchants,
 })
 
 const CALENDAR: SettlementCalendar = {
@@ -47,8 +62,17 @@ const CALENDAR: SettlementCalendar = {
   days: [
     day('2026-07-06', 'settled', [venue('v1', 'Mindform', 1000)]),
     day('2026-07-14', 'today', [
-      venue('v2', 'Doña Simona', 5000, true, ['Externo']),
-      venue('v3', 'IQ', 2000),
+      // Doña Simona reparte su día entre DOS afiliaciones — la forma real que
+      // hace que el total del negocio no cuadre con un solo depósito.
+      venue(
+        'v2',
+        'Doña Simona',
+        5000,
+        true,
+        ['Externo'],
+        [merchant('AMAENA', '9946475', 4300, 300), merchant('SALON AMAENA', '7494104', 710, 10)],
+      ),
+      venue('v3', 'IQ', 2000, false, [], [merchant('IQ', '551122', 2010, 10)]),
     ]),
   ],
   total: { gross: 8030, commission: 30, net: 8000, count: 6 },
@@ -94,6 +118,36 @@ describe('SettlementCalendarPage', () => {
 
     await screen.findByText('Doña Simona')
     expect(screen.getByText('Externo')).toBeInTheDocument()
+  })
+
+  // La razón de ser del desglose: el proveedor deposita por AFILIACIÓN. Un
+  // negocio con dos afiliaciones recibe dos depósitos, y sin poder abrir la fila
+  // es imposible saber cuál de los dos faltó.
+  it('desglosa un negocio por afiliación al expandir su fila', async () => {
+    mockCalendar()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderWithProviders(<SettlementCalendarPage />)
+
+    const row = (await screen.findByText('Doña Simona')).closest('tr')!
+    // Avisa en la fila cerrada que el total mezcla varias afiliaciones.
+    expect(within(row).getByText('2 afiliaciones')).toBeInTheDocument()
+
+    await user.click(within(row).getByLabelText('Expandir fila'))
+
+    expect(await screen.findByText('AMAENA')).toBeInTheDocument()
+    expect(screen.getByText('#9946475')).toBeInTheDocument()
+    expect(screen.getByText('$4,000.00')).toBeInTheDocument() // 4300 − 300
+    expect(screen.getByText('SALON AMAENA')).toBeInTheDocument()
+    expect(screen.getByText('#7494104')).toBeInTheDocument()
+    expect(screen.getByText('$700.00')).toBeInTheDocument() // 710 − 10
+  })
+
+  it('no avisa de varias afiliaciones cuando sólo hay una', async () => {
+    mockCalendar()
+    renderWithProviders(<SettlementCalendarPage />)
+
+    const row = (await screen.findByText('IQ')).closest('tr')!
+    expect(within(row).queryByText(/afiliaciones/)).not.toBeInTheDocument()
   })
 
   it('cambia el desglose al picarle a otro día', async () => {
