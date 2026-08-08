@@ -197,7 +197,7 @@ describe('useTaxProfileActions', () => {
         regimenFiscal: '601',
         codigoPostal: '06000',
       }),
-    ).resolves.toMatchObject({ id: 'tp1' })
+    ).resolves.toMatchObject({ profile: { id: 'tp1' } })
   })
 
   it('save: onError', async () => {

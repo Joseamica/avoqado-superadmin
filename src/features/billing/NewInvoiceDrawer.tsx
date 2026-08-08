@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, Plus, Search, Trash2, UserPlus } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+} from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { IconButton } from '@/shared/ui/IconButton'
@@ -24,7 +33,7 @@ import {
   uploadConstancia,
   upsertTaxProfile,
 } from './api'
-import { BILLING_QUERY_KEY, useCustomerSearch } from './use-billing'
+import { BILLING_QUERY_KEY, useCustomerSearch, useTaxProfileActions } from './use-billing'
 import {
   CLAVE_PRODSERV_OPTIONS,
   CLAVE_UNIDAD_OPTIONS,
@@ -45,6 +54,7 @@ import {
   type BillingTaxProfile,
   type CustomerSearchRow,
   type PlatformCfdi,
+  type SatValidationField,
 } from './types'
 
 interface LineRow {
@@ -82,6 +92,7 @@ export function NewInvoiceDrawer({
   retryFrom?: PlatformCfdi | null
 }) {
   const qc = useQueryClient()
+  const { revalidate } = useTaxProfileActions()
 
   const [search, setSearch] = useState('')
   const [customer, setCustomer] = useState<CustomerSearchRow | null>(null)
@@ -94,6 +105,14 @@ export function NewInvoiceDrawer({
   const [codigoPostal, setCodigoPostal] = useState('')
   const [email, setEmail] = useState('')
   const [constanciaFile, setConstanciaFile] = useState<File | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<SatValidationField, string>>>({})
+
+  // Perfil fiscal del receptor seleccionado (fuente de verdad para el badge/lock de abajo).
+  // `null` = sin perfil (no capturado todavía). Se distingue de `SatValidationResult` (la
+  // respuesta puntual de una validación), que puede ser `null` = "no se pudo validar".
+  const [profile, setProfile] = useState<BillingTaxProfile | null>(null)
+  // El operador pidió "Corregir": vuelve a habilitar los campos aunque el perfil sea VALID.
+  const [correctionMode, setCorrectionMode] = useState(false)
 
   // Lines + payment
   const [lines, setLines] = useState<LineRow[]>([newLine()])
@@ -125,6 +144,9 @@ export function NewInvoiceDrawer({
     setCodigoPostal('')
     setEmail('')
     setConstanciaFile(null)
+    setFieldErrors({})
+    setProfile(null)
+    setCorrectionMode(false)
     setLines([newLine()])
     setMetodoPago('PUE')
     setFormaPago('04')
@@ -132,31 +154,39 @@ export function NewInvoiceDrawer({
     setSubmitting(false)
   }
 
-  function prefillFromProfile(
-    p: BillingTaxProfile | null,
-    fallbackName?: string,
-    fallbackRfc?: string | null,
-  ) {
+  /**
+   * Prellena el formulario desde el perfil fiscal del receptor.
+   *
+   * La razón social NO tiene fallback a propósito: antes caía a `Venue.name` /
+   * `Organization.name`, que son nombres COMERCIALES tecleados a mano y sin relación
+   * legal con el RFC. En La Galeterie ese nombre traía un typo y se timbró tal cual
+   * (incidente 2026-08-07). Sin perfil, el operador copia la razón social de la
+   * Constancia de Situación Fiscal.
+   */
+  function prefillFromProfile(p: BillingTaxProfile | null, fallbackRfc?: string | null) {
     setRfc(p?.rfc ?? fallbackRfc ?? '')
-    setRazonSocial(p?.razonSocial ?? fallbackName ?? '')
+    setRazonSocial(p?.razonSocial ?? '')
     setRegimenFiscal(p?.regimenFiscal ?? '601')
     setCodigoPostal(p?.codigoPostal ?? '')
     setEmail(p?.email ?? '')
     setUsoCfdi(p?.defaultUsoCfdi ?? '')
+    setProfile(p)
+    setCorrectionMode(false)
   }
 
   async function handleSelectCustomer(row: CustomerSearchRow) {
     setCustomer(row)
     setStandalone(false)
     setSearch('')
+    setFieldErrors({})
     try {
       const profile =
         row.type === 'STANDALONE'
           ? await fetchTaxProfileById(row.id)
           : await fetchTaxProfileForCustomer(row.type, row.id)
-      prefillFromProfile(profile, row.name, row.rfc)
+      prefillFromProfile(profile, row.rfc)
     } catch {
-      prefillFromProfile(null, row.name, row.rfc)
+      prefillFromProfile(null, row.rfc)
     }
   }
 
@@ -164,6 +194,7 @@ export function NewInvoiceDrawer({
     setStandalone(true)
     setCustomer(null)
     setSearch('')
+    setFieldErrors({})
     prefillFromProfile(null)
   }
 
@@ -226,6 +257,8 @@ export function NewInvoiceDrawer({
       setCodigoPostal(cfdi.receptorCp)
       setCustomer(null)
       setStandalone(true)
+      setProfile(null)
+      setCorrectionMode(false)
     }
     setUsoCfdi(cfdi.usoCfdi) // the invoice's chosen uso wins over the profile default
   }
@@ -239,6 +272,20 @@ export function NewInvoiceDrawer({
   const customerType: BillingCustomerKind | null = standalone
     ? 'STANDALONE'
     : (customer?.type ?? null)
+
+  // Camino feliz de la Fase 3: el SAT ya validó el perfil del receptor → sólo lectura.
+  // "Corregir" es la salida siempre disponible — el superadmin nunca queda bloqueado.
+  const locked = profile?.validationStatus === 'VALID' && !correctionMode
+
+  function handleRevalidate() {
+    if (!profile) return
+    revalidate.mutate(profile.id, {
+      onSuccess: ({ profile: updated }) => {
+        setProfile(updated)
+        if (updated.validationStatus === 'VALID') setCorrectionMode(false)
+      },
+    })
+  }
 
   const totals = useMemo(
     () =>
@@ -290,18 +337,32 @@ export function NewInvoiceDrawer({
     if (!canSubmit || !customerType) return
     setSubmitting(true)
     try {
-      const profile = await upsertTaxProfile({
+      const { profile, validation } = await upsertTaxProfile({
         customerType,
         organizationId: customer?.type === 'ORGANIZATION' ? customer.id : undefined,
         venueId: customer?.type === 'VENUE' ? customer.id : undefined,
-        displayName: customerType === 'STANDALONE' ? razonSocial.trim() : undefined,
+        displayName: customerType === 'STANDALONE' ? razonSocial.trim().toUpperCase() : undefined,
         rfc: rfc.trim().toUpperCase(),
-        razonSocial: razonSocial.trim(),
+        razonSocial: razonSocial.trim().toUpperCase(),
         regimenFiscal,
         codigoPostal: codigoPostal.trim(),
         defaultUsoCfdi: usoCfdi || undefined,
         email: email.trim() || undefined,
       })
+
+      // El SAT rechazó algún dato: se marca el campo y se aborta ANTES de gastar timbre.
+      if (validation && !validation.valid) {
+        const errores: Partial<Record<SatValidationField, string>> = {}
+        for (const e of validation.errors) errores[e.field] = e.message
+        setFieldErrors(errores)
+        toast.error('El SAT no reconoce estos datos fiscales', {
+          description: validation.errors.map((e) => e.message).join(' · '),
+          duration: 30_000,
+          closeButton: true,
+        })
+        return
+      }
+      setFieldErrors({})
 
       // Best-effort: subir la constancia si se adjuntó (no bloquea el timbrado).
       if (constanciaFile) {
@@ -350,7 +411,18 @@ export function NewInvoiceDrawer({
       reset()
     } catch (e) {
       const i = inspectApiError(e, 'timbrar la factura')
-      toast.error(i.title, { description: i.description })
+      // Un rechazo de datos trae la guía + el mensaje crudo del SAT: no se lee en los ~4 s
+      // que dura un toast por defecto. 30 s le da tiempo de sobra sin quedarse pegado: un
+      // toast `duration: Infinity` disparado dentro de este Drawer (Radix) nunca se cierra
+      // solo — `react-dismissable-layer` pone `pointer-events:none` en <body>, y sonner no
+      // fuerza `pointer-events:auto`, así que el closeButton queda inclicable. La única
+      // salida era cerrar el Drawer, cuyo onOpenChange llama reset() y borra receptor,
+      // conceptos y pago capturados.
+      toast.error(i.title, {
+        description: i.description,
+        duration: i.kind === 'validation' ? 30_000 : undefined,
+        closeButton: i.kind === 'validation',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -391,6 +463,12 @@ export function NewInvoiceDrawer({
                   onClick={() => {
                     setCustomer(null)
                     setStandalone(false)
+                    setFieldErrors({})
+                    // Sin esto, el perfil (y su badge "Verificado con el SAT") del cliente
+                    // anterior sigue vivo durante la ventana async de `handleSelectCustomer`
+                    // del siguiente cliente — ver nota en `handleStandalone`/`prefillFromProfile`.
+                    setProfile(null)
+                    setCorrectionMode(false)
                   }}
                 >
                   Cambiar
@@ -457,18 +535,67 @@ export function NewInvoiceDrawer({
               <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
                 2 · Datos fiscales del receptor
               </h3>
+
+              {locked && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[6px] border border-[var(--success)]/30 bg-[var(--success-faint)] px-3.5 py-2.5">
+                  <Badge tone="success" size="md">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Verificado con el SAT
+                  </Badge>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRevalidate}
+                      disabled={revalidate.isPending}
+                    >
+                      {revalidate.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      ) : null}
+                      Revalidar con el SAT
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setCorrectionMode(true)}
+                    >
+                      Corregir
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!profile && (
+                <div className="mb-3 flex items-start gap-2.5 rounded-[6px] border border-[var(--warn)]/30 bg-[var(--warn-faint)] px-3.5 py-3 text-[13px] text-[var(--warn)]">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <p>Este venue todavía no ha capturado sus datos fiscales.</p>
+                </div>
+              )}
+              {profile?.validationStatus === 'INVALID' && (
+                <div className="mb-3 flex items-start gap-2.5 rounded-[6px] border border-[var(--danger)]/30 bg-[var(--danger-faint)] px-3.5 py-3 text-[13px] text-[var(--danger)]">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <p>El SAT no reconoce los datos fiscales de este venue.</p>
+                </div>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
                   label="RFC"
                   name="r-rfc"
                   value={rfc}
                   onChange={(e) => setRfc(e.target.value)}
+                  error={fieldErrors.rfc}
+                  disabled={locked}
                 />
                 <Field
                   label="Razón social"
                   name="r-name"
                   value={razonSocial}
                   onChange={(e) => setRazonSocial(e.target.value)}
+                  placeholder="Tal como aparece en su Constancia"
+                  hint='En MAYÚSCULAS y sin el régimen de capital (sin "S.A. DE C.V.").'
+                  error={fieldErrors.razonSocial}
+                  disabled={locked}
                 />
                 <div>
                   <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">
@@ -479,13 +606,21 @@ export function NewInvoiceDrawer({
                     onChange={setRegimenFiscal}
                     options={REGIMEN_FISCAL_OPTIONS}
                     ariaLabel="Régimen fiscal del receptor"
+                    disabled={locked}
                   />
+                  {fieldErrors.regimenFiscal ? (
+                    <p className="mt-1.5 text-[11.5px] text-[var(--danger)]">
+                      {fieldErrors.regimenFiscal}
+                    </p>
+                  ) : null}
                 </div>
                 <Field
                   label="Código postal"
                   name="r-cp"
                   value={codigoPostal}
                   onChange={(e) => setCodigoPostal(e.target.value)}
+                  error={fieldErrors.codigoPostal}
+                  disabled={locked}
                 />
                 <Field
                   label="Correo (opcional)"
@@ -493,6 +628,8 @@ export function NewInvoiceDrawer({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  error={fieldErrors.email}
+                  disabled={locked}
                 />
                 <div>
                   <label className="mb-1.5 block text-[12px] font-medium text-[var(--ink-muted)]">

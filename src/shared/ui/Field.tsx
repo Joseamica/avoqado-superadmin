@@ -26,6 +26,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(
             'placeholder:text-[var(--ink-faint)]',
             'focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
             'transition-colors',
+            'disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-[var(--canvas-raised)]',
             error && 'border-[var(--danger)] focus-visible:border-[var(--danger)]',
             className,
           )}

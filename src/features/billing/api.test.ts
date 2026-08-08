@@ -18,6 +18,7 @@ import {
   uploadEmisorCsd,
   upsertEmisor,
   upsertTaxProfile,
+  validateTaxProfile,
 } from './api'
 
 const baseURL = 'http://localhost:3000/api/v1'
@@ -162,7 +163,7 @@ describe('fetchTaxProfileById', () => {
 })
 
 describe('upsertTaxProfile', () => {
-  it('hace PUT con los datos fiscales del receptor', async () => {
+  it('hace PUT con los datos fiscales del receptor y devuelve { profile, validation }', async () => {
     let body: unknown = null
     server.use(
       http.put(`${baseURL}/superadmin/billing/tax-profiles`, async ({ request }) => {
@@ -179,7 +180,50 @@ describe('upsertTaxProfile', () => {
       codigoPostal: '06000',
     })
     expect(body).toMatchObject({ customerType: 'VENUE', rfc: 'XAXX010101000' })
-    expect(r.id).toBe('tp1')
+    expect(r.profile.id).toBe('tp1')
+    // Sin `validation` en la respuesta ⇒ null. `null` significa "no se pudo validar", no inválido.
+    expect(r.validation).toBeNull()
+  })
+
+  it('propaga el veredicto del SAT cuando el server lo incluye', async () => {
+    server.use(
+      http.put(`${baseURL}/superadmin/billing/tax-profiles`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { id: 'tp1' },
+          validation: { valid: false, errors: [{ field: 'razonSocial', message: 'no coincide' }] },
+        }),
+      ),
+    )
+    const r = await upsertTaxProfile({
+      customerType: 'VENUE',
+      venueId: 'v1',
+      rfc: 'XAXX010101000',
+      razonSocial: 'Cliente Demo',
+      regimenFiscal: '601',
+      codigoPostal: '06000',
+    })
+    expect(r.validation).toEqual({
+      valid: false,
+      errors: [{ field: 'razonSocial', message: 'no coincide' }],
+    })
+  })
+})
+
+describe('validateTaxProfile', () => {
+  it('hace POST a /tax-profiles/:id/validate y devuelve { profile, validation }', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/billing/tax-profiles/tp1/validate`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { id: 'tp1' },
+          validation: { valid: true, errors: [] },
+        }),
+      ),
+    )
+    const r = await validateTaxProfile('tp1')
+    expect(r.profile.id).toBe('tp1')
+    expect(r.validation).toEqual({ valid: true, errors: [] })
   })
 })
 

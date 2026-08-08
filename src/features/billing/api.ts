@@ -12,6 +12,7 @@ import type {
   CustomerSearchRow,
   PlatformCfdi,
   PlatformEmisor,
+  SatValidationResult,
 } from './types'
 
 interface Envelope<T> {
@@ -106,14 +107,26 @@ export interface UpsertTaxProfilePayload {
   email?: string | null
 }
 
+export interface TaxProfileWithValidation {
+  profile: BillingTaxProfile
+  validation: SatValidationResult | null
+}
+
 export async function upsertTaxProfile(
   payload: UpsertTaxProfilePayload,
-): Promise<BillingTaxProfile> {
-  const { data } = await api.put<Envelope<BillingTaxProfile>>(
-    '/superadmin/billing/tax-profiles',
-    payload,
-  )
-  return data.data
+): Promise<TaxProfileWithValidation> {
+  const { data } = await api.put<
+    Envelope<BillingTaxProfile> & { validation?: SatValidationResult | null }
+  >('/superadmin/billing/tax-profiles', payload)
+  return { profile: data.data, validation: data.validation ?? null }
+}
+
+/** Revalida el perfil contra el padrón del SAT (sin gastar timbre). */
+export async function validateTaxProfile(profileId: string): Promise<TaxProfileWithValidation> {
+  const { data } = await api.post<
+    Envelope<BillingTaxProfile> & { validation?: SatValidationResult | null }
+  >(`/superadmin/billing/tax-profiles/${encodeURIComponent(profileId)}/validate`, {})
+  return { profile: data.data, validation: data.validation ?? null }
 }
 
 /** Upload the receptor's constancia (PDF/image, base64) to Firebase via the backend. */

@@ -16,6 +16,7 @@ import {
   upsertEmisor,
   upsertTaxProfile,
   uploadEmisorCsd,
+  validateTaxProfile,
   type FetchInvoicesParams,
   type IssueInvoicePayload,
   type UpsertEmisorPayload,
@@ -128,7 +129,37 @@ export function useTaxProfileActions() {
     },
   })
 
-  return { save, attach }
+  /** Revalida el perfil contra el padrón del SAT (sin gastar timbre). Ver `validateTaxProfile`. */
+  const revalidate = useMutation({
+    mutationFn: (profileId: string) => validateTaxProfile(profileId),
+    onSuccess: ({ validation }) => {
+      qc.invalidateQueries({ queryKey: [...BILLING_QUERY_KEY, 'customers'] })
+      if (!validation) {
+        // `validation: null` = no se pudo validar (proveedor caído), NUNCA "inválido".
+        toast.warning('No se pudo validar contra el SAT en este momento', {
+          description: 'Intenta de nuevo en unos minutos.',
+        })
+      } else if (validation.valid) {
+        toast.success('El SAT reconoce estos datos fiscales')
+      } else {
+        toast.error('El SAT no reconoce estos datos fiscales', {
+          description: validation.errors.map((e) => e.message).join(' · '),
+          duration: 30_000,
+          closeButton: true,
+        })
+      }
+    },
+    onError: (e) => {
+      const i = inspectApiError(e, 'revalidar con el SAT')
+      toast.error(i.title, {
+        description: i.description,
+        duration: i.kind === 'validation' ? 30_000 : undefined,
+        closeButton: i.kind === 'validation',
+      })
+    },
+  })
+
+  return { save, attach, revalidate }
 }
 
 export function useInvoiceActions() {
@@ -145,7 +176,13 @@ export function useInvoiceActions() {
     },
     onError: (e) => {
       const i = inspectApiError(e, 'timbrar la factura')
-      toast.error(i.title, { description: i.description })
+      // 30s finitos: un toast Infinity aquí queda pegado e incerrable si se dispara desde
+      // dentro de un Drawer modal (Radix bloquea pointer-events en <body>). Ver NewInvoiceDrawer.
+      toast.error(i.title, {
+        description: i.description,
+        duration: i.kind === 'validation' ? 30_000 : undefined,
+        closeButton: i.kind === 'validation',
+      })
     },
   })
 
@@ -177,7 +214,13 @@ export function useInvoiceActions() {
     },
     onError: (e) => {
       const i = inspectApiError(e, 'registrar el pago')
-      toast.error(i.title, { description: i.description })
+      // Mismo trato que timbrar la factura: el complemento de pago (REP) también trae el
+      // mensaje crudo del SAT anexado en un rechazo de datos — 30s + closeButton para leerlo.
+      toast.error(i.title, {
+        description: i.description,
+        duration: i.kind === 'validation' ? 30_000 : undefined,
+        closeButton: i.kind === 'validation',
+      })
     },
   })
 

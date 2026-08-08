@@ -51,10 +51,32 @@ export interface BillingTaxProfile {
   defaultUsoCfdi: string
   email: string | null
   constanciaUrl: string | null
+  facturapiCustomerId?: string | null
   validationStatus: string
   validatedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+// ── Validación SAT (padrón, sin gastar timbre) ────────────────────────────────
+
+export type SatValidationField =
+  | 'razonSocial'
+  | 'rfc'
+  | 'regimenFiscal'
+  | 'codigoPostal'
+  | 'email'
+  | 'otro'
+
+export interface SatValidationError {
+  field: SatValidationField
+  message: string
+}
+
+/** `null` = no se pudo validar (PAC caído o sin emisor), NO significa inválido. */
+export interface SatValidationResult {
+  valid: boolean
+  errors: SatValidationError[]
 }
 
 export interface PlatformCfdiLine {
