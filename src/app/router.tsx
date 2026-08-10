@@ -40,6 +40,11 @@ const SubscriptionsPage = lazy(() =>
     default: m.SubscriptionsPage,
   })),
 )
+const MasterCatalogAccessPage = lazy(() =>
+  import('@/features/master-catalog/MasterCatalogAccessPage').then((m) => ({
+    default: m.MasterCatalogAccessPage,
+  })),
+)
 const BillingPage = lazy(() =>
   import('@/features/billing/BillingPage').then((m) => ({ default: m.BillingPage })),
 )
@@ -183,6 +188,7 @@ export function AppRoutes() {
             element={<VenueResourcePlaceholder resource="pricing" />}
           />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/master-catalog" element={<MasterCatalogAccessPage />} />
           <Route path="/billing/emisor" element={<EmisorSetupPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/terminals" element={<TerminalsPage />} />

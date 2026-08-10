@@ -152,6 +152,7 @@ Toda ruta es `lazy()` + `<Suspense>` (code-splitting por ruta) y vive en [`src/a
 | `/venues` · `/venues/new` · `/venues/:id`                   | Listado, alta y detalle de venues                                                                 | `venues`              |
 | `/venues/:id/{owner,kyc,pricing,terminals/new}`             | Sub-páginas de un venue                                                                           | `venues`              |
 | `/venues/:id/merchant`                                      | Asignación de merchants a slots (primary/secondary/tertiary) + procesador preferido               | `venues`              |
+| `/master-catalog`                                           | Entitlement, módulo, config y rollout por venue del catálogo maestro                              | `master-catalog`      |
 | `/terminals` · `/terminals/new` · `/terminals/:id/settings` | TPVs: listado, alta, ajustes                                                                      | `terminals`           |
 | `/merchants` · `/merchants/:id`                             | Registro de merchant accounts + detalle (economía + asistente de pricing, liquidación, readiness) | `merchants`           |
 | `/merchants/new`                                            | Alta guiada **Blumon** (panel de cards → un POST a `blumon/full-setup`)                           | `merchants`           |
@@ -171,6 +172,7 @@ src/
 │   ├── activity-log/   # /activity-log
 │   ├── system-logs/    # /system-logs (stream de Render)
 │   ├── venues/         # /venues (+ alta, detalle, owner, kyc, pricing, config de pagos)
+│   ├── master-catalog/ # /master-catalog (control plane ENTERPRISE/custom, sin edición de contenido)
 │   ├── terminals/      # /terminals (+ alta, settings) — TPVs
 │   ├── merchants/      # /merchants (registro + economía + liquidación + alta guiada Blumon/AngelPay)
 │   └── realtime/       # socket.io + use-realtime-invalidation

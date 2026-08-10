@@ -72,7 +72,7 @@ describe('<AppLayout />', () => {
     renderWithRoutes()
     // Group eyebrows
     expect(screen.getByText(/Operación/i)).toBeInTheDocument()
-    expect(screen.getByText(/Catálogo/i)).toBeInTheDocument()
+    expect(screen.getByText('Catálogo', { exact: true })).toBeInTheDocument()
     expect(screen.getByText(/Configuración/i)).toBeInTheDocument()
   })
 
