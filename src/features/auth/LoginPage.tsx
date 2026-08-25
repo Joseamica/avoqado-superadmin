@@ -203,7 +203,7 @@ export function LoginPage() {
             <section aria-label="Acceso con Google" className="mt-7">
               <div className="flex items-center gap-3">
                 <span className="h-px flex-1 bg-[var(--line)]" aria-hidden="true" />
-                <span className="label">o</span>
+                <span className="label text-[var(--ink-muted)]">o</span>
                 <span className="h-px flex-1 bg-[var(--line)]" aria-hidden="true" />
               </div>
 
@@ -219,7 +219,7 @@ export function LoginPage() {
                 />
 
                 {googleStatus === 'loading' && (
-                  <p className="mt-2 text-center text-[12px] text-[var(--ink-faint)]">
+                  <p className="mt-2 text-center text-[12px] text-[var(--ink-muted)]">
                     Cargando el acceso con Google…
                   </p>
                 )}
@@ -245,7 +245,7 @@ export function LoginPage() {
                   <p
                     role="status"
                     aria-live="polite"
-                    className="mt-2 text-center text-[12px] text-[var(--ink-faint)]"
+                    className="mt-2 text-center text-[12px] text-[var(--ink-muted)]"
                   >
                     Verificando tu cuenta de Google…
                   </p>

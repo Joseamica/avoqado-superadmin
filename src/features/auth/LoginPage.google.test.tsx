@@ -66,6 +66,10 @@ describe('<LoginPage /> — acceso con Google', () => {
     vi.unstubAllEnvs()
     delete window.google
     gisCallback = null
+    // El hook memoiza la carga del script a nivel de módulo y reutiliza un
+    // `<script>` ya presente. Si lo dejamos puesto, el siguiente test engancha
+    // listeners sobre un script muerto y se queda esperando para siempre.
+    document.querySelector('script[src="https://accounts.google.com/gsi/client"]')?.remove()
   })
 
   describe('sin VITE_GOOGLE_CLIENT_ID', () => {
@@ -151,6 +155,25 @@ describe('<LoginPage /> — acceso con Google', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/no tiene permisos de superadmin/i)
       await waitFor(() => expect(logoutCalls).toBe(1))
+    })
+
+    it('explica el fallo y ofrece reintentar cuando el script de Google no carga', async () => {
+      // Sin `window.google`, el hook inyecta el script de verdad. En jsdom ese
+      // script nunca carga solo: le disparamos el 'error' que dispararía un
+      // bloqueador de anuncios o una red caída.
+      delete window.google
+
+      renderWithProviders(<LoginPage />)
+
+      const script = await waitFor(() => {
+        const el = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+        if (!el) throw new Error('el hook todavía no inyectó el script')
+        return el
+      })
+      script.dispatchEvent(new Event('error'))
+
+      expect(await screen.findByText(/no cargó el botón de google/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument()
     })
 
     it('no rompe cuando Google devuelve una respuesta sin credential', async () => {
