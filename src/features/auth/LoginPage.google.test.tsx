@@ -40,8 +40,10 @@ const staffUser = {
  * `<script>` (que en jsdom nunca dispararía `load`).
  */
 type GisCallback = (response: { credential?: string }) => void
+type GisErrorCallback = (error: { type?: string }) => void
 
 let gisCallback: GisCallback | null = null
+let gisErrorCallback: GisErrorCallback | null = null
 
 /**
  * Por defecto el mock IMITA a Google: inyecta un nodo en el contenedor. El hook
@@ -58,13 +60,17 @@ const renderButton = vi.fn((parent: HTMLElement) => {
 
 function installGoogleIdentityMock() {
   gisCallback = null
+  gisErrorCallback = null
   renderButton.mockClear()
   window.google = {
     accounts: {
       id: {
-        initialize: vi.fn((config: { callback: GisCallback }) => {
-          gisCallback = config.callback
-        }),
+        initialize: vi.fn(
+          (config: { callback: GisCallback; error_callback?: GisErrorCallback }) => {
+            gisCallback = config.callback
+            gisErrorCallback = config.error_callback ?? null
+          },
+        ),
         renderButton,
         cancel: vi.fn(),
         disableAutoSelect: vi.fn(),
@@ -78,6 +84,7 @@ describe('<LoginPage /> — acceso con Google', () => {
     vi.unstubAllEnvs()
     delete window.google
     gisCallback = null
+    gisErrorCallback = null
     // El hook memoiza la carga del script a nivel de módulo y reutiliza un
     // `<script>` ya presente. Si lo dejamos puesto, el siguiente test engancha
     // listeners sobre un script muerto y se queda esperando para siempre.
@@ -167,6 +174,20 @@ describe('<LoginPage /> — acceso con Google', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/no tiene permisos de superadmin/i)
       await waitFor(() => expect(logoutCalls).toBe(1))
+    })
+
+    it('avisa del dominio no autorizado cuando Google lo reporta DESPUÉS de dibujar el botón', async () => {
+      // El caso real de producción: Google dibuja el botón con toda normalidad y
+      // sólo avisa por `error_callback`; sin esto el operador se estrella contra
+      // un "Error 400: origin_mismatch" dentro del popup.
+      renderWithProviders(<LoginPage />)
+      await waitFor(() => expect(gisErrorCallback).not.toBeNull())
+
+      gisErrorCallback?.({ type: 'unregistered_origin' })
+
+      expect(
+        await screen.findByText(/no tiene autorizado este dominio/i, {}, { timeout: 5000 }),
+      ).toBeInTheDocument()
     })
 
     it('avisa que el dominio no está autorizado cuando Google no dibuja nada', async () => {

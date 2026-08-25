@@ -32,10 +32,22 @@ interface GoogleCredentialResponse {
   credential?: string
 }
 
+/**
+ * Google avisa por aquí cuando el origen no está registrado en la consola de
+ * Google Cloud. Es la ÚNICA señal programática de ese caso: `renderButton`
+ * dibuja el botón con toda normalidad y el rechazo (`Error 400:
+ * origin_mismatch`) sólo aparece dentro del popup, ya con el operador dentro —
+ * sin este callback la app nunca se entera.
+ */
+interface GoogleGsiError {
+  type?: 'unregistered_origin' | 'unknown_reason' | string
+}
+
 interface GoogleAccountsId {
   initialize: (config: {
     client_id: string
     callback: (response: GoogleCredentialResponse) => void
+    error_callback?: (error: GoogleGsiError) => void
     auto_select?: boolean
     cancel_on_tap_outside?: boolean
     itp_support?: boolean
@@ -184,6 +196,11 @@ export function useGoogleIdentity({
     if (!node) return
 
     let cancelled = false
+    // Google puede avisar del origen rechazado ANTES o DESPUÉS de que
+    // terminemos de esperar el botón. La bandera hace que 'blocked' gane
+    // siempre: sin ella, un aviso temprano quedaba pisado por el 'ready' que
+    // llega después y la pantalla mentía.
+    let originRejected = false
 
     const renderInto = (target: HTMLDivElement) => {
       const measured = Math.round(target.getBoundingClientRect().width)
@@ -228,6 +245,14 @@ export function useGoogleIdentity({
           callback: (response) => {
             if (response.credential) onCredentialRef.current(response.credential)
           },
+          error_callback: (error) => {
+            // `unregistered_origin` = este dominio no está en los orígenes
+            // autorizados del client ID. Lo pintamos en la pantalla en vez de
+            // dejar que el operador choque con el popup de Google.
+            if (error?.type !== 'unregistered_origin') return
+            originRejected = true
+            if (!cancelled) setStatus('blocked')
+          },
           // Sin prompt automático: `auto_select` sólo aplica a One Tap, que no
           // usamos, pero lo apagamos explícitamente para que un cambio futuro
           // no reintroduzca un login silencioso en una consola de operaciones.
@@ -248,7 +273,7 @@ export function useGoogleIdentity({
         const drew = await waitForRenderedButton(node, () => cancelled)
         if (cancelled) return
         if (drew) stretchToContainer(node)
-        setStatus(drew ? 'ready' : 'blocked')
+        setStatus(drew && !originRejected ? 'ready' : 'blocked')
       })
       .catch(() => {
         if (!cancelled) setStatus('error')
