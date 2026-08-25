@@ -224,6 +224,25 @@ export function LoginPage() {
                   </p>
                 )}
 
+                {googleStatus === 'blocked' && (
+                  <div className="text-center">
+                    <p className="text-[12px] leading-snug text-[var(--ink-muted)]">
+                      Google no tiene autorizado este dominio. Hay que agregar{' '}
+                      <span className="font-mono text-[var(--ink)]">{window.location.origin}</span>{' '}
+                      a los orígenes de JavaScript del client ID en Google Cloud Console.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="md"
+                      className="mt-2"
+                      onClick={retryGoogle}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                )}
+
                 {googleStatus === 'error' && (
                   <div className="text-center">
                     <p className="text-[12px] leading-snug text-[var(--ink-muted)]">

@@ -42,7 +42,19 @@ const staffUser = {
 type GisCallback = (response: { credential?: string }) => void
 
 let gisCallback: GisCallback | null = null
-const renderButton = vi.fn()
+
+/**
+ * Por defecto el mock IMITA a Google: inyecta un nodo en el contenedor. El hook
+ * comprueba justamente eso para distinguir "se dibujó" de "el origen no está
+ * autorizado" — un mock que no inyecta nada estaría probando el caso de fallo
+ * sin querer.
+ */
+const renderButton = vi.fn((parent: HTMLElement) => {
+  const fake = document.createElement('div')
+  fake.setAttribute('role', 'button')
+  fake.textContent = 'Continuar con Google'
+  parent.appendChild(fake)
+})
 
 function installGoogleIdentityMock() {
   gisCallback = null
@@ -155,6 +167,19 @@ describe('<LoginPage /> — acceso con Google', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/no tiene permisos de superadmin/i)
       await waitFor(() => expect(logoutCalls).toBe(1))
+    })
+
+    it('avisa que el dominio no está autorizado cuando Google no dibuja nada', async () => {
+      // Origen no autorizado en Google Cloud Console: `renderButton` regresa sin
+      // error y deja el contenedor vacío. Es el fallo silencioso que el hook caza.
+      renderButton.mockImplementationOnce(() => {})
+
+      renderWithProviders(<LoginPage />)
+
+      expect(
+        await screen.findByText(/no tiene autorizado este dominio/i, {}, { timeout: 5000 }),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument()
     })
 
     it('explica el fallo y ofrece reintentar cuando el script de Google no carga', async () => {

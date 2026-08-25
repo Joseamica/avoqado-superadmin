@@ -21,6 +21,13 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const MIN_BUTTON_WIDTH = 200
 const MAX_BUTTON_WIDTH = 400
 
+/**
+ * Cuánto esperamos a que Google inyecte su botón antes de darlo por fallido.
+ * Normalmente aparece en milisegundos; el margen es para una red lenta.
+ */
+const BUTTON_RENDER_TIMEOUT_MS = 2500
+const BUTTON_RENDER_POLL_MS = 100
+
 interface GoogleCredentialResponse {
   credential?: string
 }
@@ -57,7 +64,13 @@ declare global {
   }
 }
 
-export type GoogleIdentityStatus = 'disabled' | 'loading' | 'ready' | 'error'
+export type GoogleIdentityStatus =
+  | 'disabled'
+  | 'loading'
+  | 'ready'
+  /** El script cargó pero Google no dibujó nada — casi siempre el origen no está autorizado. */
+  | 'blocked'
+  | 'error'
 
 /**
  * Carga del script, memoizada a nivel de módulo.
@@ -104,6 +117,23 @@ function loadGoogleIdentityScript(): Promise<void> {
   })
 
   return gisLoader
+}
+
+/**
+ * Espera a que Google inyecte su botón dentro del contenedor.
+ * Devuelve false si se agotó el tiempo sin que apareciera nada.
+ */
+async function waitForRenderedButton(
+  target: HTMLElement,
+  isCancelled: () => boolean,
+): Promise<boolean> {
+  const deadline = Date.now() + BUTTON_RENDER_TIMEOUT_MS
+  while (!isCancelled()) {
+    if (target.firstElementChild) return true
+    if (Date.now() >= deadline) return false
+    await new Promise((resolve) => setTimeout(resolve, BUTTON_RENDER_POLL_MS))
+  }
+  return false
 }
 
 interface UseGoogleIdentityOptions {
@@ -168,17 +198,21 @@ export function useGoogleIdentity({
         width,
         locale: 'es',
       })
+    }
 
-      // Google escribe un `width` en PÍXELES fijos sobre el nodo que inyecta, y
-      // no lo recalcula nunca más: al rotar el teléfono o cruzar un breakpoint,
-      // el botón se queda con el ancho viejo y deja de alinear con el CTA de
-      // arriba. Medido en el navegador: contenedor 360 px con el botón clavado
-      // en 327 px. Lo estiramos al contenedor para que el ancho lo mande el
-      // layout, no una medición congelada.
-      //
-      // La primera versión reaccionaba al cambio con un ResizeObserver y en la
-      // prueba real el botón se quedó corto igual; esto es determinista y no
-      // depende de la estructura interna del botón, sólo del hijo directo.
+    /**
+     * Google escribe un `width` en PÍXELES fijos sobre el nodo que inyecta y no
+     * lo recalcula nunca más: al rotar el teléfono o cruzar un breakpoint, el
+     * botón se queda con el ancho viejo y deja de alinear con el CTA de arriba
+     * (medido: contenedor de 360 px con el botón clavado en 327). Lo estiramos
+     * al contenedor para que el ancho lo mande el layout.
+     *
+     * 🔴 Va DESPUÉS de esperar el nodo, no justo tras `renderButton`: Google no
+     * siempre inyecta de forma síncrona, así que aplicarlo de inmediato es una
+     * carrera que a veces se pierde — y cuando se pierde el botón queda corto
+     * sin ningún síntoma. Se vio en el navegador, no en los tests.
+     */
+    const stretchToContainer = (target: HTMLDivElement) => {
       const rendered = target.firstElementChild
       if (rendered instanceof HTMLElement) {
         rendered.style.setProperty('width', '100%', 'important')
@@ -186,7 +220,7 @@ export function useGoogleIdentity({
     }
 
     loadGoogleIdentityScript()
-      .then(() => {
+      .then(async () => {
         if (cancelled || !window.google) return
 
         window.google.accounts.id.initialize({
@@ -203,7 +237,18 @@ export function useGoogleIdentity({
         })
 
         renderInto(node)
-        setStatus('ready')
+
+        // 🔴 Google NO lanza error cuando el origen no está autorizado en la
+        // consola de Google Cloud: `renderButton` regresa normal y el fallo
+        // sólo aparece en la consola del navegador
+        // ("The given origin is not allowed for the given client ID").
+        // El contenedor queda VACÍO. Sin esta comprobación, el operador ve un
+        // hueco mudo y no tiene forma de saber qué falta. Preguntamos si de
+        // verdad se dibujó algo y, si no, lo decimos con todas sus letras.
+        const drew = await waitForRenderedButton(node, () => cancelled)
+        if (cancelled) return
+        if (drew) stretchToContainer(node)
+        setStatus(drew ? 'ready' : 'blocked')
       })
       .catch(() => {
         if (!cancelled) setStatus('error')
