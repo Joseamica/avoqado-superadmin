@@ -4,7 +4,11 @@ This file overrides default behavior for any AI assistant working on this reposi
 
 ---
 
-## 🔴 CRITICAL — Ask which payment tier BEFORE building or changing anything
+> **Reglas de entorno** — sesiones de IA en paralelo, y cuándo verificar según la carga de la
+> máquina — están en el `CLAUDE.md` del workspace (`../CLAUDE.md`), que auto-carga junto con este
+> archivo. Léelas antes de correr builds/tests o de tocar git.
+
+## 🔴 CRITICAL — Ask which payment tier (and how it gets turned on) BEFORE building or changing anything
 
 Avoqado is a tier-gated SaaS (**FREE · PRO · PREMIUM · ENTERPRISE**). Whenever you add a new
 feature, modify existing behavior, or expose a new capability, **STOP and ask the founder which
@@ -21,6 +25,8 @@ deliberate here.)
 - **Enforcement status:** ✅ only **avoqado-web-dashboard** enforces tiers today.
   ⚠️ **avoqado-ios** and **avoqado-android** have NO tier gating yet — they will mirror the backend
   feature codes by exact name. Treat tier codes like permissions: a name mismatch fails silently.
+- **Activación (regla completa en `../CLAUDE.md`):** aquí se prende lo que prende **Avoqado** (tier y módulo). Los
+  ajustes que prende el CLIENTE (`VenueSettings`) son del dashboard, no de este repo — no los dupliques aquí.
 
 ---
 

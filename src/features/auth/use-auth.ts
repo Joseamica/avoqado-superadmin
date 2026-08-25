@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { LoginPayload, LoginResponse, SessionUser } from './api'
+import type { GoogleLoginResponse, LoginPayload, LoginResponse, SessionUser } from './api'
 
 /**
  * Sólo tipos + context object + hook viven aquí.
@@ -16,6 +16,8 @@ export interface AuthContextValue {
   isSuperadmin: boolean
   isLoading: boolean
   login: (payload: LoginPayload) => Promise<LoginResponse>
+  /** Login con el ID token que devuelve Google Identity Services. */
+  loginWithGoogle: (credential: string) => Promise<GoogleLoginResponse>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }

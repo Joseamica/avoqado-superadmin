@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as authService from './api'
-import type { LoginPayload, LoginResponse } from './api'
+import type { GoogleLoginResponse, LoginPayload, LoginResponse } from './api'
 import { AuthContext, type AuthContextValue } from './use-auth'
 import { disconnectSocket } from '@/features/realtime/socket'
 
@@ -47,6 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Invalidar acá creaba un race entre el refetch automático y el fetch
       // del caller, y el cancelado tiraba CancelledError → toast confuso aunque
       // el login funcionara.
+    },
+  })
+
+  // Misma disciplina que `loginMutation`: NO invalidamos ['auth','status'] aquí.
+  // El caller (LoginPage) hace el fetch fresh y lo escribe con setQueryData;
+  // invalidar acá crearía la misma race que ya nos costó un CancelledError.
+  const googleLoginMutation = useMutation({
+    mutationFn: authService.googleSignIn,
+    onSuccess: () => {
+      writeSessionHint(true)
     },
   })
 
@@ -111,6 +121,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loginMutation],
   )
 
+  const loginWithGoogle = useCallback(
+    async (credential: string): Promise<GoogleLoginResponse> => {
+      const response = await googleLoginMutation.mutateAsync(credential)
+      const channel = createAuthChannel()
+      channel?.postMessage({ type: 'login' } satisfies BroadcastMessage)
+      channel?.close()
+      return response
+    },
+    [googleLoginMutation],
+  )
+
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync()
     const channel = createAuthChannel()
@@ -135,10 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSuperadmin,
       isLoading,
       login,
+      loginWithGoogle,
       logout,
       refresh,
     }),
-    [user, isAuthenticated, isSuperadmin, isLoading, login, logout, refresh],
+    [user, isAuthenticated, isSuperadmin, isLoading, login, loginWithGoogle, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

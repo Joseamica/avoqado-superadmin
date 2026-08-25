@@ -150,6 +150,10 @@ const ACTION_LABELS: Record<string, string> = {
   STAFF_DELETED: 'Personal eliminado',
   STAFF_INVITED: 'Personal invitado',
   STAFF_ROLE_CHANGED: 'Rol de personal modificado',
+  // Fase 1 — el negocio decide quién puede reservar en línea. Sin estas dos, el
+  // fallback genérico pinta "Customer approval approved", que se entiende a medias.
+  CUSTOMER_APPROVAL_APPROVED: 'Cliente aprobado para reservar',
+  CUSTOMER_APPROVAL_REJECTED: 'Cliente rechazado para reservar',
 }
 
 const ENTITY_LABELS: Record<string, string> = {

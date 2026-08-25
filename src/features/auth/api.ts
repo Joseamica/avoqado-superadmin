@@ -58,13 +58,35 @@ export async function getAuthStatus(): Promise<AuthStatusResponse> {
   return data
 }
 
-export async function getGoogleAuthUrl(): Promise<{ authUrl: string }> {
-  const { data } = await api.get<{ authUrl: string }>(`${PATH}/google/url`)
-  return data
+/**
+ * Login con Google.
+ *
+ * Usamos el endpoint `one-tap` (que recibe el ID token de Google Identity
+ * Services) y NO el par `google/url` + `google/callback` del flujo redirect.
+ * Motivo concreto, no preferencia: el `redirect_uri` del flujo redirect está
+ *  FIJO en el backend a `FRONTEND_URL + '/auth/google/callback'`
+ * (avoqado-server/src/services/dashboard/googleOAuth.service.ts) — es decir,
+ * apunta siempre al dashboard legacy. Si mandáramos al operador por ahí,
+ * Google lo devolvería al dashboard, no a esta consola.
+ *
+ * El endpoint one-tap no tiene redirect: el navegador obtiene el credential de
+ * Google y lo mandamos por POST. El backend lo verifica contra el
+ * GOOGLE_CLIENT_ID (`verifyGoogleToken`) y aplica exactamente las mismas reglas
+ * que el login con contraseña: si el correo no tiene Staff ni invitación viva,
+ * responde 403. La sesión queda en las mismas cookies HTTP-only.
+ *
+ * Ojo con el shape: este endpoint devuelve `user`, no `staff` como
+ * `/dashboard/auth/login`.
+ */
+export interface GoogleLoginResponse {
+  success: boolean
+  message: string
+  user: SessionUser
+  isNewUser: boolean
 }
 
-export async function googleOAuthCallback(code: string): Promise<LoginResponse> {
-  const { data } = await api.post<LoginResponse>(`${PATH}/google/callback`, { code })
+export async function googleSignIn(credential: string): Promise<GoogleLoginResponse> {
+  const { data } = await api.post<GoogleLoginResponse>(`${PATH}/google/one-tap`, { credential })
   return data
 }
 

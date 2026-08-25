@@ -1,0 +1,218 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+/**
+ * Integración con Google Identity Services (GIS) para el botón
+ * "Continuar con Google" del LoginPage.
+ *
+ * Renderizamos el botón OFICIAL de Google (`renderButton`) en lugar de dibujar
+ * uno propio que dispare `prompt()`: el prompt de One Tap depende de cookies de
+ * terceros, FedCM y del ITP de Safari — cuando el navegador lo bloquea no pasa
+ * nada visible y el operador se queda sin forma de entrar. El botón renderizado
+ * siempre funciona y además cumple los lineamientos de marca de Google, que
+ * prohíben inventar un botón propio con su logo.
+ *
+ * Tampoco lanzamos el prompt automático de One Tap: esta es una consola interna
+ * y un popup que aparece solo al cargar es intrusivo (y falla seguido).
+ */
+
+const GIS_SRC = 'https://accounts.google.com/gsi/client'
+
+/** Rango que acepta `renderButton`; fuera de él Google ignora el ancho. */
+const MIN_BUTTON_WIDTH = 200
+const MAX_BUTTON_WIDTH = 400
+
+interface GoogleCredentialResponse {
+  credential?: string
+}
+
+interface GoogleAccountsId {
+  initialize: (config: {
+    client_id: string
+    callback: (response: GoogleCredentialResponse) => void
+    auto_select?: boolean
+    cancel_on_tap_outside?: boolean
+    itp_support?: boolean
+    use_fedcm_for_prompt?: boolean
+  }) => void
+  renderButton: (
+    parent: HTMLElement,
+    options: {
+      type?: 'standard' | 'icon'
+      theme?: 'outline' | 'filled_blue' | 'filled_black'
+      size?: 'small' | 'medium' | 'large'
+      text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin'
+      shape?: 'rectangular' | 'pill' | 'circle' | 'square'
+      logo_alignment?: 'left' | 'center'
+      width?: number
+      locale?: string
+    },
+  ) => void
+  cancel: () => void
+  disableAutoSelect: () => void
+}
+
+declare global {
+  interface Window {
+    google?: { accounts: { id: GoogleAccountsId } }
+  }
+}
+
+export type GoogleIdentityStatus = 'disabled' | 'loading' | 'ready' | 'error'
+
+/**
+ * Carga del script, memoizada a nivel de módulo.
+ *
+ * Deliberadamente NO removemos el `<script>` en el cleanup (el hook equivalente
+ * del dashboard legacy sí lo hace). Quitarlo deja `window.google` colgando y el
+ * siguiente montaje — un StrictMode double-mount o simplemente volver a /login —
+ * encuentra el objeto a medias y el botón nunca aparece. El script es idempotente
+ * y pesa poco: se carga una vez por pestaña y se queda.
+ */
+let gisLoader: Promise<void> | null = null
+
+function loadGoogleIdentityScript(): Promise<void> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.reject(new Error('Google Identity Services requiere un navegador'))
+  }
+  if (window.google?.accounts?.id) return Promise.resolve()
+  if (gisLoader) return gisLoader
+
+  gisLoader = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GIS_SRC}"]`)
+    const script = existing ?? document.createElement('script')
+
+    const onLoad = () => {
+      if (window.google?.accounts?.id) resolve()
+      else reject(new Error('Google Identity Services cargó sin exponer accounts.id'))
+    }
+    const onError = () => {
+      // La promesa cacheada se descarta para permitir un reintento (el fallo
+      // típico es un bloqueador de anuncios o una red intermitente).
+      gisLoader = null
+      reject(new Error('No se pudo cargar Google Identity Services'))
+    }
+
+    script.addEventListener('load', onLoad, { once: true })
+    script.addEventListener('error', onError, { once: true })
+
+    if (!existing) {
+      script.src = GIS_SRC
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+  })
+
+  return gisLoader
+}
+
+interface UseGoogleIdentityOptions {
+  /** Se dispara con el ID token de Google cuando el operador elige su cuenta. */
+  onCredential: (credential: string) => void
+  /** No renderizar el botón (ej. ya hay sesión activa). */
+  disabled?: boolean
+}
+
+interface UseGoogleIdentityResult {
+  status: GoogleIdentityStatus
+  /** Contenedor donde Google inyecta su botón. */
+  containerRef: (node: HTMLDivElement | null) => void
+  /** Reintento manual tras un fallo de carga. */
+  retry: () => void
+}
+
+export function useGoogleIdentity({
+  onCredential,
+  disabled = false,
+}: UseGoogleIdentityOptions): UseGoogleIdentityResult {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+  const enabled = Boolean(clientId) && !disabled
+
+  const [status, setStatus] = useState<GoogleIdentityStatus>(enabled ? 'loading' : 'disabled')
+  const [node, setNode] = useState<HTMLDivElement | null>(null)
+  const [attempt, setAttempt] = useState(0)
+
+  // El callback se pasa una sola vez a `initialize` y Google lo guarda. Lo
+  // leemos desde un ref para que un re-render del LoginPage (cada tecleo en el
+  // form) no obligue a re-inicializar GIS.
+  const onCredentialRef = useRef(onCredential)
+  useEffect(() => {
+    onCredentialRef.current = onCredential
+  }, [onCredential])
+
+  const containerRef = useCallback((next: HTMLDivElement | null) => setNode(next), [])
+  const retry = useCallback(() => {
+    setStatus('loading')
+    setAttempt((n) => n + 1)
+  }, [])
+
+  useEffect(() => {
+    if (!enabled) {
+      setStatus('disabled')
+      return
+    }
+    if (!node) return
+
+    let cancelled = false
+
+    const renderInto = (target: HTMLDivElement) => {
+      const measured = Math.round(target.getBoundingClientRect().width)
+      const width = Math.min(MAX_BUTTON_WIDTH, Math.max(MIN_BUTTON_WIDTH, measured))
+      window.google?.accounts.id.renderButton(target, {
+        type: 'standard',
+        theme: 'filled_black',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width,
+        locale: 'es',
+      })
+
+      // Google escribe un `width` en PÍXELES fijos sobre el nodo que inyecta, y
+      // no lo recalcula nunca más: al rotar el teléfono o cruzar un breakpoint,
+      // el botón se queda con el ancho viejo y deja de alinear con el CTA de
+      // arriba. Medido en el navegador: contenedor 360 px con el botón clavado
+      // en 327 px. Lo estiramos al contenedor para que el ancho lo mande el
+      // layout, no una medición congelada.
+      //
+      // La primera versión reaccionaba al cambio con un ResizeObserver y en la
+      // prueba real el botón se quedó corto igual; esto es determinista y no
+      // depende de la estructura interna del botón, sólo del hijo directo.
+      const rendered = target.firstElementChild
+      if (rendered instanceof HTMLElement) {
+        rendered.style.setProperty('width', '100%', 'important')
+      }
+    }
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !window.google) return
+
+        window.google.accounts.id.initialize({
+          client_id: clientId as string,
+          callback: (response) => {
+            if (response.credential) onCredentialRef.current(response.credential)
+          },
+          // Sin prompt automático: `auto_select` sólo aplica a One Tap, que no
+          // usamos, pero lo apagamos explícitamente para que un cambio futuro
+          // no reintroduzca un login silencioso en una consola de operaciones.
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          itp_support: true,
+        })
+
+        renderInto(node)
+        setStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [enabled, clientId, node, attempt])
+
+  return { status, containerRef, retry }
+}

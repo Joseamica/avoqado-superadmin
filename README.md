@@ -62,6 +62,8 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 ```bash
 cp .env.example .env
 # Pon VITE_API_URL=http://localhost:3000/api/v1 (apunta a tu avoqado-server local)
+# Opcional: VITE_GOOGLE_CLIENT_ID (mismo client ID del web-dashboard) habilita
+# el botón "Continuar con Google" del login. Sin él, sólo email + contraseña.
 
 nvm use         # Node 22 (vía .nvmrc)
 npm install
@@ -107,6 +109,12 @@ Si el cambio es de UI, además:
 Este dashboard consume `avoqado-server` bajo el namespace **existente** `/api/v1/superadmin/*`, ya protegido por `authenticateTokenMiddleware` + `authorizeRole([StaffRole.SUPERADMIN])`. **No** existe un servicio separado y **no** se crea un namespace `v2` paralelo.
 
 Auth interno: cookies HTTP-only emitidas por `POST /api/v1/dashboard/auth/login`. axios con `withCredentials: true`. La UI nunca toca tokens.
+
+**Entrar con Google** (opcional — requiere `VITE_GOOGLE_CLIENT_ID`): el botón oficial de Google Identity Services devuelve un ID token en el navegador y lo mandamos a `POST /api/v1/dashboard/auth/google/one-tap`, que emite las mismas cookies. Sin client ID configurado, la sección entera del LoginPage no se renderiza.
+
+> **Por qué one-tap y no el flujo redirect** (`google/url` + `google/callback`): el `redirect_uri` está fijo en el backend a `FRONTEND_URL + '/auth/google/callback'`, o sea siempre al dashboard legacy — Google devolvería al operador allá, no a esta consola. El endpoint one-tap no tiene redirect, así que funciona desde cualquier origen autorizado sin tocar el server.
+>
+> **Requisito en Google Cloud Console:** el origen desde el que se sirve esta app tiene que estar en _Authorized JavaScript origins_ del OAuth client (el mismo del web-dashboard). `http://localhost` ya cubre el dev server (Google ignora el puerto en localhost); para producción hace falta `https://superadmin.avoqado.io` explícito. Sin eso, GIS no dibuja el botón y avisa en consola con `The given origin is not allowed for the given client ID`.
 
 ### Política de evolución (cómo NO romper al `avoqado-web-dashboard` que también consume estos endpoints)
 

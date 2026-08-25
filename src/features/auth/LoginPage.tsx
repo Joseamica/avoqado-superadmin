@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,6 +8,7 @@ import { Brandmark } from '@/shared/components/Brandmark'
 import { Button } from '@/shared/ui/Button'
 import { Field } from '@/shared/ui/Field'
 import { useAuth } from '@/features/auth/use-auth'
+import { useGoogleIdentity } from '@/features/auth/use-google-identity'
 import { readApiErrorMessage } from '@/shared/lib/api'
 import * as authService from '@/features/auth/api'
 import { hasSuperadminRole } from '@/features/auth/api'
@@ -21,11 +22,12 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { login, logout, isAuthenticated, isSuperadmin } = useAuth()
+  const { login, loginWithGoogle, logout, isAuthenticated, isSuperadmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
   const [submitting, setSubmitting] = useState(false)
+  const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [accessError, setAccessError] = useState<string | null>(null)
 
   const {
@@ -35,6 +37,65 @@ export function LoginPage() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
+  })
+
+  /**
+   * Puerta común a las dos formas de entrar (contraseña y Google).
+   *
+   * El cookie ya quedó seteado por el login. La SOURCE OF TRUTH del rol vive en
+   * `/dashboard/auth/status` (el backend devuelve `user.role` con el
+   * `highestRole` calculado). Le pegamos directo al servicio — no a través de
+   * `queryClient.fetchQuery` — para evitar la race contra el refetch del
+   * provider (esa race tiraba `CancelledError` y mostraba un toast de error
+   * aunque el login funcionara). Después actualizamos la cache para que
+   * ProtectedRoute lo lea fresco sin re-pegarle al server.
+   *
+   * Un login exitoso NO implica acceso: cualquier Staff de cualquier venue
+   * puede autenticarse contra este endpoint. El rol se verifica aquí y, si no
+   * es superadmin, cerramos la sesión en el acto — así no entra al
+   * ProtectedRoute y no vemos el flash de "acceso denegado".
+   */
+  const enterConsole = useCallback(async (): Promise<void> => {
+    const fresh = await authService.getAuthStatus()
+    queryClient.setQueryData(['auth', 'status'], fresh)
+
+    if (!hasSuperadminRole(fresh.user)) {
+      await logout()
+      setAccessError('Esta cuenta no tiene permisos de superadmin. Pide a ops que te eleve el rol.')
+      return
+    }
+
+    navigate('/dashboard', { replace: true })
+  }, [logout, navigate, queryClient])
+
+  const handleGoogleCredential = useCallback(
+    async (credential: string): Promise<void> => {
+      setGoogleSubmitting(true)
+      setAccessError(null)
+      try {
+        await loginWithGoogle(credential)
+        await enterConsole()
+      } catch (error) {
+        toast.error('No pudimos entrar con Google', {
+          description: readApiErrorMessage(
+            error,
+            'Esa cuenta de Google no está dada de alta en Avoqado.',
+          ),
+        })
+      } finally {
+        setGoogleSubmitting(false)
+      }
+    },
+    [enterConsole, loginWithGoogle],
+  )
+
+  const {
+    status: googleStatus,
+    containerRef: googleButtonRef,
+    retry: retryGoogle,
+  } = useGoogleIdentity({
+    onCredential: (credential) => void handleGoogleCredential(credential),
+    disabled: isAuthenticated,
   })
 
   if (isAuthenticated && isSuperadmin) {
@@ -48,26 +109,7 @@ export function LoginPage() {
     setAccessError(null)
     try {
       await login(values)
-
-      // El cookie ya quedó seteado por `login()`. La SOURCE OF TRUTH del rol
-      // vive en `/dashboard/auth/status` (el backend devuelve `user.role` con
-      // el `highestRole` calculado). Lo pegamos directo al servicio — no a
-      // través de `queryClient.fetchQuery` — para evitar la race contra el
-      // refetch del provider (esa race tiraba `CancelledError` y mostraba un
-      // toast de error aunque el login funcionara). Después actualizamos la
-      // cache para que ProtectedRoute lo lea fresco sin re-pegarle al server.
-      const fresh = await authService.getAuthStatus()
-      queryClient.setQueryData(['auth', 'status'], fresh)
-
-      if (!hasSuperadminRole(fresh.user)) {
-        await logout()
-        setAccessError(
-          'Esta cuenta no tiene permisos de superadmin. Pide a ops que te eleve el rol.',
-        )
-        return
-      }
-
-      navigate('/dashboard', { replace: true })
+      await enterConsole()
     } catch (error) {
       toast.error('No pudimos iniciar sesión', {
         description: readApiErrorMessage(error, 'Verifica tus credenciales.'),
@@ -76,6 +118,8 @@ export function LoginPage() {
       setSubmitting(false)
     }
   }
+
+  const busy = submitting || googleSubmitting
 
   return (
     <div className="grid min-h-screen grid-cols-1 bg-[var(--canvas)] lg:grid-cols-[1fr_520px]">
@@ -144,10 +188,71 @@ export function LoginPage() {
               error={errors.password?.message}
               {...register('password')}
             />
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={busy} className="w-full">
               {submitting ? 'Entrando…' : 'Entrar a la consola'}
             </Button>
           </form>
+
+          {/*
+            El botón de Google lo dibuja Google dentro de este contenedor (ver
+            `use-google-identity.ts`). Toda la sección desaparece si no hay
+            `VITE_GOOGLE_CLIENT_ID` configurado — sin client ID el botón no
+            puede funcionar, y un botón muerto es peor que ninguno.
+          */}
+          {googleStatus !== 'disabled' && (
+            <section aria-label="Acceso con Google" className="mt-7">
+              <div className="flex items-center gap-3">
+                <span className="h-px flex-1 bg-[var(--line)]" aria-hidden="true" />
+                <span className="label">o</span>
+                <span className="h-px flex-1 bg-[var(--line)]" aria-hidden="true" />
+              </div>
+
+              <div className="mt-5">
+                {/* Altura reservada: sin esto el layout salta cuando Google
+                    inyecta su iframe. */}
+                <div
+                  ref={googleButtonRef}
+                  aria-busy={googleSubmitting}
+                  className={`flex min-h-[40px] justify-center ${
+                    busy ? 'pointer-events-none opacity-60' : ''
+                  }`}
+                />
+
+                {googleStatus === 'loading' && (
+                  <p className="mt-2 text-center text-[12px] text-[var(--ink-faint)]">
+                    Cargando el acceso con Google…
+                  </p>
+                )}
+
+                {googleStatus === 'error' && (
+                  <div className="text-center">
+                    <p className="text-[12px] leading-snug text-[var(--ink-muted)]">
+                      No cargó el botón de Google. Suele ser un bloqueador de anuncios o la red.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="md"
+                      className="mt-2"
+                      onClick={retryGoogle}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                )}
+
+                {googleSubmitting && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="mt-2 text-center text-[12px] text-[var(--ink-faint)]"
+                  >
+                    Verificando tu cuenta de Google…
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           <p className="mt-8 text-[11px] text-[var(--ink-faint)]">
             ¿Problemas para entrar? Escribe a{' '}

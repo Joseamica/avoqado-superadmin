@@ -39,6 +39,7 @@ function buildAuth(partial: Partial<AuthContextValue> = {}): AuthContextValue {
     isSuperadmin: true,
     isLoading: false,
     login: vi.fn(),
+    loginWithGoogle: vi.fn(),
     logout: vi.fn(),
     refresh: vi.fn(),
     ...partial,
