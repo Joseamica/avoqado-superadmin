@@ -277,7 +277,7 @@ export interface WizardStep {
   message?: string
 }
 
-interface WizardResponse {
+export interface WizardResponse {
   venueId: string
   organizationId: string
   venueSlug?: string
