@@ -21,6 +21,7 @@ import {
   Terminal,
   Wallet,
   X,
+  Megaphone,
 } from 'lucide-react'
 import { Brandmark } from '@/shared/components/Brandmark'
 import { CommandPalette, CommandPaletteProvider } from '@/shared/components/CommandPalette'
@@ -57,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/earnings', label: 'Ganancias', icon: Wallet },
       { to: '/settlement-calendar', label: 'Depósitos', icon: CalendarDays },
       { to: '/tpv-orders', label: 'Pedidos TPV', icon: Package },
+      { to: '/announcements', label: 'Anuncios', icon: Megaphone },
       { to: '/activity-log', label: 'Activity log', icon: Activity },
       { to: '/system-logs', label: 'Logs del sistema', icon: ScrollText },
       { to: '/kyc', label: 'KYC', icon: ShieldCheck, disabled: true },
