@@ -8,8 +8,13 @@ import { AudienceFiltersEditor } from './AudienceFilters'
 import { BlocksEditor } from './BlocksEditor'
 import { AnnouncementPreview } from './AnnouncementPreview'
 import { useDebounced } from './useDebounced'
-import { useAudiencePreview, useCreateAnnouncement, usePublishAnnouncement } from './use-announcements'
-import type { AudienceFilters, ContentBlock } from './types'
+import {
+  useAudiencePreview,
+  useCreateAnnouncement,
+  usePublishAnnouncement,
+  useUpdateAnnouncement,
+} from './use-announcements'
+import type { Announcement, AudienceFilters, ContentBlock } from './types'
 
 const FILTROS_INICIALES: AudienceFilters = {
   audienceRoles: ['OWNER', 'ADMIN'],
@@ -18,15 +23,44 @@ const FILTROS_INICIALES: AudienceFilters = {
   targetVenueIds: [],
 }
 
-export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onClose: () => void }) {
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [actionLabel, setActionLabel] = useState('')
-  const [actionUrl, setActionUrl] = useState('')
-  const [showAsBanner, setShowAsBanner] = useState(true)
-  const [showAsModal, setShowAsModal] = useState(false)
-  const [filters, setFilters] = useState<AudienceFilters>(FILTROS_INICIALES)
-  const [bloques, setBloques] = useState<ContentBlock[]>([])
+/**
+ * El compositor. Sirve para crear y para EDITAR un borrador.
+ *
+ * 🔴 La página lo monta con `key={anuncio?.id ?? 'nuevo'}`, así que al pasar de un
+ * borrador a otro (o a uno nuevo) React lo re-monta y el estado nace limpio del anuncio
+ * correcto. Sincronizarlo con un `useEffect` es justo donde se cuelan los formularios
+ * que arrastran el texto del anterior.
+ *
+ * Sólo se puede editar en DRAFT o SCHEDULED: uno ya publicado vive en miles de buzones y
+ * cambiarle el texto aquí NO cambia lo que la gente ya recibió — el servidor lo rechaza.
+ */
+export function AnnouncementEditor({
+  abierto,
+  onClose,
+  anuncio,
+}: {
+  abierto: boolean
+  onClose: () => void
+  anuncio?: Announcement | null
+}) {
+  const editando = Boolean(anuncio)
+  const [title, setTitle] = useState(anuncio?.title ?? '')
+  const [body, setBody] = useState(anuncio?.body ?? '')
+  const [actionLabel, setActionLabel] = useState(anuncio?.actionLabel ?? '')
+  const [actionUrl, setActionUrl] = useState(anuncio?.actionUrl ?? '')
+  const [showAsBanner, setShowAsBanner] = useState(anuncio?.showAsBanner ?? true)
+  const [showAsModal, setShowAsModal] = useState(anuncio?.showAsModal ?? false)
+  const [filters, setFilters] = useState<AudienceFilters>(
+    anuncio
+      ? {
+          audienceRoles: anuncio.audienceRoles,
+          targetPlanTiers: anuncio.targetPlanTiers,
+          targetCategories: anuncio.targetCategories,
+          targetVenueIds: anuncio.targetVenueIds,
+        }
+      : FILTROS_INICIALES,
+  )
+  const [bloques, setBloques] = useState<ContentBlock[]>(anuncio?.contentBlocks ?? [])
 
   // Debounce: sin esto sería una consulta por tecla, y del otro lado recorre los
   // vínculos de todo el personal de la plataforma.
@@ -34,6 +68,7 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
   const preview = useAudiencePreview(filtrosDebounced, abierto && filtrosDebounced.audienceRoles.length > 0)
 
   const crear = useCreateAnnouncement()
+  const actualizar = useUpdateAnnouncement()
   const publicar = usePublishAnnouncement()
 
   const puedeGuardar = useMemo(
@@ -96,23 +131,26 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
 
   const guardar = async (publicarAhora: boolean) => {
     const limpios = limpiarBloques(bloques, title.trim())
-    const anuncio = await crear.mutateAsync({
+    const datos = {
       title: title.trim(),
       body: body.trim(),
-      priority: 'NORMAL',
+      priority: 'NORMAL' as const,
       actionLabel: actionLabel.trim() || undefined,
       actionUrl: actionUrl.trim() || undefined,
       contentBlocks: limpios.length > 0 ? limpios : undefined,
       showAsBanner,
       showAsModal,
       ...filters,
-    })
-    if (publicarAhora) await publicar.mutateAsync({ id: anuncio.id })
+    }
+    const guardado = anuncio
+      ? await actualizar.mutateAsync({ id: anuncio.id, input: datos })
+      : await crear.mutateAsync(datos)
+    if (publicarAhora) await publicar.mutateAsync({ id: guardado.id })
     limpiar()
     onClose()
   }
 
-  const trabajando = crear.isPending || publicar.isPending
+  const trabajando = crear.isPending || actualizar.isPending || publicar.isPending
   const nadieLoRecibe = preview.data?.venues === 0
 
   return (
@@ -123,7 +161,9 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
       <DrawerContent>
         <div className="flex items-start justify-between gap-3 border-b border-[var(--line-strong)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="text-[15px] font-medium tracking-[-0.005em] text-[var(--ink)]">Nuevo anuncio</h2>
+            <h2 className="text-[15px] font-medium tracking-[-0.005em] text-[var(--ink)]">
+              {editando ? 'Editar anuncio' : 'Nuevo anuncio'}
+            </h2>
             <p className="mt-0.5 text-[12px] text-[var(--ink-muted)]">
               Les llega al buzón del dashboard, Android e iOS.
             </p>
@@ -249,7 +289,7 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
             Cancelar
           </Button>
           <Button variant="secondary" onClick={() => guardar(false)} disabled={!puedeGuardar || trabajando}>
-            Guardar borrador
+            {editando ? 'Guardar cambios' : 'Guardar borrador'}
           </Button>
           <Button onClick={() => guardar(true)} disabled={!puedeGuardar || trabajando || nadieLoRecibe}>
             Publicar

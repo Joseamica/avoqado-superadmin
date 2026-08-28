@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/shared/ui/Badge'
 import { Plus } from 'lucide-react'
@@ -24,6 +24,21 @@ export function AnnouncementsPage() {
   const archivar = useArchiveAnnouncement()
   const [editorAbierto, setEditorAbierto] = useState(false)
   const [detalle, setDetalle] = useState<Announcement | null>(null)
+  /** Cuál se está editando. Nulo = uno nuevo. */
+  const [editando, setEditando] = useState<Announcement | null>(null)
+
+  const abrirNuevo = () => {
+    setEditando(null)
+    setEditorAbierto(true)
+  }
+  const abrirEdicion = useCallback((a: Announcement) => {
+    setEditando(a)
+    setEditorAbierto(true)
+  }, [])
+  const cerrarEditor = () => {
+    setEditorAbierto(false)
+    setEditando(null)
+  }
 
   const columns = useMemo<ColumnDef<Announcement, unknown>[]>(
     () => [
@@ -99,14 +114,21 @@ export function AnnouncementsPage() {
           return (
             <div className="flex items-center justify-end gap-1.5">
               {(a.status === 'DRAFT' || a.status === 'SCHEDULED') && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => publicar.mutate({ id: a.id })}
-                  disabled={publicar.isPending}
-                >
-                  Publicar
-                </Button>
+                <>
+                  {/* Sólo en borrador o programado: el servidor rechaza editar uno ya
+                      repartido, así que ofrecerlo sería un botón que falla al tocarlo. */}
+                  <Button size="sm" variant="ghost" onClick={() => abrirEdicion(a)}>
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => publicar.mutate({ id: a.id })}
+                    disabled={publicar.isPending}
+                  >
+                    Publicar
+                  </Button>
+                </>
               )}
               {a.status !== 'ARCHIVED' && (
                 <Button
@@ -123,7 +145,7 @@ export function AnnouncementsPage() {
         },
       },
     ],
-    [publicar, archivar],
+    [publicar, archivar, abrirEdicion],
   )
 
   return (
@@ -145,7 +167,7 @@ export function AnnouncementsPage() {
             </span>
           </p>
         </div>
-        <Button size="lg" className="shrink-0" onClick={() => setEditorAbierto(true)}>
+        <Button size="lg" className="shrink-0" onClick={abrirNuevo}>
           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
           Nuevo anuncio
         </Button>
@@ -171,7 +193,14 @@ export function AnnouncementsPage() {
         caption="Anuncios de plataforma"
       />
 
-      <AnnouncementEditor abierto={editorAbierto} onClose={() => setEditorAbierto(false)} />
+      {/* 🔴 El `key` es lo que hace que el formulario nazca limpio del anuncio correcto al
+          pasar de uno a otro. Sin él, React reusa el estado y arrastra el texto anterior. */}
+      <AnnouncementEditor
+        key={editando?.id ?? 'nuevo'}
+        abierto={editorAbierto}
+        onClose={cerrarEditor}
+        anuncio={editando}
+      />
       <AnnouncementDetail anuncio={detalle} onClose={() => setDetalle(null)} />
     </div>
   )

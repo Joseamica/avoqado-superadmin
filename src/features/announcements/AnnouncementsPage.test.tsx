@@ -69,6 +69,70 @@ describe('AnnouncementsPage', () => {
     expect(screen.getByRole('button', { name: 'Archivar' })).toBeInTheDocument()
   })
 
+  /**
+   * El servidor tenía `PUT /:id` desde el primer día y el compositor no lo usaba: un
+   * borrador con una errata no se podía corregir, había que hacer otro. Aquí se prueba
+   * el camino entero — abrir con el contenido cargado y guardar.
+   */
+  it('un borrador se puede EDITAR, y el formulario abre con su contenido', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Ya está la terminal Sunmi D3')
+    await user.click(screen.getByRole('button', { name: 'Editar' }))
+
+    expect(await screen.findByText('Editar anuncio')).toBeInTheDocument()
+    expect(screen.getByLabelText('Título')).toHaveValue('Ya está la terminal Sunmi D3')
+    expect(screen.getByLabelText('Texto del aviso')).toHaveValue('Dos pantallas.')
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
+  })
+
+  /**
+   * 🔴 Editar manda un PUT sobre el MISMO anuncio, no crea otro. Sin esta prueba, un
+   * error de cableado dejaría borradores duplicados en la lista y nadie lo notaría
+   * hasta tener seis versiones del mismo aviso.
+   */
+  it('guardar cambios manda PUT al mismo anuncio, no crea otro', async () => {
+    const user = userEvent.setup()
+    let metodo: string | null = null
+    let idTocado: string | null = null
+    server.use(
+      http.put(`${baseURL}/superadmin/announcements/:id`, ({ params, request }) => {
+        metodo = request.method
+        idTocado = params.id as string
+        return HttpResponse.json({ success: true, data: { announcement: { ...anuncio, title: 'Corregido' } } })
+      }),
+      http.post(`${baseURL}/superadmin/announcements`, () => {
+        throw new Error('no debe crear uno nuevo al editar')
+      }),
+    )
+
+    renderPage()
+    await screen.findByText('Ya está la terminal Sunmi D3')
+    await user.click(screen.getByRole('button', { name: 'Editar' }))
+    await screen.findByText('Editar anuncio')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => {
+      expect(metodo).toBe('PUT')
+      expect(idTocado).toBe('a1')
+    })
+  })
+
+  /** Un anuncio ya repartido no se edita: el servidor lo rechaza, así que no se ofrece. */
+  it('un anuncio PUBLICADO no ofrece Editar', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/announcements`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { announcements: [{ ...anuncio, status: 'PUBLISHED', publishedAt: '2026-08-27T11:00:00.000Z' }] },
+        }),
+      ),
+    )
+    renderPage()
+    await screen.findByText('Ya está la terminal Sunmi D3')
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+  })
+
   // 🔴 El conteo en vivo: el numero que ve el superadmin ANTES de publicar sale de la
   // misma consulta que hara el reparto. Si no coincidiera, publicaria a ciegas.
   it('el editor enseña a cuántos negocios y personas les llega', async () => {
