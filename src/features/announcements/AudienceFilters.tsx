@@ -29,13 +29,36 @@ function Chips<T extends string>({
   opciones,
   seleccion,
   onToggle,
+  onTodos,
+  /**
+   * Qué significa "Todos" en este grupo:
+   *  - `vacio`  → limpiar la selección, porque vacío YA quiere decir todos (plan, giro).
+   *  - `llenar` → encender todas las opciones, porque vacío no es válido (roles).
+   */
+  modoTodos,
 }: {
   opciones: Array<{ value: T; label: string }>
   seleccion: T[]
   onToggle: (v: T) => void
+  onTodos: () => void
+  modoTodos: 'vacio' | 'llenar'
 }) {
+  const todosActivo = modoTodos === 'vacio' ? seleccion.length === 0 : seleccion.length === opciones.length
+
   return (
     <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={onTodos}
+        aria-pressed={todosActivo}
+        className={
+          todosActivo
+            ? 'inline-flex h-8 items-center rounded-full border border-[var(--line-strong)] bg-[var(--surface-primary)] px-3 text-[12px] font-medium text-[var(--on-surface-primary)] transition-colors'
+            : 'inline-flex h-8 items-center rounded-full border border-dashed border-[var(--line-strong)] px-3 text-[12px] text-[var(--ink-muted)] transition-colors hover:border-[var(--ink-faint)] hover:text-[var(--ink)]'
+        }
+      >
+        Todos
+      </button>
       {opciones.map(o => {
         const activo = seleccion.includes(o.value)
         return (
@@ -93,7 +116,15 @@ export function AudienceFiltersEditor({
     <div className="space-y-4">
       <div>
         <div className="mb-1.5 text-[12px] text-[var(--ink-muted)]">Quién lo ve dentro del negocio</div>
-        <Chips opciones={ROLES} seleccion={filters.audienceRoles} onToggle={v => toggle('audienceRoles', v)} />
+        <Chips
+          opciones={ROLES}
+          seleccion={filters.audienceRoles}
+          onToggle={v => toggle('audienceRoles', v)}
+          // En roles NO se puede dejar vacío (el servidor exige al menos uno), así que
+          // "Todos" enciende los cinco.
+          modoTodos="llenar"
+          onTodos={() => onChange({ ...filters, audienceRoles: ROLES.map(r => r.value) })}
+        />
         {filters.audienceRoles.length === 0 && (
           <p className="mt-1.5 text-[12px] text-[var(--danger)]">Elige al menos un rol.</p>
         )}
@@ -101,12 +132,25 @@ export function AudienceFiltersEditor({
 
       <div>
         <div className="mb-1.5 text-[12px] text-[var(--ink-muted)]">Plan · vacío = todos</div>
-        <Chips opciones={PLANES} seleccion={filters.targetPlanTiers} onToggle={v => toggle('targetPlanTiers', v)} />
+        <Chips
+          opciones={PLANES}
+          seleccion={filters.targetPlanTiers}
+          onToggle={v => toggle('targetPlanTiers', v)}
+          // Vacío YA significa todos: "Todos" limpia en vez de encender los cuatro.
+          modoTodos="vacio"
+          onTodos={() => onChange({ ...filters, targetPlanTiers: [] })}
+        />
       </div>
 
       <div>
         <div className="mb-1.5 text-[12px] text-[var(--ink-muted)]">Giro · vacío = todos</div>
-        <Chips opciones={GIROS} seleccion={filters.targetCategories} onToggle={v => toggle('targetCategories', v)} />
+        <Chips
+          opciones={GIROS}
+          seleccion={filters.targetCategories}
+          onToggle={v => toggle('targetCategories', v)}
+          modoTodos="vacio"
+          onTodos={() => onChange({ ...filters, targetCategories: [] })}
+        />
       </div>
 
       <div className="rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas-raised)] px-3.5 py-3">

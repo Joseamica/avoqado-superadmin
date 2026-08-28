@@ -38,9 +38,20 @@ export function AnnouncementPreview({
           if (b.type === 'image')
             return (
               <div key={i}>
-                <div className="flex h-28 items-center justify-center rounded-[8px] border border-dashed border-[var(--line-strong)] text-[12px] text-[var(--ink-faint)]">
-                  {b.url ? b.alt || 'foto' : 'foto del aparato'}
-                </div>
+                {b.url ? (
+                  // `object-contain` y sin alto fijo: la foto se ve COMPLETA. Con
+                  // `object-cover` y altura fija se recortaba, y la vista previa mentía
+                  // sobre lo que el negocio iba a recibir.
+                  <img
+                    src={b.url}
+                    alt={b.alt || 'Vista previa'}
+                    className="max-h-48 w-full rounded-[8px] border border-[var(--line-strong)] object-contain"
+                  />
+                ) : (
+                  <div className="flex h-28 items-center justify-center rounded-[8px] border border-dashed border-[var(--line-strong)] text-[12px] text-[var(--ink-faint)]">
+                    foto del aparato
+                  </div>
+                )}
                 {b.caption && <div className="mt-1 text-[12px] text-[var(--ink-faint)]">{b.caption}</div>}
               </div>
             )
@@ -59,6 +70,15 @@ export function AnnouncementPreview({
             return (
               <div key={i} className="rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 py-2 text-[12px] text-[var(--ink-muted)]">
                 {b.text}
+              </div>
+            )
+          if (b.type === 'button')
+            return (
+              <div
+                key={i}
+                className="inline-flex rounded-[6px] bg-[var(--surface-primary)] px-3 py-1.5 text-[13px] text-[var(--on-surface-primary)]"
+              >
+                {b.label || 'Botón'}
               </div>
             )
           if (b.type === 'divider') return <div key={i} className="h-px bg-[var(--line-strong)]" />

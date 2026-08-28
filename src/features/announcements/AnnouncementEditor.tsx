@@ -22,6 +22,7 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [actionLabel, setActionLabel] = useState('')
+  const [actionUrl, setActionUrl] = useState('')
   const [showAsBanner, setShowAsBanner] = useState(true)
   const [showAsModal, setShowAsModal] = useState(false)
   const [filters, setFilters] = useState<AudienceFilters>(FILTROS_INICIALES)
@@ -36,26 +37,72 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
   const publicar = usePublishAnnouncement()
 
   const puedeGuardar = useMemo(
-    () => title.trim().length > 0 && body.trim().length > 0 && filters.audienceRoles.length > 0,
-    [title, body, filters.audienceRoles.length],
+    () =>
+      title.trim().length > 0 &&
+      body.trim().length > 0 &&
+      filters.audienceRoles.length > 0 &&
+      // Un botón sin destino es un botón que no hace nada: mejor impedirlo aquí que
+      // dejar al negocio tocándolo sin que pase nada.
+      (!actionLabel.trim() || actionUrl.trim().length > 0),
+    [title, body, filters.audienceRoles.length, actionLabel, actionUrl],
   )
 
   const limpiar = () => {
     setTitle('')
     setBody('')
     setActionLabel('')
+    setActionUrl('')
     setBloques([])
     setShowAsModal(false)
     setFilters(FILTROS_INICIALES)
   }
 
+  /**
+   * Deja fuera los bloques que quedaron a medias y completa lo que se puede deducir.
+   *
+   * 🔴 Existe porque el servidor rechazaba el anuncio ENTERO si alguien agregaba un
+   * bloque y no lo llenaba — algo tan fácil como tocar "+ Subtítulo" y arrepentirse. Un
+   * bloque vacío no aporta nada: se descarta y ya. Y la descripción de una foto, si falta,
+   * se rellena con el título del anuncio en vez de bloquear la publicación.
+   */
+  const limpiarBloques = (lista: ContentBlock[], titulo: string): ContentBlock[] =>
+    lista.flatMap<ContentBlock>(b => {
+      switch (b.type) {
+        case 'heading':
+        case 'paragraph':
+        case 'callout':
+          return b.text.trim() ? [{ ...b, text: b.text.trim() }] : []
+        case 'bullets': {
+          const items = b.items.map(i => i.trim()).filter(Boolean)
+          return items.length ? [{ ...b, items }] : []
+        }
+        case 'image':
+          if (!b.url.trim()) return []
+          return [{ ...b, url: b.url.trim(), alt: b.alt.trim() || titulo, caption: b.caption?.trim() || undefined }]
+        case 'gallery': {
+          const images = b.images.filter(i => i.url.trim()).map(i => ({ ...i, alt: i.alt.trim() || titulo }))
+          return images.length ? [{ ...b, images }] : []
+        }
+        case 'specs': {
+          const rows = b.rows.filter(r => r.label.trim()).map(r => ({ label: r.label.trim(), value: r.value.trim() }))
+          return rows.length ? [{ ...b, rows }] : []
+        }
+        case 'button':
+          return b.label.trim() && b.url.trim() ? [b] : []
+        default:
+          return [b]
+      }
+    })
+
   const guardar = async (publicarAhora: boolean) => {
+    const limpios = limpiarBloques(bloques, title.trim())
     const anuncio = await crear.mutateAsync({
       title: title.trim(),
       body: body.trim(),
       priority: 'NORMAL',
       actionLabel: actionLabel.trim() || undefined,
-      contentBlocks: bloques.length > 0 ? bloques : undefined,
+      actionUrl: actionUrl.trim() || undefined,
+      contentBlocks: limpios.length > 0 ? limpios : undefined,
       showAsBanner,
       showAsModal,
       ...filters,
@@ -113,14 +160,30 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
                 />
               </div>
 
-              <Field
-                label="Texto del botón"
-                name="cta"
-                value={actionLabel}
-                placeholder="Quiero una"
-                hint="Opcional. Si lo dejas vacío, el anuncio no lleva botón."
-                onChange={e => setActionLabel(e.target.value)}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Texto del botón"
+                  name="cta"
+                  value={actionLabel}
+                  placeholder="Quiero una"
+                  hint="Opcional. Sin texto, el anuncio no lleva botón."
+                  onChange={e => setActionLabel(e.target.value)}
+                />
+                <Field
+                  label="Enlace del botón"
+                  name="ctaUrl"
+                  type="url"
+                  value={actionUrl}
+                  placeholder="https://avoqado.io/terminales"
+                  hint="A dónde lleva. Se abre en una pestaña nueva."
+                  error={
+                    actionLabel.trim() && !actionUrl.trim()
+                      ? 'Pon el enlace o el botón no hará nada'
+                      : undefined
+                  }
+                  onChange={e => setActionUrl(e.target.value)}
+                />
+              </div>
 
               <div className="space-y-2.5">
                 <label className="flex items-start gap-2.5 text-[13px] text-[var(--ink-muted)]">
@@ -171,7 +234,12 @@ export function AnnouncementEditor({ abierto, onClose }: { abierto: boolean; onC
 
             <section className="space-y-3 border-t border-[var(--line-strong)] pt-5">
               <h3 className="text-[13px] font-medium text-[var(--ink)]">Así lo van a ver</h3>
-              <AnnouncementPreview title={title} body={body} bloques={bloques} actionLabel={actionLabel} />
+              <AnnouncementPreview
+                title={title}
+                body={body}
+                bloques={bloques}
+                actionLabel={actionUrl.trim() ? actionLabel : ''}
+              />
             </section>
           </div>
         </div>

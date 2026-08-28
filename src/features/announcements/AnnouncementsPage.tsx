@@ -8,6 +8,7 @@ import { QueryError } from '@/shared/components/QueryError'
 import { formatDate } from '@/shared/lib/datetime'
 import { useAnnouncements, useArchiveAnnouncement, usePublishAnnouncement } from './use-announcements'
 import { AnnouncementEditor } from './AnnouncementEditor'
+import { AnnouncementDetail } from './AnnouncementDetail'
 import type { Announcement, AnnouncementStatus } from './types'
 
 const ESTADO: Record<AnnouncementStatus, { label: string; tone: 'muted' | 'success' | 'warn' | 'info' }> = {
@@ -22,6 +23,7 @@ export function AnnouncementsPage() {
   const publicar = usePublishAnnouncement()
   const archivar = useArchiveAnnouncement()
   const [editorAbierto, setEditorAbierto] = useState(false)
+  const [detalle, setDetalle] = useState<Announcement | null>(null)
 
   const columns = useMemo<ColumnDef<Announcement, unknown>[]>(
     () => [
@@ -29,32 +31,55 @@ export function AnnouncementsPage() {
         accessorKey: 'title',
         header: 'Anuncio',
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <div className="truncate text-[13px] text-[var(--ink)]">{row.original.title}</div>
+          <button
+            type="button"
+            onClick={() => setDetalle(row.original)}
+            className="min-w-0 max-w-full text-left transition-colors hover:text-[var(--ink)]"
+          >
+            <div className="truncate text-[13px] text-[var(--ink)] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[var(--ink-faint)]">
+              {row.original.title}
+            </div>
             <div className="truncate text-[12px] text-[var(--ink-muted)]">{row.original.body}</div>
-          </div>
+          </button>
         ),
       },
       {
         accessorKey: 'status',
         header: 'Estado',
         cell: ({ row }) => {
-          const e = ESTADO[row.original.status]
-          return <Badge tone={e.tone}>{e.label}</Badge>
+          const a = row.original
+          const e = ESTADO[a.status]
+          return (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge tone={e.tone}>{e.label}</Badge>
+              {/* Dónde se ve, además de la campana. Sin esto no había forma de saber de un
+                  vistazo cuál interrumpe — el founder publicó uno esperando que saliera y
+                  no había marcado la casilla. */}
+              {a.showAsModal && <Badge tone="accent">Interrumpe</Badge>}
+              {a.showAsBanner && <Badge tone="muted">Banner</Badge>}
+            </div>
+          )
         },
       },
       {
-        accessorKey: 'deliveredCount',
+        accessorKey: 'reachedVenues',
         header: () => <span className="block text-right">Alcance</span>,
-        cell: ({ row }) => (
-          <div className="tabular text-right text-[13px]">
-            {row.original.deliveredAt ? (
-              <span className="text-[var(--ink)]">{row.original.deliveredCount}</span>
-            ) : (
-              <span className="text-[var(--ink-faint)]">—</span>
-            )}
-          </div>
-        ),
+        // 🔴 Dos números, no uno: `deliveredCount` cuenta entregas (persona × sucursal) y
+        // eso exagera — alguien dueño de 12 negocios generaba 12 él solo.
+        cell: ({ row }) => {
+          const a = row.original
+          if (!a.deliveredAt) return <div className="text-right text-[13px] text-[var(--ink-faint)]">—</div>
+          return (
+            <div className="text-right">
+              <div className="tabular text-[13px] text-[var(--ink)]">
+                {a.reachedVenues ?? 0} {a.reachedVenues === 1 ? 'negocio' : 'negocios'}
+              </div>
+              <div className="tabular text-[12px] text-[var(--ink-muted)]">
+                {a.reachedPeople ?? 0} {a.reachedPeople === 1 ? 'persona' : 'personas'}
+              </div>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'publishedAt',
@@ -147,6 +172,7 @@ export function AnnouncementsPage() {
       />
 
       <AnnouncementEditor abierto={editorAbierto} onClose={() => setEditorAbierto(false)} />
+      <AnnouncementDetail anuncio={detalle} onClose={() => setDetalle(null)} />
     </div>
   )
 }

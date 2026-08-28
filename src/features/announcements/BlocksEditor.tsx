@@ -1,4 +1,8 @@
+import { useState } from 'react'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { inspectApiError } from '@/shared/lib/api-error'
+import { uploadAnnouncementImage } from './api'
 import { IconButton } from '@/shared/ui/IconButton'
 import type { ContentBlock } from './types'
 
@@ -9,6 +13,7 @@ const NUEVOS: Array<{ label: string; make: () => ContentBlock }> = [
   { label: 'Foto', make: () => ({ type: 'image', url: '', alt: '' }) },
   { label: 'Ficha técnica', make: () => ({ type: 'specs', rows: [{ label: '', value: '' }] }) },
   { label: 'Recuadro', make: () => ({ type: 'callout', tone: 'info', text: '' }) },
+  { label: 'Botón', make: () => ({ type: 'button', label: '', url: '' }) },
   { label: 'Separador', make: () => ({ type: 'divider' }) },
 ]
 
@@ -33,6 +38,7 @@ export function BlocksEditor({
   bloques: ContentBlock[]
   onChange: (b: ContentBlock[]) => void
 }) {
+  const [subiendo, setSubiendo] = useState<number | null>(null)
   const reemplazar = (i: number, b: ContentBlock) => onChange(bloques.map((x, j) => (j === i ? b : x)))
   const quitar = (i: number) => onChange(bloques.filter((_, j) => j !== i))
   const mover = (i: number, delta: number) => {
@@ -91,7 +97,37 @@ export function BlocksEditor({
 
           {b.type === 'image' && (
             <div className="space-y-1.5">
-              <input className={input} value={b.url} placeholder="URL de la foto" onChange={e => reemplazar(i, { ...b, url: e.target.value })} />
+              {b.url ? (
+                <img src={b.url} alt="" className="h-28 w-full rounded-[8px] border border-[var(--line-strong)] object-contain" />
+              ) : null}
+              <div className="flex items-center gap-2">
+                <label className="inline-flex h-8 cursor-pointer items-center rounded-[6px] border border-[var(--line-strong)] px-3 text-[12px] text-[var(--ink-muted)] transition-colors hover:border-[var(--ink-faint)] hover:text-[var(--ink)]">
+                  {subiendo === i ? 'Subiendo…' : 'Subir foto'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    disabled={subiendo !== null}
+                    onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setSubiendo(i)
+                      try {
+                        const url = await uploadAnnouncementImage(file)
+                        reemplazar(i, { ...b, url })
+                      } catch (err) {
+                        const info = inspectApiError(err, 'subir la foto')
+                        toast.error(info.title, { description: info.description })
+                      } finally {
+                        setSubiendo(null)
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                </label>
+                <span className="text-[12px] text-[var(--ink-faint)]">PNG, JPG o WEBP · hasta 8 MB</span>
+              </div>
+              <input className={input} value={b.url} placeholder="…o pega la URL de la foto" onChange={e => reemplazar(i, { ...b, url: e.target.value })} />
               <input className={input} value={b.alt} placeholder="Descripción de la foto (para quien no la ve)" onChange={e => reemplazar(i, { ...b, alt: e.target.value })} />
               <input className={input} value={b.caption ?? ''} placeholder="Pie de foto (opcional)" onChange={e => reemplazar(i, { ...b, caption: e.target.value })} />
             </div>
@@ -108,6 +144,29 @@ export function BlocksEditor({
               <button type="button" className="inline-flex h-8 items-center px-1 text-[12px] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]" onClick={() => reemplazar(i, { ...b, rows: [...b.rows, { label: '', value: '' }] })}>
                 + otra fila
               </button>
+            </div>
+          )}
+
+          {b.type === 'button' && (
+            <div className="space-y-1.5">
+              <input
+                className={input}
+                value={b.label}
+                placeholder="Texto del botón: Quiero una"
+                onChange={e => reemplazar(i, { ...b, label: e.target.value })}
+              />
+              <input
+                className={input}
+                type="url"
+                value={b.url}
+                placeholder="https://avoqado.io/terminales"
+                onChange={e => reemplazar(i, { ...b, url: e.target.value })}
+              />
+              {b.label.trim() && !b.url.trim() && (
+                <p className="text-[12px] text-[var(--danger)]">
+                  Pon el enlace o este botón no hará nada.
+                </p>
+              )}
             </div>
           )}
 

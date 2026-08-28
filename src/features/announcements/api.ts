@@ -70,3 +70,18 @@ export async function fetchCapabilities(): Promise<{ aiCopy: boolean }> {
   const { data } = await api.get<SuperadminEnvelope<{ aiCopy: boolean }>>('/superadmin/announcements/capabilities')
   return data.data
 }
+
+/**
+ * Sube una foto para un bloque del anuncio y devuelve su URL pública.
+ *
+ * El servidor revisa los BYTES, no el tipo que declara el navegador — un archivo con
+ * extensión de imagen que no lo sea se rechaza allá, no aquí.
+ */
+export async function uploadAnnouncementImage(file: File): Promise<string> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post<SuperadminEnvelope<{ url: string }>>('/superadmin/announcements/images', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data.url
+}

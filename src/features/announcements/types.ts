@@ -59,6 +59,10 @@ export interface Announcement extends AudienceFilters {
   scheduledFor?: string | null
   expiresAt?: string | null
   deliveredCount: number
+  /** Negocios distintos alcanzados. NO es lo mismo que entregas. */
+  reachedVenues?: number
+  /** Personas distintas alcanzadas. Una persona con 12 sucursales cuenta UNA vez. */
+  reachedPeople?: number
   deliveredAt?: string | null
   createdBy: string
   createdByName: string
@@ -90,7 +94,10 @@ export interface AudiencePreview {
  * no significa que alguien haya abierto el anuncio.
  */
 export interface AnnouncementMetrics {
-  reached: number
+  /** Negocios distintos alcanzados. NO son entregas. */
+  reachedVenues: number
+  /** Personas distintas. Alguien con 12 sucursales cuenta UNA vez. */
+  reachedPeople: number
   delivered: number
   read: number
   opened: number
