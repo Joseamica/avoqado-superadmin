@@ -2,8 +2,8 @@
  * API client del feature Terminals.
  *
  * Namespaces que usamos:
- *   - Listado / CRUD / activación: `/api/v1/dashboard/superadmin/terminals*`
- *     (newer namespace — response shape `{ data, count }`).
+ *   - Listado / CRUD / activación: `/api/v1/superadmin/terminals*`
+ *     (namespace canónico — response shape `{ data, count }`).
  *   - Comandos genéricos (RESTART, CLEAR_CACHE, etc.): `/api/v1/dashboard/tpv/:id/command`
  *     (sin wrapper, devuelve objeto directo). Es el endpoint que el dashboard
  *     legacy y el mobile dashboard usan — battle-tested.
@@ -11,6 +11,8 @@
 
 import { api } from '@/shared/lib/api'
 import type { Terminal, TerminalStatus, TerminalType, TpvCommand } from './types'
+
+const SUPERADMIN_TERMINALS_PATH = '/superadmin/terminals'
 
 /* --- Listado y detalle --- */
 
@@ -87,7 +89,7 @@ export interface FetchTerminalsParams {
 }
 
 export async function fetchTerminals(params: FetchTerminalsParams = {}): Promise<Terminal[]> {
-  const { data } = await api.get<TerminalsListResponse>('/dashboard/superadmin/terminals', {
+  const { data } = await api.get<TerminalsListResponse>(SUPERADMIN_TERMINALS_PATH, {
     params,
   })
   if (!Array.isArray(data?.data)) return []
@@ -97,7 +99,7 @@ export async function fetchTerminals(params: FetchTerminalsParams = {}): Promise
 export async function fetchTerminalDetail(terminalId: string): Promise<Terminal | null> {
   try {
     const { data } = await api.get<{ data: TerminalRawResponse }>(
-      `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}`,
+      `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}`,
     )
     if (!data?.data) return null
     return mapTerminal(data.data)
@@ -128,7 +130,7 @@ export async function updateTerminal(
   payload: UpdateTerminalPayload,
 ): Promise<Terminal> {
   const { data } = await api.patch<{ data: TerminalRawResponse }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}`,
     payload,
   )
   if (!data?.data) throw new Error('Server returned empty response for updateTerminal')
@@ -144,7 +146,7 @@ export async function generateActivationCode(
   terminalId: string,
 ): Promise<{ code: string; expiresAt: string }> {
   const { data } = await api.post<{ data: { code: string; expiresAt: string } }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/generate-activation-code`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/generate-activation-code`,
   )
   if (!data?.data) throw new Error('Server returned empty response for generateActivationCode')
   return data.data
@@ -157,9 +159,7 @@ export async function generateActivationCode(
  * pero todavía no se hizo el bootstrap.
  */
 export async function remoteActivate(terminalId: string): Promise<void> {
-  await api.post(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/remote-activate`,
-  )
+  await api.post(`${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/remote-activate`)
 }
 
 /* --- Migración de terminal a otro venue --- */
@@ -187,7 +187,7 @@ export async function migratePreflight(
   toVenueId: string,
 ): Promise<MigratePreflightResult> {
   const { data } = await api.post<{ data: MigratePreflightResult }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-preflight`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-preflight`,
     { toVenueId },
   )
   if (!data?.data) throw new Error('Server returned empty response for migratePreflight')
@@ -213,7 +213,7 @@ export async function migrateExecute(
   assignedMerchantIds?: string[],
 ): Promise<MigrateExecuteResult> {
   const { data } = await api.post<{ data: MigrateExecuteResult }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-execute`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-execute`,
     { toVenueId, assignedMerchantIds },
   )
   if (!data?.data) throw new Error('Server returned empty response for migrateExecute')
@@ -239,7 +239,7 @@ export async function migrateStatus(
   commandId: string,
 ): Promise<MigrateStatusResult> {
   const { data } = await api.get<{ data: MigrateStatusResult }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-status`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-status`,
     { params: { commandId } },
   )
   if (!data?.data) throw new Error('Server returned empty response for migrateStatus')
@@ -258,7 +258,7 @@ export interface MigrateCancelResult {
  */
 export async function migrateCancel(terminalId: string): Promise<MigrateCancelResult> {
   const { data } = await api.post<{ data: MigrateCancelResult }>(
-    `/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}/migrate-cancel`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-cancel`,
   )
   if (!data?.data) throw new Error('Server returned empty response for migrateCancel')
   return data.data
@@ -378,7 +378,7 @@ export async function sendCommand(
 }
 
 export async function deleteTerminal(terminalId: string): Promise<void> {
-  await api.delete(`/dashboard/superadmin/terminals/${encodeURIComponent(terminalId)}`)
+  await api.delete(`${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}`)
 }
 
 /* --- Alta de terminal --- */
@@ -407,10 +407,7 @@ interface CreateTerminalResponse {
 export async function createTerminal(
   payload: CreateTerminalPayload,
 ): Promise<Terminal & { activationCode: string | null; activationCodeExpiry: string | null }> {
-  const { data } = await api.post<CreateTerminalResponse>(
-    '/dashboard/superadmin/terminals',
-    payload,
-  )
+  const { data } = await api.post<CreateTerminalResponse>(SUPERADMIN_TERMINALS_PATH, payload)
   if (!data?.data) throw new Error('Server returned empty response for createTerminal')
   return {
     ...mapTerminal(data.data),

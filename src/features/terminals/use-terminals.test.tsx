@@ -59,7 +59,7 @@ afterAll(() => server.close())
 describe('useTerminals', () => {
   it('devuelve la lista de terminals mapeada', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({ data: [rawTerminal], count: 1 }),
       ),
     )
@@ -80,7 +80,7 @@ describe('useTerminalDetail', () => {
 
   it('fetches el detalle cuando hay terminalId', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/t1`, () =>
+      http.get(`${baseURL}/superadmin/terminals/t1`, () =>
         HttpResponse.json({ data: rawTerminal }),
       ),
     )
@@ -110,7 +110,7 @@ describe('useTerminalCommand', () => {
 describe('useUpdateTerminal', () => {
   it('actualiza el terminal y resuelve con la response mapeada', async () => {
     server.use(
-      http.patch(`${baseURL}/dashboard/superadmin/terminals/t1`, () =>
+      http.patch(`${baseURL}/superadmin/terminals/t1`, () =>
         HttpResponse.json({ data: { ...rawTerminal, name: 'TPV Cambiado' } }),
       ),
     )
@@ -128,7 +128,7 @@ describe('useUpdateTerminal', () => {
 describe('useGenerateActivationCode', () => {
   it('genera código y resuelve', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/generate-activation-code`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/generate-activation-code`, () =>
         HttpResponse.json({ data: { code: 'ABC123', expiresAt: '2026-06-01T00:00:00.000Z' } }),
       ),
     )
@@ -144,7 +144,7 @@ describe('useRemoteActivate', () => {
   it('dispara la activación remota', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/remote-activate`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/remote-activate`, () => {
         called = true
         return HttpResponse.json({})
       }),
@@ -160,9 +160,7 @@ describe('useRemoteActivate', () => {
 describe('useCreateTerminal', () => {
   it('crea un terminal y resuelve con la entidad nueva', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals`, () =>
-        HttpResponse.json({ data: rawTerminal }),
-      ),
+      http.post(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ data: rawTerminal })),
     )
 
     const { result } = renderHook(() => useCreateTerminal(), { wrapper: AllProviders })
@@ -181,7 +179,7 @@ describe('useDeleteTerminal', () => {
   it('borra un terminal', async () => {
     let called = false
     server.use(
-      http.delete(`${baseURL}/dashboard/superadmin/terminals/t1`, () => {
+      http.delete(`${baseURL}/superadmin/terminals/t1`, () => {
         called = true
         return HttpResponse.json({})
       }),
@@ -321,21 +319,18 @@ describe('useMigratePreflight', () => {
   it('valida el destino y resuelve con el resultado', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.post(
-        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`,
-        async ({ request }) => {
-          receivedBody = await request.json()
-          return HttpResponse.json({
-            data: {
-              canProceed: true,
-              blockers: [],
-              warnings: [{ code: 'OFFLINE', message: 'La terminal está offline' }],
-              fromVenueId: 'v1',
-              toVenueId: 'v2',
-            },
-          })
-        },
-      ),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json({
+          data: {
+            canProceed: true,
+            blockers: [],
+            warnings: [{ code: 'OFFLINE', message: 'La terminal está offline' }],
+            fromVenueId: 'v1',
+            toVenueId: 'v2',
+          },
+        })
+      }),
     )
 
     const { result } = renderHook(() => useMigratePreflight(), { wrapper: AllProviders })
@@ -351,20 +346,17 @@ describe('useMigrateExecute', () => {
   it('arranca la migración y resuelve con el commandId', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.post(
-        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
-        async ({ request }) => {
-          receivedBody = await request.json()
-          return HttpResponse.json({
-            data: {
-              commandId: 'cmd-mig-1',
-              fromVenueId: 'v1',
-              toVenueId: 'v2',
-              startedAt: '2026-06-03T00:00:00.000Z',
-            },
-          })
-        },
-      ),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-execute`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json({
+          data: {
+            commandId: 'cmd-mig-1',
+            fromVenueId: 'v1',
+            toVenueId: 'v2',
+            startedAt: '2026-06-03T00:00:00.000Z',
+          },
+        })
+      }),
     )
 
     const { result } = renderHook(() => useMigrateExecute(), { wrapper: AllProviders })
@@ -382,7 +374,7 @@ describe('useMigrateExecute', () => {
 describe('useMigrateCancel', () => {
   it('cancela la migración y resuelve con el venue restaurado', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-cancel`, () =>
         HttpResponse.json({ data: { cancelled: true, restoredVenueId: 'v1' } }),
       ),
     )
@@ -405,7 +397,7 @@ describe('useMigrateStatus', () => {
 
   it('hace polling del estado y resuelve con confirmed', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-status`, ({ request }) => {
+      http.get(`${baseURL}/superadmin/terminals/t1/migrate-status`, ({ request }) => {
         const url = new URL(request.url)
         expect(url.searchParams.get('commandId')).toBe('cmd-mig-1')
         return HttpResponse.json({

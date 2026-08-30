@@ -93,7 +93,7 @@ const server = setupServer(
   http.get(`${baseURL}/superadmin/venues/v_dest/staff-access/candidates`, () =>
     HttpResponse.json({ data: [], message: 'ok' }),
   ),
-  http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`, () => {
+  http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, () => {
     preflightCalled = true
     return HttpResponse.json({
       data: {

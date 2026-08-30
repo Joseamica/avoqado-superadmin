@@ -243,7 +243,7 @@ describe('TerminalActionDrawer', () => {
   it('genera código de activación al click "Generar código"', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/generate-activation-code`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/generate-activation-code`, () => {
         called = true
         return HttpResponse.json({
           data: { code: 'XYZ789', expiresAt: '2026-06-01T00:00:00.000Z' },
@@ -268,7 +268,7 @@ describe('TerminalActionDrawer', () => {
   it('dispara remote activate al click "Activar remotamente"', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/remote-activate`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/remote-activate`, () => {
         called = true
         return HttpResponse.json({})
       }),

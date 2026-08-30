@@ -58,7 +58,7 @@ const rawTerminal = {
 }
 
 const server = setupServer(
-  http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+  http.get(`${baseURL}/superadmin/terminals`, () =>
     HttpResponse.json({ data: [rawTerminal], count: 1 }),
   ),
 )
@@ -88,7 +88,7 @@ describe('TerminalsPage', () => {
 
   it('muestra error cuando el endpoint falla', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -109,9 +109,7 @@ describe('TerminalsPage', () => {
 
   it('muestra estado vacío cuando no hay terminals', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
-        HttpResponse.json({ data: [], count: 0 }),
-      ),
+      http.get(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ data: [], count: 0 })),
     )
 
     renderPage()
@@ -123,7 +121,7 @@ describe('TerminalsPage', () => {
 
   it('muestra terminales con distintos estados (PENDING, MAINTENANCE, sin heartbeat)', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [
             { ...rawTerminal, id: 't1', name: 'TPV Online' },
@@ -160,7 +158,7 @@ describe('TerminalsPage', () => {
 
   it('muestra el view por venue cuando groupBy=venue está activo', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({ data: [rawTerminal], count: 1 }),
       ),
     )
@@ -183,7 +181,7 @@ describe('TerminalsPage', () => {
 
   it('renderiza KPI "En mantenimiento" cuando hay un terminal MAINTENANCE y nada pending', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [
             {
@@ -207,7 +205,7 @@ describe('TerminalsPage', () => {
 
   it('renderiza terminales sin heartbeat ni serial (estado fresh)', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [
             {
@@ -239,7 +237,7 @@ describe('TerminalsPage', () => {
 
   it('renderiza terminal bloqueada con la badge "Bloqueada"', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [
             {

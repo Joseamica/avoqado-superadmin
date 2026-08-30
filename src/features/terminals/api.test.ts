@@ -57,7 +57,7 @@ afterAll(() => server.close())
 describe('fetchTerminals', () => {
   it('lista terminals mapeando la raw response y default isLocked a false', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [{ ...rawTerminal, isLocked: undefined, assignedMerchantIds: undefined }],
           count: 1,
@@ -78,7 +78,7 @@ describe('fetchTerminals', () => {
 
   it('mapea el campo migration cuando el server lo incluye', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: [
             {
@@ -106,9 +106,7 @@ describe('fetchTerminals', () => {
   })
 
   it('devuelve [] cuando la response no tiene `data`', async () => {
-    server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () => HttpResponse.json({ count: 0 })),
-    )
+    server.use(http.get(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ count: 0 })))
 
     const result = await fetchTerminals()
     expect(result).toEqual([])
@@ -117,7 +115,7 @@ describe('fetchTerminals', () => {
   it('forwarda params como query string', async () => {
     let receivedUrl: URL | null = null
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, ({ request }) => {
+      http.get(`${baseURL}/superadmin/terminals`, ({ request }) => {
         receivedUrl = new URL(request.url)
         return HttpResponse.json({ data: [], count: 0 })
       }),
@@ -131,7 +129,7 @@ describe('fetchTerminals', () => {
 
   it('lanza error cuando el server responde 500', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -143,7 +141,7 @@ describe('fetchTerminals', () => {
 describe('fetchTerminalDetail', () => {
   it('devuelve la terminal mapeada cuando existe', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/t1`, () =>
+      http.get(`${baseURL}/superadmin/terminals/t1`, () =>
         HttpResponse.json({ data: rawTerminal }),
       ),
     )
@@ -156,7 +154,7 @@ describe('fetchTerminalDetail', () => {
 
   it('devuelve null en 404 (no throw)', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/missing`, () =>
+      http.get(`${baseURL}/superadmin/terminals/missing`, () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
     )
@@ -167,7 +165,7 @@ describe('fetchTerminalDetail', () => {
 
   it('throwea cuando el error NO es 404', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/bad`, () =>
+      http.get(`${baseURL}/superadmin/terminals/bad`, () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -176,9 +174,7 @@ describe('fetchTerminalDetail', () => {
   })
 
   it('devuelve null si data viene sin data wrapper', async () => {
-    server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/empty`, () => HttpResponse.json({})),
-    )
+    server.use(http.get(`${baseURL}/superadmin/terminals/empty`, () => HttpResponse.json({})))
     const result = await fetchTerminalDetail('empty')
     expect(result).toBeNull()
   })
@@ -188,7 +184,7 @@ describe('updateTerminal', () => {
   it('manda PATCH con el payload y devuelve la terminal actualizada', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.patch(`${baseURL}/dashboard/superadmin/terminals/t1`, async ({ request }) => {
+      http.patch(`${baseURL}/superadmin/terminals/t1`, async ({ request }) => {
         receivedBody = await request.json()
         return HttpResponse.json({ data: { ...rawTerminal, name: 'TPV Barra Renombrada' } })
       }),
@@ -201,7 +197,7 @@ describe('updateTerminal', () => {
 
   it('rejects cuando el server responde error', async () => {
     server.use(
-      http.patch(`${baseURL}/dashboard/superadmin/terminals/t1`, () =>
+      http.patch(`${baseURL}/superadmin/terminals/t1`, () =>
         HttpResponse.json({ message: 'invalid' }, { status: 400 }),
       ),
     )
@@ -213,7 +209,7 @@ describe('updateTerminal', () => {
 describe('generateActivationCode', () => {
   it('devuelve el código generado', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/generate-activation-code`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/generate-activation-code`, () =>
         HttpResponse.json({
           data: { code: 'A3F9K2', expiresAt: '2026-06-01T00:00:00.000Z' },
         }),
@@ -230,7 +226,7 @@ describe('remoteActivate', () => {
   it('hace POST sin payload y resuelve sin valor', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/remote-activate`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/remote-activate`, () => {
         called = true
         return HttpResponse.json({})
       }),
@@ -245,21 +241,18 @@ describe('migratePreflight', () => {
   it('manda toVenueId en el body y devuelve el resultado', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.post(
-        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`,
-        async ({ request }) => {
-          receivedBody = await request.json()
-          return HttpResponse.json({
-            data: {
-              canProceed: false,
-              blockers: [{ code: 'OPEN_ORDERS', message: 'Hay órdenes abiertas' }],
-              warnings: [],
-              fromVenueId: 'v1',
-              toVenueId: 'v2',
-            },
-          })
-        },
-      ),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json({
+          data: {
+            canProceed: false,
+            blockers: [{ code: 'OPEN_ORDERS', message: 'Hay órdenes abiertas' }],
+            warnings: [],
+            fromVenueId: 'v1',
+            toVenueId: 'v2',
+          },
+        })
+      }),
     )
 
     const result = await migratePreflight('t1', 'v2')
@@ -270,7 +263,7 @@ describe('migratePreflight', () => {
 
   it('lanza error cuando el server responde sin data', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-preflight`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, () =>
         HttpResponse.json({}),
       ),
     )
@@ -282,20 +275,17 @@ describe('migrateExecute', () => {
   it('manda toVenueId + assignedMerchantIds y devuelve commandId', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.post(
-        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
-        async ({ request }) => {
-          receivedBody = await request.json()
-          return HttpResponse.json({
-            data: {
-              commandId: 'cmd-mig-1',
-              fromVenueId: 'v1',
-              toVenueId: 'v2',
-              startedAt: '2026-06-03T00:00:00.000Z',
-            },
-          })
-        },
-      ),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-execute`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json({
+          data: {
+            commandId: 'cmd-mig-1',
+            fromVenueId: 'v1',
+            toVenueId: 'v2',
+            startedAt: '2026-06-03T00:00:00.000Z',
+          },
+        })
+      }),
     )
 
     const result = await migrateExecute('t1', 'v2', ['m1', 'm2'])
@@ -306,20 +296,17 @@ describe('migrateExecute', () => {
   it('omite assignedMerchantIds cuando no se pasa', async () => {
     let receivedBody: Record<string, unknown> | null = null
     server.use(
-      http.post(
-        `${baseURL}/dashboard/superadmin/terminals/t1/migrate-execute`,
-        async ({ request }) => {
-          receivedBody = (await request.json()) as Record<string, unknown>
-          return HttpResponse.json({
-            data: {
-              commandId: 'cmd-mig-2',
-              fromVenueId: 'v1',
-              toVenueId: 'v2',
-              startedAt: '2026-06-03T00:00:00.000Z',
-            },
-          })
-        },
-      ),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-execute`, async ({ request }) => {
+        receivedBody = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({
+          data: {
+            commandId: 'cmd-mig-2',
+            fromVenueId: 'v1',
+            toVenueId: 'v2',
+            startedAt: '2026-06-03T00:00:00.000Z',
+          },
+        })
+      }),
     )
 
     await migrateExecute('t1', 'v2')
@@ -333,7 +320,7 @@ describe('migrateStatus', () => {
   it('manda commandId como query param y devuelve el estado', async () => {
     let receivedUrl: URL | null = null
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-status`, ({ request }) => {
+      http.get(`${baseURL}/superadmin/terminals/t1/migrate-status`, ({ request }) => {
         receivedUrl = new URL(request.url)
         return HttpResponse.json({
           data: {
@@ -361,7 +348,7 @@ describe('migrateCancel', () => {
   it('hace POST y devuelve el venue restaurado', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-cancel`, () => {
         called = true
         return HttpResponse.json({ data: { cancelled: true, restoredVenueId: 'v1' } })
       }),
@@ -374,7 +361,7 @@ describe('migrateCancel', () => {
 
   it('rejects cuando ya es tarde para cancelar (server error)', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals/t1/migrate-cancel`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-cancel`, () =>
         HttpResponse.json({ message: 'too late' }, { status: 409 }),
       ),
     )
@@ -409,7 +396,7 @@ describe('deleteTerminal', () => {
   it('hace DELETE y resuelve', async () => {
     let called = false
     server.use(
-      http.delete(`${baseURL}/dashboard/superadmin/terminals/t1`, () => {
+      http.delete(`${baseURL}/superadmin/terminals/t1`, () => {
         called = true
         return HttpResponse.json({})
       }),
@@ -423,9 +410,7 @@ describe('deleteTerminal', () => {
 describe('createTerminal', () => {
   it('hace POST y mapea activationCode/expiry a null cuando no llegan', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals`, () =>
-        HttpResponse.json({ data: rawTerminal }),
-      ),
+      http.post(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ data: rawTerminal })),
     )
 
     const result = await createTerminal({
@@ -442,7 +427,7 @@ describe('createTerminal', () => {
 
   it('cuando el server devuelve activationCode, lo pasa al resultado', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/superadmin/terminals`, () =>
+      http.post(`${baseURL}/superadmin/terminals`, () =>
         HttpResponse.json({
           data: {
             ...rawTerminal,

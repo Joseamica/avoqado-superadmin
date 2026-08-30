@@ -84,9 +84,7 @@ const sampleSettings = {
 }
 
 const server = setupServer(
-  http.get(`${baseURL}/dashboard/superadmin/terminals/t1`, () =>
-    HttpResponse.json({ data: rawTerminal }),
-  ),
+  http.get(`${baseURL}/superadmin/terminals/t1`, () => HttpResponse.json({ data: rawTerminal })),
   http.get(`${baseURL}/dashboard/tpv/t1/settings`, () =>
     HttpResponse.json({ data: sampleSettings }),
   ),
@@ -148,7 +146,7 @@ describe('TerminalSettingsPage', () => {
   // en la práctica. Skip hasta que se arregle el orden de las condiciones.
   it.skip('muestra mensaje de "Terminal no encontrada" cuando el detail devuelve null (404)', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/missing`, () =>
+      http.get(`${baseURL}/superadmin/terminals/missing`, () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
     )
@@ -165,7 +163,7 @@ describe('TerminalSettingsPage', () => {
 
   it('muestra error cuando el detail falla con 500', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/terminals/bad`, () =>
+      http.get(`${baseURL}/superadmin/terminals/bad`, () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -236,7 +234,7 @@ describe('TerminalSettingsPage', () => {
   it('hace PATCH al guardar Identidad', async () => {
     let patchedWith: unknown = null
     server.use(
-      http.patch(`${baseURL}/dashboard/superadmin/terminals/t1`, async ({ request }) => {
+      http.patch(`${baseURL}/superadmin/terminals/t1`, async ({ request }) => {
         patchedWith = await request.json()
         return HttpResponse.json({ data: { ...rawTerminal, name: 'TPV Nuevo Nombre' } })
       }),

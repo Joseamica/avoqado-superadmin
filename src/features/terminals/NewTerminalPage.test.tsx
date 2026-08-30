@@ -115,6 +115,73 @@ describe('NewTerminalPage', () => {
     )
   })
 
+  it('si el operador elige activar sin código, pre-activa con PATCH sin depender de heartbeat', async () => {
+    let activationPatch: unknown = null
+    let remoteCommandCalled = false
+
+    const createdTerminal = {
+      id: 't1',
+      serialNumber: 'AVQD-N860W176242',
+      name: 'N860W176242',
+      type: 'TPV_ANDROID',
+      brand: 'NEXGO',
+      model: 'N86',
+      status: 'INACTIVE',
+      lastHeartbeat: null,
+      version: null,
+      latestHealthScore: null,
+      latestHealthAt: null,
+      ipAddress: null,
+      isLocked: false,
+      lockedAt: null,
+      lockedReason: null,
+      assignedMerchantIds: [],
+      activationCode: null,
+      activationCodeExpiry: null,
+      activatedAt: null,
+      venueId: 'v1',
+      venue: { id: 'v1', name: 'Pez Volador', slug: 'pez-volador' },
+      createdAt: '2026-08-29T19:06:07.000Z',
+      updatedAt: '2026-08-29T19:06:07.000Z',
+    }
+
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals`, () =>
+        HttpResponse.json({ data: createdTerminal }),
+      ),
+      http.patch(`${baseURL}/superadmin/terminals/t1`, async ({ request }) => {
+        activationPatch = await request.json()
+        return HttpResponse.json({
+          data: {
+            ...createdTerminal,
+            status: 'ACTIVE',
+            activatedAt: '2026-08-29T19:06:08.000Z',
+          },
+        })
+      }),
+      http.post(`${baseURL}/superadmin/terminals/t1/remote-activate`, () => {
+        remoteCommandCalled = true
+        return HttpResponse.json({ data: { queued: true } })
+      }),
+    )
+
+    renderWithProviders(<NewTerminalPage />, {
+      initialEntries: ['/terminals/new?venueId=v1'],
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('TPV Barra'), {
+      target: { value: 'N860W176242' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(/ej\. 1850072345/), {
+      target: { value: 'N860W176242' },
+    })
+    fireEvent.click(screen.getByText(/Activar ahora — sin código/))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear y activar' }))
+
+    await waitFor(() => expect(activationPatch).toEqual({ status: 'ACTIVE' }))
+    expect(remoteCommandCalled).toBe(false)
+  })
+
   it('expande la sección de Hardware al hacer click', async () => {
     renderWithProviders(<NewTerminalPage />)
 

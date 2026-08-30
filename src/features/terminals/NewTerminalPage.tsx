@@ -10,7 +10,7 @@ import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime } from '@/shared/lib/datetime'
 import { useVenues } from '@/features/venues/use-venues'
-import { useCreateTerminal, useMerchantAccounts, useRemoteActivate } from './use-terminals'
+import { useCreateTerminal, useMerchantAccounts, useUpdateTerminal } from './use-terminals'
 import { humanizeTerminalType, type TerminalType } from './types'
 import type { MerchantAccountOption } from './api'
 
@@ -74,10 +74,9 @@ const TYPE_OPTIONS: ComboboxOption[] = [
  *   `with-code`     Registra + genera código 6-char. El técnico en sitio
  *                   lo escribe en la pantalla de bootstrap. Default.
  *
- *   `activate-now`  Registra + dispara `remote-activate` inmediatamente.
- *                   La terminal queda lista para operar sin código —
- *                   úsalo cuando el hardware ya está físicamente prendido
- *                   y conectado en el venue.
+ *   `activate-now`  Registra + pre-autoriza la terminal inmediatamente.
+ *                   Al encenderla, la app recupera esa activación del backend
+ *                   y continúa sin pedir código ni heartbeat previo.
  */
 type ActivationMode = 'pending' | 'with-code' | 'activate-now'
 
@@ -132,7 +131,7 @@ export function NewTerminalPage() {
   const venuesQuery = useVenues({})
   const merchantsQuery = useMerchantAccounts()
   const createMutation = useCreateTerminal()
-  const remoteActivateMutation = useRemoteActivate()
+  const activateMutation = useUpdateTerminal()
 
   const [form, setForm] = useState<FormState>({
     ...INITIAL_STATE,
@@ -229,21 +228,24 @@ export function NewTerminalPage() {
         return
       }
 
-      // Caso 2: el operador eligió "Activar ahora" — segundo POST a
-      // /remote-activate para que la terminal pase a ACTIVE sin código.
-      // Si remote-activate falla, el terminal igual quedó creado en
-      // PENDING_ACTIVATION — informamos en el toast para que el operador
-      // sepa el estado y pueda reintentar la activación desde el drawer.
+      // Caso 2: el operador eligió "Activar ahora" — pre-autorizamos la
+      // terminal directamente en backend. No usamos REMOTE_ACTIVATE: una TPV
+      // nueva todavía no emite heartbeats, así que ese comando no podría
+      // entregarse. Al primer encendido la app consulta activation-status,
+      // restaura su venue y continúa sin pedir código.
       if (form.activationMode === 'activate-now') {
         try {
-          await remoteActivateMutation.mutateAsync(result.id)
-          toast.success('Terminal creada y activada', {
-            description: `${result.name} está lista para operar en ${result.venue.name}.`,
+          await activateMutation.mutateAsync({
+            terminalId: result.id,
+            payload: { status: 'ACTIVE' },
+          })
+          toast.success('Terminal creada y pre-activada', {
+            description: `${result.name} continuará sin código cuando se encienda y tenga internet.`,
           })
         } catch (activateError) {
-          const info = inspectApiError(activateError, 'activar remotamente')
+          const info = inspectApiError(activateError, 'pre-activar la terminal')
           toast.warning('Terminal creada — falló la activación', {
-            description: `${info.description} Reintenta desde el drawer del terminal.`,
+            description: `${info.description} La terminal quedó registrada, pero todavía pedirá activación.`,
           })
         }
         navigate('/terminals')
@@ -289,9 +291,8 @@ export function NewTerminalPage() {
           Registrar terminal
         </h1>
         <p className="mt-3 max-w-[540px] text-[14px] text-[var(--ink-muted)]">
-          Alta de TPV, impresora o KDS. Después de crear, la terminal aparece en `INACTIVE` hasta
-          que envía su primer heartbeat — si pides código de activación, lo damos al técnico para
-          que la prenda.
+          Alta de TPV, impresora o KDS. Elige si el técnico usará un código, si quedará pendiente o
+          si debe reconocerse como activada en cuanto se encienda y tenga internet.
         </p>
       </header>
 
@@ -442,15 +443,15 @@ export function NewTerminalPage() {
           </Link>
           <button
             type="submit"
-            disabled={createMutation.isPending || remoteActivateMutation.isPending}
+            disabled={createMutation.isPending || activateMutation.isPending}
             className={buttonVariants({ size: 'lg', className: 'gap-2 px-5' })}
           >
-            {(createMutation.isPending || remoteActivateMutation.isPending) && (
+            {(createMutation.isPending || activateMutation.isPending) && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
             )}
             {createMutation.isPending
               ? 'Creando…'
-              : remoteActivateMutation.isPending
+              : activateMutation.isPending
                 ? 'Activando…'
                 : form.activationMode === 'activate-now'
                   ? 'Crear y activar'
@@ -720,7 +721,7 @@ function ActivationRadio({
       value: 'activate-now',
       label: 'Activar ahora — sin código',
       description:
-        'La terminal queda ACTIVE inmediatamente. Úsalo cuando el hardware ya está físicamente prendido y conectado en el venue, y NO quieres pasar por el flujo de código. Dispara create + remote-activate en una sola operación.',
+        'Pre-autoriza la terminal en el backend. No necesita estar prendida ahora: cuando se encienda y tenga internet, reconocerá la activación y continuará sin pedir código.',
       tag: 'Sin código',
     },
     {
