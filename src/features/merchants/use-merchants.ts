@@ -3,6 +3,7 @@ import {
   createMerchant,
   deleteMerchant,
   fetchActiveCost,
+  fetchAngelPayAccountPin,
   fetchAngelPayAccounts,
   fetchAssignableTerminals,
   fetchHolidays,
@@ -21,8 +22,10 @@ import {
   saveRevenueShare,
   saveSettlement,
   saveVenuePricing,
+  setAngelPayAccountPin,
   setTerminalServes,
   toggleMerchant,
+  updateAngelPayAccountCredentials,
   updateMerchant,
   verifyAngelPayApiKey,
   type AngelPayFullSetupPayload,
@@ -328,6 +331,38 @@ export function useSetTerminalServes(merchantId: string) {
   return useMutation({
     mutationFn: (vars: { terminalId: string; serves: boolean }) =>
       setTerminalServes(merchantId, vars.terminalId, vars.serves),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+/**
+ * Lee el PIN de la cuenta AngelPay **bajo demanda**. Es una mutation y no una
+ * query a propósito: cada lectura queda en la bitácora del servidor, así que
+ * sólo puede dispararla un clic del operador — una query se refetchearía sola
+ * y llenaría el registro de lecturas que nadie pidió.
+ */
+export function useRevealAngelPayPin() {
+  return useMutation({ mutationFn: (accountId: string) => fetchAngelPayAccountPin(accountId) })
+}
+
+/** Correo/ambiente del login AngelPay. El backend sólo lo acepta en PENDING_PIN. */
+export function useSaveAngelPayCredentials() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: {
+      accountId: string
+      input: { email?: string; environment?: 'QA' | 'PROD' }
+    }) => updateAngelPayAccountCredentials(vars.accountId, vars.input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+/** Rotación del PIN (6 dígitos). */
+export function useSetAngelPayPin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { accountId: string; pin: string }) =>
+      setAngelPayAccountPin(vars.accountId, vars.pin),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }

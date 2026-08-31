@@ -78,6 +78,7 @@ describe('MerchantIdentityDrawer — edit mode', () => {
     blumonMerchantId: null,
     angelpayAffiliation: null,
     angelpayMerchantName: null,
+    angelpayUserAccount: null,
     aggregatorId: null,
     venues: [],
     terminals: [],

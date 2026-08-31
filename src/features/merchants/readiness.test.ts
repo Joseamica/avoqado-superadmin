@@ -20,6 +20,7 @@ const base: MerchantAccount = {
   blumonMerchantId: null,
   angelpayAffiliation: null,
   angelpayMerchantName: null,
+  angelpayUserAccount: null,
   aggregatorId: null,
   venues: [{ id: 'v1', name: 'Doña Simona', slug: 'dona-simona' }],
   terminals: [{ id: 't1', serialNumber: 'AVQD-2841548417', inherited: false }],

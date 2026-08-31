@@ -28,6 +28,7 @@ const rawMerchant = {
   blumonMerchantId: null,
   angelpayAffiliation: null,
   angelpayMerchantName: null,
+  angelpayUserAccount: null,
   aggregatorId: null,
   venues: [],
   terminals: [],

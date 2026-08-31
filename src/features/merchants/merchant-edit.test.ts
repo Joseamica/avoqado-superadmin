@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  angelpayCredentialsPatch,
+  angelpayPinToSet,
   buildIdentityPatch,
   costChanged,
   initMerchantEditDraft,
@@ -28,6 +30,7 @@ const blumon: MerchantAccount = {
   blumonMerchantId: null,
   angelpayAffiliation: null,
   angelpayMerchantName: null,
+  angelpayUserAccount: null,
   aggregatorId: null,
   venues: [],
   terminals: [],
@@ -45,6 +48,19 @@ const angelpay: MerchantAccount = {
   blumonEnvironment: null,
   angelpayAffiliation: '9814275',
   angelpayMerchantName: 'Amaena',
+  angelpayUserAccount: {
+    id: 'ap1',
+    email: 'ops@amaena.mx',
+    status: 'PENDING_PIN',
+    environment: 'QA',
+    venueId: 'v1',
+  },
+}
+
+/** Misma cuenta ya confirmada: el backend ya NO deja tocar correo ni ambiente. */
+const angelpayActiva: MerchantAccount = {
+  ...angelpay,
+  angelpayUserAccount: { ...angelpay.angelpayUserAccount!, status: 'ACTIVE' },
 }
 
 /** includesTax=false ⇒ la efectiva sería 0.0290; la cruda persistida es 0.025. */
@@ -215,5 +231,61 @@ describe('costChanged / settlementChanged', () => {
       settlementChanged({ ...d, settlementDays: { ...d.settlementDays, DEBIT: 5 } }, settlements),
     ).toBe(true)
     expect(settlementChanged({ ...d, cutoffTime: '20:00' }, settlements)).toBe(true)
+  })
+})
+
+describe('login de AngelPay (correo + PIN)', () => {
+  const draftOf = (m: MerchantAccount) => initMerchantEditDraft(m, null, [])
+
+  it('siembra el correo y el ambiente de la cuenta vinculada', () => {
+    const d = draftOf(angelpay)
+    expect(d.angelpayEmail).toBe('ops@amaena.mx')
+    expect(d.angelpayEnvironment).toBe('QA')
+    // El PIN actual NUNCA se siembra: no viaja en la respuesta del merchant.
+    expect(d.angelpayNewPin).toBe('')
+  })
+
+  it('sin cambios no manda parche de credenciales', () => {
+    expect(angelpayCredentialsPatch(draftOf(angelpay), angelpay)).toBeNull()
+  })
+
+  it('manda el correo cuando cambió y la cuenta aún admite cambios', () => {
+    const d = { ...draftOf(angelpay), angelpayEmail: 'nuevo@amaena.mx' }
+    expect(angelpayCredentialsPatch(d, angelpay)).toEqual({ email: 'nuevo@amaena.mx' })
+  })
+
+  it('NO manda nada si la cuenta ya está ACTIVE — el backend lo rechazaría', () => {
+    const d = { ...draftOf(angelpayActiva), angelpayEmail: 'nuevo@amaena.mx' }
+    expect(angelpayCredentialsPatch(d, angelpayActiva)).toBeNull()
+  })
+
+  it('un merchant sin cuenta vinculada no manda nada', () => {
+    expect(angelpayCredentialsPatch(draftOf(blumon), blumon)).toBeNull()
+  })
+
+  it('el PIN sólo se manda si el operador escribió uno nuevo', () => {
+    expect(angelpayPinToSet(draftOf(angelpay))).toBeNull()
+    expect(angelpayPinToSet({ ...draftOf(angelpay), angelpayNewPin: '123456' })).toBe('123456')
+  })
+
+  it('el PIN nuevo debe ser exactamente 6 dígitos', () => {
+    const base = draftOf(angelpay)
+    expect(validateMerchantEditDraft({ ...base, angelpayNewPin: '1234' }, 'angelpay')).toMatch(
+      /6 dígitos/,
+    )
+    expect(validateMerchantEditDraft({ ...base, angelpayNewPin: 'abcdef' }, 'angelpay')).toMatch(
+      /6 dígitos/,
+    )
+    expect(validateMerchantEditDraft({ ...base, angelpayNewPin: '123456' }, 'angelpay')).toBeNull()
+  })
+
+  it('rechaza un correo mal formado antes de llamar al servidor', () => {
+    const d = { ...draftOf(angelpay), angelpayEmail: 'no-es-correo' }
+    expect(validateMerchantEditDraft(d, 'angelpay')).toMatch(/correo/)
+  })
+
+  it('en una cuenta Blumon el PIN de AngelPay no se valida', () => {
+    const d = { ...draftOf(blumon), angelpayNewPin: '12' }
+    expect(validateMerchantEditDraft(d, 'blumon')).toBeNull()
   })
 })

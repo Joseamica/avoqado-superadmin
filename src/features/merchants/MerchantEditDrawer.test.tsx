@@ -31,6 +31,7 @@ const blumon: MerchantAccount = {
   blumonMerchantId: null,
   angelpayAffiliation: null,
   angelpayMerchantName: null,
+  angelpayUserAccount: null,
   aggregatorId: null,
   venues: [],
   terminals: [],
@@ -48,6 +49,18 @@ const angelpay: MerchantAccount = {
   blumonEnvironment: null,
   angelpayAffiliation: '9814275',
   angelpayMerchantName: 'Amaena',
+  angelpayUserAccount: {
+    id: 'ap1',
+    email: 'ops@amaena.mx',
+    status: 'PENDING_PIN',
+    environment: 'QA',
+    venueId: 'v1',
+  },
+}
+
+const angelpayActiva: MerchantAccount = {
+  ...angelpay,
+  angelpayUserAccount: { ...angelpay.angelpayUserAccount!, status: 'ACTIVE' },
 }
 
 const cost: ProviderCostStructure = {
@@ -145,5 +158,78 @@ describe('MerchantEditDrawer — guardado', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/18 dígitos/))
     expect(called).toBe(false)
+  })
+})
+
+describe('MerchantEditDrawer — cuenta AngelPay (correo y PIN)', () => {
+  it('muestra el correo de la cuenta y NO pide el PIN al abrir', async () => {
+    let pinCalls = 0
+    server.use(
+      http.get(`${baseURL}/superadmin/angelpay-accounts/ap1/pin`, () => {
+        pinCalls++
+        return HttpResponse.json({ data: { pin: '123456' } })
+      }),
+    )
+
+    renderDrawer(angelpay)
+    await waitFor(() => expect(screen.getByLabelText('Correo de la cuenta')).toBeInTheDocument())
+
+    expect(screen.getByLabelText('Correo de la cuenta')).toHaveValue('ops@amaena.mx')
+    // Leer el PIN queda en la bitácora: abrir el editor no puede dispararlo.
+    expect(pinCalls).toBe(0)
+    expect(screen.getByLabelText('PIN actual')).toHaveValue('••••••')
+  })
+
+  it('revela el PIN sólo al tocar «Ver»', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/angelpay-accounts/ap1/pin`, () =>
+        HttpResponse.json({ data: { pin: '123456' } }),
+      ),
+    )
+
+    renderDrawer(angelpay)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Ver/ })).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver/ }))
+
+    await waitFor(() => expect(screen.getByLabelText('PIN actual')).toHaveValue('123456'))
+  })
+
+  it('en una cuenta ya ACTIVE el correo queda de sólo lectura', async () => {
+    renderDrawer(angelpayActiva)
+    await waitFor(() => expect(screen.getByLabelText('Correo de la cuenta')).toBeInTheDocument())
+
+    // El estado y el ambiente se leen en español, no como enum crudo.
+    expect(screen.getByText('Activa')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ambiente')).toHaveValue('QA')
+    expect(screen.getByLabelText('Correo de la cuenta')).toBeDisabled()
+    // El PIN sí se puede rotar aunque el correo esté congelado.
+    expect(screen.getByLabelText('Nuevo PIN (6 dígitos)')).not.toBeDisabled()
+  })
+
+  it('un PIN nuevo de 4 dígitos no dispara ninguna petición', async () => {
+    let called = false
+    server.use(
+      http.patch(`${baseURL}/superadmin/angelpay-accounts/ap1/pin`, () => {
+        called = true
+        return HttpResponse.json({ data: {} })
+      }),
+    )
+
+    renderDrawer(angelpay)
+    await waitFor(() => expect(screen.getByLabelText('Nuevo PIN (6 dígitos)')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByLabelText('Nuevo PIN (6 dígitos)'), { target: { value: '1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/6 dígitos/))
+    expect(called).toBe(false)
+  })
+
+  it('en una cuenta Blumon no aparece la sección del login de AngelPay', async () => {
+    renderDrawer(blumon)
+    await waitFor(() => expect(screen.getByText('Datos Blumon')).toBeInTheDocument())
+
+    expect(screen.queryByLabelText('Correo de la cuenta')).not.toBeInTheDocument()
   })
 })

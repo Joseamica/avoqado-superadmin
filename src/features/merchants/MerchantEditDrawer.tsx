@@ -13,8 +13,11 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { inspectApiError } from '@/shared/lib/api-error'
+import { AngelPayLoginFields } from './AngelPayLoginFields'
 import { CardRatesInput } from './CardRatesInput'
 import {
+  angelpayCredentialsPatch,
+  angelpayPinToSet,
   buildIdentityPatch,
   costChanged,
   initMerchantEditDraft,
@@ -23,7 +26,13 @@ import {
   validateMerchantEditDraft,
   type MerchantEditDraft,
 } from './merchant-edit'
-import { useSaveCost, useSaveSettlement, useUpdateMerchant } from './use-merchants'
+import {
+  useSaveAngelPayCredentials,
+  useSaveCost,
+  useSaveSettlement,
+  useSetAngelPayPin,
+  useUpdateMerchant,
+} from './use-merchants'
 import {
   CARD_TYPES,
   humanizeCardType,
@@ -76,13 +85,20 @@ export function MerchantEditDrawer({
   const updateM = useUpdateMerchant()
   const saveCostM = useSaveCost()
   const saveSettlementM = useSaveSettlement()
+  const saveAngelPayCredsM = useSaveAngelPayCredentials()
+  const setAngelPayPinM = useSetAngelPayPin()
 
   const [draft, setDraft] = useState<MerchantEditDraft>(() =>
     initMerchantEditDraft(merchant, cost, settlements),
   )
   const [error, setError] = useState<string | null>(null)
 
-  const saving = updateM.isPending || saveCostM.isPending || saveSettlementM.isPending
+  const saving =
+    updateM.isPending ||
+    saveCostM.isPending ||
+    saveSettlementM.isPending ||
+    saveAngelPayCredsM.isPending ||
+    setAngelPayPinM.isPending
   const patch = <K extends keyof MerchantEditDraft>(key: K, value: MerchantEditDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }))
 
@@ -100,6 +116,20 @@ export function MerchantEditDrawer({
       const identityPatch = buildIdentityPatch(draft, merchant, kind)
       if (Object.keys(identityPatch).length > 0) {
         await updateM.mutateAsync({ id: merchant.id, input: identityPatch })
+      }
+
+      // Login de AngelPay: son endpoints propios de `AngelPayUserAccount`, no
+      // columnas del merchant, así que van aparte del parche de identidad.
+      const apAccount = merchant.angelpayUserAccount
+      if (apAccount) {
+        const credPatch = angelpayCredentialsPatch(draft, merchant)
+        if (credPatch) {
+          await saveAngelPayCredsM.mutateAsync({ accountId: apAccount.id, input: credPatch })
+        }
+        const newPin = angelpayPinToSet(draft)
+        if (newPin) {
+          await setAngelPayPinM.mutateAsync({ accountId: apAccount.id, pin: newPin })
+        }
       }
 
       if (costChanged(draft, cost)) {
@@ -235,6 +265,25 @@ export function MerchantEditDrawer({
                     Son la copia que se muestra aquí. La verdad la tiene AngelPay: si allá cambia el
                     nombre o la afiliación, esto no se entera solo.
                   </p>
+                </Section>
+              )}
+
+              {kind === 'angelpay' && (
+                <Section title="Cuenta AngelPay (correo y PIN)">
+                  <AngelPayLoginFields
+                    account={merchant.angelpayUserAccount}
+                    email={draft.angelpayEmail}
+                    environment={draft.angelpayEnvironment}
+                    newPin={draft.angelpayNewPin}
+                    onChange={(p) =>
+                      setDraft((d) => ({
+                        ...d,
+                        ...(p.email !== undefined && { angelpayEmail: p.email }),
+                        ...(p.environment !== undefined && { angelpayEnvironment: p.environment }),
+                        ...(p.newPin !== undefined && { angelpayNewPin: p.newPin }),
+                      }))
+                    }
+                  />
                 </Section>
               )}
 

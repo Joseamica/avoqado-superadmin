@@ -31,6 +31,7 @@ const server = setupServer(
           blumonMerchantId: null,
           angelpayAffiliation: null,
           angelpayMerchantName: null,
+          angelpayUserAccount: null,
           aggregatorId: null,
           venues: [],
           terminals: [],

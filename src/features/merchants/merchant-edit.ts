@@ -18,6 +18,7 @@
 import type { UpdateMerchantInput } from './api'
 import {
   CARD_TYPES,
+  angelpayLoginIsEditable,
   rawCardRates,
   type CardRates,
   type CardType,
@@ -66,6 +67,11 @@ export interface MerchantEditDraft {
   /* AngelPay */
   angelpayAffiliation: string
   angelpayMerchantName: string
+  /* Login de AngelPay (correo + PIN). El PIN actual NO vive aquí: se revela
+     aparte. `angelpayNewPin` vacío = no rotar. */
+  angelpayEmail: string
+  angelpayEnvironment: string
+  angelpayNewPin: string
   /* Banco */
   bankName: string
   clabeNumber: string
@@ -104,6 +110,9 @@ export function initMerchantEditDraft(
     blumonEnvironment: str(m.blumonEnvironment),
     angelpayAffiliation: str(m.angelpayAffiliation),
     angelpayMerchantName: str(m.angelpayMerchantName),
+    angelpayEmail: str(m.angelpayUserAccount?.email),
+    angelpayEnvironment: str(m.angelpayUserAccount?.environment),
+    angelpayNewPin: '',
     bankName: str(m.bankName),
     clabeNumber: str(m.clabeNumber),
     accountHolder: str(m.accountHolder),
@@ -197,6 +206,17 @@ export function validateMerchantEditDraft(
     }
   }
 
+  if (kind === 'angelpay') {
+    const pin = draft.angelpayNewPin.trim()
+    if (pin && !ANGELPAY_PIN_REGEX.test(pin)) {
+      return 'El PIN de AngelPay son exactamente 6 dígitos'
+    }
+    const email = draft.angelpayEmail.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'El correo de la cuenta AngelPay no es válido'
+    }
+  }
+
   for (const card of CARD_TYPES) {
     const d = draft.settlementDays[card]
     if (!Number.isInteger(d) || d < 0) return 'Los días de liquidación deben ser enteros ≥ 0'
@@ -239,4 +259,41 @@ export function settlementChanged(
     (c) =>
       draft.settlementDays[c] !== (byCard.get(c)?.settlementDays ?? DEFAULT_SETTLEMENT_DAYS[c]),
   )
+}
+
+/* --- Login de AngelPay (correo + PIN) --- */
+
+/** Sólo dígitos, exactamente 6 — mismo criterio que el `PIN_REGEX` del backend. */
+export const ANGELPAY_PIN_REGEX = /^\d{6}$/
+
+/**
+ * Parche de correo/ambiente para `PATCH /angelpay-accounts/:id/credentials`,
+ * o `null` si no hay nada que mandar.
+ *
+ * Devuelve `null` también cuando la cuenta ya NO es editable (el backend sólo
+ * acepta cambios en `PENDING_PIN`): la pantalla la pone en sólo lectura, y esto
+ * es el cinturón — mejor no mandar nada que comerse un 400 al guardar.
+ */
+export function angelpayCredentialsPatch(
+  draft: MerchantEditDraft,
+  original: MerchantAccount,
+): { email?: string; environment?: 'QA' | 'PROD' } | null {
+  const account = original.angelpayUserAccount
+  if (!account) return null
+  if (!angelpayLoginIsEditable(account.status)) return null
+
+  const patch: { email?: string; environment?: 'QA' | 'PROD' } = {}
+  const email = draft.angelpayEmail.trim()
+  if (email && email !== account.email) patch.email = email
+
+  const env = draft.angelpayEnvironment.trim()
+  if ((env === 'QA' || env === 'PROD') && env !== account.environment) patch.environment = env
+
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
+/** PIN a fijar, o `null` si el operador no escribió uno nuevo. */
+export function angelpayPinToSet(draft: MerchantEditDraft): string | null {
+  const pin = draft.angelpayNewPin.trim()
+  return pin ? pin : null
 }

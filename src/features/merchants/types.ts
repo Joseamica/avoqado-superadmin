@@ -28,6 +28,20 @@ export interface MerchantVenueRef {
   slug: string
 }
 
+/**
+ * Login de AngelPay (correo + PIN) del que cuelga un merchant. El backend lo
+ * manda dentro del merchant, pero **nunca el PIN** — ése se pide aparte y su
+ * lectura queda en la bitácora.
+ */
+export interface MerchantAngelPayAccount {
+  id: string
+  email: string
+  /** 'PENDING_PIN' | 'ACTIVE' | 'PIN_ROTATION_REQUIRED' | 'SUSPENDED' | 'DELETED' */
+  status: string
+  environment: string // 'QA' | 'PROD'
+  venueId: string
+}
+
 /** Shape de cada fila de `GET /superadmin/merchant-accounts` (credenciales NO incluidas). */
 export interface MerchantAccount {
   id: string
@@ -49,6 +63,8 @@ export interface MerchantAccount {
   // AngelPay
   angelpayAffiliation: string | null
   angelpayMerchantName: string | null
+  /** Cuenta (correo) de AngelPay a la que está atado. `null` en Blumon. */
+  angelpayUserAccount: MerchantAngelPayAccount | null
   aggregatorId: string | null
   venues: MerchantVenueRef[]
   terminals: { id: string; serialNumber: string; inherited: boolean }[]
@@ -220,4 +236,34 @@ export interface VenuePricingStructure {
 
 export function cardRatesFromPricing(p: VenuePricingStructure): CardRates {
   return effectiveCardRates(rawCardRates(p), p.includesTax, p.taxRate)
+}
+
+/** El correo sólo se puede cambiar antes de fijar el PIN — regla del backend. */
+export function angelpayLoginIsEditable(status: string | null | undefined): boolean {
+  return status === 'PENDING_PIN'
+}
+
+/** Estado del login de AngelPay en español. El enum crudo no le dice nada a nadie. */
+export function humanizeAngelPayStatus(status: string | null | undefined): string {
+  switch (status) {
+    case 'PENDING_PIN':
+      return 'Falta el PIN'
+    case 'ACTIVE':
+      return 'Activa'
+    case 'PIN_ROTATION_REQUIRED':
+      return 'Hay que rotar el PIN'
+    case 'SUSPENDED':
+      return 'Suspendida'
+    case 'DELETED':
+      return 'Eliminada'
+    default:
+      return status ?? '—'
+  }
+}
+
+/** Ambiente de AngelPay. Mismo texto que usa el desplegable, para no decir dos cosas. */
+export function humanizeAngelPayEnvironment(env: string | null | undefined): string {
+  if (env === 'PROD') return 'Producción'
+  if (env === 'QA') return 'QA'
+  return env || '—'
 }

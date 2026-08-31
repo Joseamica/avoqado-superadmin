@@ -9,6 +9,7 @@ import type {
   CardRates,
   CardType,
   MerchantAccount,
+  MerchantAngelPayAccount,
   MerchantProvider,
   MerchantRevenueShare,
   MerchantVenueConfig,
@@ -48,6 +49,7 @@ interface RawMerchant {
   blumonMerchantId: string | null
   angelpayAffiliation: string | null
   angelpayMerchantName: string | null
+  angelpayUserAccount?: MerchantAngelPayAccount | null
   aggregatorId: string | null
   venues: { id: string; name: string; slug: string }[]
   terminals: { id: string; serialNumber: string; inherited?: boolean }[]
@@ -75,6 +77,7 @@ function mapMerchant(r: RawMerchant): MerchantAccount {
     blumonMerchantId: r.blumonMerchantId,
     angelpayAffiliation: r.angelpayAffiliation,
     angelpayMerchantName: r.angelpayMerchantName,
+    angelpayUserAccount: r.angelpayUserAccount ?? null,
     aggregatorId: r.aggregatorId,
     venues: r.venues ?? [],
     terminals: (r.terminals ?? []).map((t) => ({
@@ -866,4 +869,35 @@ export async function saveSettlement(
       })
     }
   }
+}
+
+/* --- Login de AngelPay del merchant (correo + PIN) --- */
+
+/**
+ * Lee el PIN. Es el ÚNICO endpoint que lo devuelve — el resto de las respuestas
+ * lo borra a propósito — y su lectura queda registrada en `ActivityLog`. Por eso
+ * se llama **sólo cuando el operador pide verlo**, nunca al abrir el editor.
+ * `null` = la cuenta todavía no tiene PIN.
+ */
+export async function fetchAngelPayAccountPin(accountId: string): Promise<string | null> {
+  const { data } = await api.get<{ data: { pin: string | null } }>(
+    `/superadmin/angelpay-accounts/${encodeURIComponent(accountId)}/pin`,
+  )
+  return data?.data?.pin ?? null
+}
+
+/** Cambia correo y/o ambiente. El backend SÓLO lo permite en cuentas PENDING_PIN. */
+export async function updateAngelPayAccountCredentials(
+  accountId: string,
+  input: { email?: string; environment?: 'QA' | 'PROD' },
+): Promise<void> {
+  await api.patch(
+    `/superadmin/angelpay-accounts/${encodeURIComponent(accountId)}/credentials`,
+    input,
+  )
+}
+
+/** Rota el PIN (6 dígitos). Funciona en cualquier estado — es el camino de rotación. */
+export async function setAngelPayAccountPin(accountId: string, pin: string): Promise<void> {
+  await api.patch(`/superadmin/angelpay-accounts/${encodeURIComponent(accountId)}/pin`, { pin })
 }
