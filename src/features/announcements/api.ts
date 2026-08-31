@@ -20,16 +20,24 @@ interface SuperadminEnvelope<T> {
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
-  const { data } = await api.get<SuperadminEnvelope<{ announcements: Announcement[] }>>('/superadmin/announcements')
+  const { data } = await api.get<SuperadminEnvelope<{ announcements: Announcement[] }>>(
+    '/superadmin/announcements',
+  )
   return data.data?.announcements ?? []
 }
 
 export async function createAnnouncement(input: AnnouncementInput): Promise<Announcement> {
-  const { data } = await api.post<SuperadminEnvelope<{ announcement: Announcement }>>('/superadmin/announcements', input)
+  const { data } = await api.post<SuperadminEnvelope<{ announcement: Announcement }>>(
+    '/superadmin/announcements',
+    input,
+  )
   return data.data.announcement
 }
 
-export async function updateAnnouncement(id: string, input: Partial<AnnouncementInput>): Promise<Announcement> {
+export async function updateAnnouncement(
+  id: string,
+  input: Partial<AnnouncementInput>,
+): Promise<Announcement> {
   const { data } = await api.put<SuperadminEnvelope<{ announcement: Announcement }>>(
     `/superadmin/announcements/${id}`,
     input,
@@ -61,13 +69,17 @@ export async function archiveAnnouncement(id: string): Promise<void> {
 }
 
 export async function fetchAnnouncementMetrics(id: string): Promise<AnnouncementMetrics> {
-  const { data } = await api.get<SuperadminEnvelope<AnnouncementMetrics>>(`/superadmin/announcements/${id}/metrics`)
+  const { data } = await api.get<SuperadminEnvelope<AnnouncementMetrics>>(
+    `/superadmin/announcements/${id}/metrics`,
+  )
   return data.data
 }
 
 /** Si no hay llave de IA, el compositor esconde el botón en vez de fallar al tocarlo. */
 export async function fetchCapabilities(): Promise<{ aiCopy: boolean }> {
-  const { data } = await api.get<SuperadminEnvelope<{ aiCopy: boolean }>>('/superadmin/announcements/capabilities')
+  const { data } = await api.get<SuperadminEnvelope<{ aiCopy: boolean }>>(
+    '/superadmin/announcements/capabilities',
+  )
   return data.data
 }
 
@@ -80,8 +92,12 @@ export async function fetchCapabilities(): Promise<{ aiCopy: boolean }> {
 export async function uploadAnnouncementImage(file: File): Promise<string> {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await api.post<SuperadminEnvelope<{ url: string }>>('/superadmin/announcements/images', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await api.post<SuperadminEnvelope<{ url: string }>>(
+    '/superadmin/announcements/images',
+    form,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    },
+  )
   return data.data.url
 }

@@ -43,7 +43,8 @@ function Chips<T extends string>({
   onTodos: () => void
   modoTodos: 'vacio' | 'llenar'
 }) {
-  const todosActivo = modoTodos === 'vacio' ? seleccion.length === 0 : seleccion.length === opciones.length
+  const todosActivo =
+    modoTodos === 'vacio' ? seleccion.length === 0 : seleccion.length === opciones.length
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -59,7 +60,7 @@ function Chips<T extends string>({
       >
         Todos
       </button>
-      {opciones.map(o => {
+      {opciones.map((o) => {
         const activo = seleccion.includes(o.value)
         return (
           <button
@@ -102,7 +103,7 @@ export function AudienceFiltersEditor({
   const toggle = <K extends keyof Filters>(key: K, valor: Filters[K][number]) => {
     const actual = filters[key] as string[]
     const nuevo = actual.includes(valor as string)
-      ? actual.filter(v => v !== valor)
+      ? actual.filter((v) => v !== valor)
       : [...actual, valor as string]
     onChange({ ...filters, [key]: nuevo } as Filters)
   }
@@ -115,15 +116,17 @@ export function AudienceFiltersEditor({
   return (
     <div className="space-y-4">
       <div>
-        <div className="mb-1.5 text-[12px] text-[var(--ink-muted)]">Quién lo ve dentro del negocio</div>
+        <div className="mb-1.5 text-[12px] text-[var(--ink-muted)]">
+          Quién lo ve dentro del negocio
+        </div>
         <Chips
           opciones={ROLES}
           seleccion={filters.audienceRoles}
-          onToggle={v => toggle('audienceRoles', v)}
+          onToggle={(v) => toggle('audienceRoles', v)}
           // En roles NO se puede dejar vacío (el servidor exige al menos uno), así que
           // "Todos" enciende los cinco.
           modoTodos="llenar"
-          onTodos={() => onChange({ ...filters, audienceRoles: ROLES.map(r => r.value) })}
+          onTodos={() => onChange({ ...filters, audienceRoles: ROLES.map((r) => r.value) })}
         />
         {filters.audienceRoles.length === 0 && (
           <p className="mt-1.5 text-[12px] text-[var(--danger)]">Elige al menos un rol.</p>
@@ -135,7 +138,7 @@ export function AudienceFiltersEditor({
         <Chips
           opciones={PLANES}
           seleccion={filters.targetPlanTiers}
-          onToggle={v => toggle('targetPlanTiers', v)}
+          onToggle={(v) => toggle('targetPlanTiers', v)}
           // Vacío YA significa todos: "Todos" limpia en vez de encender los cuatro.
           modoTodos="vacio"
           onTodos={() => onChange({ ...filters, targetPlanTiers: [] })}
@@ -147,7 +150,7 @@ export function AudienceFiltersEditor({
         <Chips
           opciones={GIROS}
           seleccion={filters.targetCategories}
-          onToggle={v => toggle('targetCategories', v)}
+          onToggle={(v) => toggle('targetCategories', v)}
           modoTodos="vacio"
           onTodos={() => onChange({ ...filters, targetCategories: [] })}
         />
@@ -159,7 +162,8 @@ export function AudienceFiltersEditor({
         ) : preview ? (
           <div className="flex items-baseline gap-4">
             <span className="text-[13px] text-[var(--ink)]">
-              Le llega a <strong>{preview.venues}</strong> {preview.venues === 1 ? 'negocio' : 'negocios'}
+              Le llega a <strong>{preview.venues}</strong>{' '}
+              {preview.venues === 1 ? 'negocio' : 'negocios'}
             </span>
             <span className="text-[13px] text-[var(--ink-muted)]">
               {preview.people} {preview.people === 1 ? 'persona' : 'personas'}
@@ -167,10 +171,14 @@ export function AudienceFiltersEditor({
             {preview.venues === 0 && <Badge tone="warn">Nadie lo recibiría</Badge>}
           </div>
         ) : (
-          <span className="text-[13px] text-[var(--ink-muted)]">Elige un rol para ver el alcance</span>
+          <span className="text-[13px] text-[var(--ink-muted)]">
+            Elige un rol para ver el alcance
+          </span>
         )}
         {sinFiltroDeAlcance && preview && preview.venues > 0 && (
-          <p className="mt-1 text-[12px] text-[var(--ink-muted)]">Sin filtros de plan ni giro: va a todos.</p>
+          <p className="mt-1 text-[12px] text-[var(--ink-muted)]">
+            Sin filtros de plan ni giro: va a todos.
+          </p>
         )}
       </div>
     </div>

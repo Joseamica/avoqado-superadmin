@@ -63,7 +63,7 @@ export function useCreateAnnouncement() {
       queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_QUERY_KEY })
       toast.success('Anuncio guardado como borrador')
     },
-    onError: e => {
+    onError: (e) => {
       const i = inspectApiError(e, 'guardar el anuncio')
       toast.error(i.title, { description: i.description })
     },
@@ -73,12 +73,13 @@ export function useCreateAnnouncement() {
 export function useUpdateAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<AnnouncementInput> }) => updateAnnouncement(id, input),
+    mutationFn: ({ id, input }: { id: string; input: Partial<AnnouncementInput> }) =>
+      updateAnnouncement(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_QUERY_KEY })
       toast.success('Anuncio actualizado')
     },
-    onError: e => {
+    onError: (e) => {
       const i = inspectApiError(e, 'actualizar el anuncio')
       toast.error(i.title, { description: i.description })
     },
@@ -88,12 +89,13 @@ export function useUpdateAnnouncement() {
 export function usePublishAnnouncement() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, scheduledFor }: { id: string; scheduledFor?: string }) => publishAnnouncement(id, scheduledFor),
+    mutationFn: ({ id, scheduledFor }: { id: string; scheduledFor?: string }) =>
+      publishAnnouncement(id, scheduledFor),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_QUERY_KEY })
       toast.success(variables.scheduledFor ? 'Anuncio programado' : 'Anuncio publicado')
     },
-    onError: e => {
+    onError: (e) => {
       const i = inspectApiError(e, 'publicar el anuncio')
       toast.error(i.title, { description: i.description })
     },
@@ -108,7 +110,7 @@ export function useArchiveAnnouncement() {
       queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_QUERY_KEY })
       toast.success('Anuncio archivado')
     },
-    onError: e => {
+    onError: (e) => {
       const i = inspectApiError(e, 'archivar el anuncio')
       toast.error(i.title, { description: i.description })
     },

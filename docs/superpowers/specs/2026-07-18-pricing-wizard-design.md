@@ -37,13 +37,13 @@ Un asistente guiado que pregunta en español plano **cómo le cobras al venue**,
 
 ## Decisiones (del brainstorming)
 
-| Tema | Decisión |
-|---|---|
-| Peso | Ligero, front-only |
-| Repo | avoqado-superadmin |
-| Modelos | flat + cost-plus + agregador |
-| Prellena | costo + reparto + pricing del venue |
-| UI | Drawer stepper de 3 pasos |
+| Tema        | Decisión                                   |
+| ----------- | ------------------------------------------ |
+| Peso        | Ligero, front-only                         |
+| Repo        | avoqado-superadmin                         |
+| Modelos     | flat + cost-plus + agregador               |
+| Prellena    | costo + reparto + pricing del venue        |
+| UI          | Drawer stepper de 3 pasos                  |
 | Botón final | prellena y abre los drawers para confirmar |
 
 ## UI — Drawer stepper (`PricingWizardDrawer.tsx`)

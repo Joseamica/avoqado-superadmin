@@ -65,7 +65,10 @@ export function AnnouncementEditor({
   // Debounce: sin esto sería una consulta por tecla, y del otro lado recorre los
   // vínculos de todo el personal de la plataforma.
   const filtrosDebounced = useDebounced(filters, 350)
-  const preview = useAudiencePreview(filtrosDebounced, abierto && filtrosDebounced.audienceRoles.length > 0)
+  const preview = useAudiencePreview(
+    filtrosDebounced,
+    abierto && filtrosDebounced.audienceRoles.length > 0,
+  )
 
   const crear = useCreateAnnouncement()
   const actualizar = useUpdateAnnouncement()
@@ -101,25 +104,36 @@ export function AnnouncementEditor({
    * se rellena con el título del anuncio en vez de bloquear la publicación.
    */
   const limpiarBloques = (lista: ContentBlock[], titulo: string): ContentBlock[] =>
-    lista.flatMap<ContentBlock>(b => {
+    lista.flatMap<ContentBlock>((b) => {
       switch (b.type) {
         case 'heading':
         case 'paragraph':
         case 'callout':
           return b.text.trim() ? [{ ...b, text: b.text.trim() }] : []
         case 'bullets': {
-          const items = b.items.map(i => i.trim()).filter(Boolean)
+          const items = b.items.map((i) => i.trim()).filter(Boolean)
           return items.length ? [{ ...b, items }] : []
         }
         case 'image':
           if (!b.url.trim()) return []
-          return [{ ...b, url: b.url.trim(), alt: b.alt.trim() || titulo, caption: b.caption?.trim() || undefined }]
+          return [
+            {
+              ...b,
+              url: b.url.trim(),
+              alt: b.alt.trim() || titulo,
+              caption: b.caption?.trim() || undefined,
+            },
+          ]
         case 'gallery': {
-          const images = b.images.filter(i => i.url.trim()).map(i => ({ ...i, alt: i.alt.trim() || titulo }))
+          const images = b.images
+            .filter((i) => i.url.trim())
+            .map((i) => ({ ...i, alt: i.alt.trim() || titulo }))
           return images.length ? [{ ...b, images }] : []
         }
         case 'specs': {
-          const rows = b.rows.filter(r => r.label.trim()).map(r => ({ label: r.label.trim(), value: r.value.trim() }))
+          const rows = b.rows
+            .filter((r) => r.label.trim())
+            .map((r) => ({ label: r.label.trim(), value: r.value.trim() }))
           return rows.length ? [{ ...b, rows }] : []
         }
         case 'button':
@@ -154,7 +168,7 @@ export function AnnouncementEditor({
   const nadieLoRecibe = preview.data?.venues === 0
 
   return (
-    <Drawer open={abierto} onOpenChange={v => !v && onClose()}>
+    <Drawer open={abierto} onOpenChange={(v) => !v && onClose()}>
       {/* Sin `max-w` propio: el default del repo (640px) ya está calibrado y en una
           ventana angosta un ancho mayor desborda el contenido. Una sola columna por la
           misma razón — un grid de 2 columnas aquí adentro no respira. */}
@@ -183,11 +197,14 @@ export function AnnouncementEditor({
                 name="titulo"
                 value={title}
                 placeholder="Ya está disponible la terminal Sunmi D3"
-                onChange={e => setTitle(e.target.value)}
+                onChange={(e) => setTitle(e.target.value)}
               />
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cuerpo" className="text-[12px] font-medium tracking-[-0.005em] text-[var(--ink)]">
+                <label
+                  htmlFor="cuerpo"
+                  className="text-[12px] font-medium tracking-[-0.005em] text-[var(--ink)]"
+                >
                   Texto del aviso
                 </label>
                 <textarea
@@ -195,7 +212,7 @@ export function AnnouncementEditor({
                   rows={3}
                   value={body}
                   placeholder="Dos pantallas: tu cajero cobra de un lado mientras el cliente hace su check-in del otro."
-                  onChange={e => setBody(e.target.value)}
+                  onChange={(e) => setBody(e.target.value)}
                   className="w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 py-2 text-[14px] leading-relaxed text-[var(--ink)] placeholder:text-[var(--ink-faint)] transition-colors focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 />
               </div>
@@ -207,7 +224,7 @@ export function AnnouncementEditor({
                   value={actionLabel}
                   placeholder="Quiero una"
                   hint="Opcional. Sin texto, el anuncio no lleva botón."
-                  onChange={e => setActionLabel(e.target.value)}
+                  onChange={(e) => setActionLabel(e.target.value)}
                 />
                 <Field
                   label="Enlace del botón"
@@ -221,7 +238,7 @@ export function AnnouncementEditor({
                       ? 'Pon el enlace o el botón no hará nada'
                       : undefined
                   }
-                  onChange={e => setActionUrl(e.target.value)}
+                  onChange={(e) => setActionUrl(e.target.value)}
                 />
               </div>
 
@@ -230,7 +247,7 @@ export function AnnouncementEditor({
                   <input
                     type="checkbox"
                     checked={showAsBanner}
-                    onChange={e => setShowAsBanner(e.target.checked)}
+                    onChange={(e) => setShowAsBanner(e.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
                   />
                   <span>Mostrarlo también como banner en su pantalla de inicio</span>
@@ -240,14 +257,14 @@ export function AnnouncementEditor({
                   <input
                     type="checkbox"
                     checked={showAsModal}
-                    onChange={e => setShowAsModal(e.target.checked)}
+                    onChange={(e) => setShowAsModal(e.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
                   />
                   <span>
                     Interrumpir con una ventana la próxima vez que entren
                     <span className="mt-0.5 block text-[12px] text-[var(--ink-faint)]">
-                      Se cierra una vez y después se queda en la campana. Úsalo sólo para lo que no se
-                      puede perder — si todo interrumpe, dejan de leerlo.
+                      Se cierra una vez y después se queda en la campana. Úsalo sólo para lo que no
+                      se puede perder — si todo interrumpe, dejan de leerlo.
                     </span>
                   </span>
                 </label>
@@ -267,7 +284,9 @@ export function AnnouncementEditor({
             <section className="space-y-3 border-t border-[var(--line-strong)] pt-5">
               <div>
                 <h3 className="text-[13px] font-medium text-[var(--ink)]">Contenido ampliado</h3>
-                <p className="mt-0.5 text-[12px] text-[var(--ink-muted)]">Se ve cuando le hacen clic al anuncio.</p>
+                <p className="mt-0.5 text-[12px] text-[var(--ink-muted)]">
+                  Se ve cuando le hacen clic al anuncio.
+                </p>
               </div>
               <BlocksEditor bloques={bloques} onChange={setBloques} />
             </section>
@@ -288,10 +307,17 @@ export function AnnouncementEditor({
           <Button variant="ghost" onClick={onClose} disabled={trabajando}>
             Cancelar
           </Button>
-          <Button variant="secondary" onClick={() => guardar(false)} disabled={!puedeGuardar || trabajando}>
+          <Button
+            variant="secondary"
+            onClick={() => guardar(false)}
+            disabled={!puedeGuardar || trabajando}
+          >
             {editando ? 'Guardar cambios' : 'Guardar borrador'}
           </Button>
-          <Button onClick={() => guardar(true)} disabled={!puedeGuardar || trabajando || nadieLoRecibe}>
+          <Button
+            onClick={() => guardar(true)}
+            disabled={!puedeGuardar || trabajando || nadieLoRecibe}
+          >
             Publicar
           </Button>
         </div>

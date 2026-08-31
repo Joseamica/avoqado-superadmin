@@ -27,21 +27,25 @@ COSTO procesador  ──tramo 1 (50/50)──▶  PRECIO BASE al venue  ──tr
 ```
 
 ### 1. Costo del procesador
+
 Las tasas fijas que el procesador de pagos le cobra a Avoqado. Variable por tarjeta y por venue;
 AMEX e internacional suelen ser los más caros. Ej. (cuenta Goia): débito 1.68 % · crédito 2.05 % ·
 amex 3 % · internacional 3.3 % (**+ IVA**).
 
 ### 2. Precio base al venue (`aggregatorPrice`)
+
 La tarifa base que Avoqado le ofrece al venue, típicamente **igualando o mejorando a la
 competencia** (p. ej. Clip). **Puede ser MENOR que el costo del procesador.** Ej. AMEX: el costo es
 3 % pero se le da `2.6 % + IVA` — Avoqado "pierde" en este tramo, y no importa (ver §4).
 
 ### 3. Tramo 1 — procesador → precio base: **reparto 50/50**
+
 El margen `precio base − costo` se parte **mitad y mitad con el procesador**. Si es **negativo**
 (precio base < costo), **la pérdida también se comparte 50/50**: el procesador absorbe la mitad.
 Este reparto es **fijo, no negociable**.
 
 ### 4. Tramo 2 — precio base → venue: **el markup, 100% Avoqado**
+
 El extra que Avoqado le monta encima del precio base (el "3.5 %"). Es **íntegro de Avoqado**. Con
 esto Avoqado **se recupera** de la posible pérdida del tramo 1. El **IVA del markup es configurable
 por comercio**: unos lo pagan **sin IVA** (íntegro), otros **con IVA**.
@@ -56,14 +60,14 @@ ganancia Avoqado     = 0.5 · (precio base − costo)   +   1.0 · markup
 
 ## Ejemplo trabajado — AMEX (cuenta Goia)
 
-| Concepto | % |
-|---|--:|
-| Costo procesador (3 % + IVA) | 3.48 % |
-| Precio base al venue (2.6 % + IVA) | 3.02 % |
-| Tramo 1 = precio base − costo | −0.46 % |
-| — Avoqado (50 %) | **−0.23 %** |
-| Markup (3.5 %, sin IVA, 100 %) | **+3.50 %** |
-| **Venue paga** = 3.02 % + 3.5 % | **≈ 6.52 %** |
+| Concepto                               |            % |
+| -------------------------------------- | -----------: |
+| Costo procesador (3 % + IVA)           |       3.48 % |
+| Precio base al venue (2.6 % + IVA)     |       3.02 % |
+| Tramo 1 = precio base − costo          |      −0.46 % |
+| — Avoqado (50 %)                       |  **−0.23 %** |
+| Markup (3.5 %, sin IVA, 100 %)         |  **+3.50 %** |
+| **Venue paga** = 3.02 % + 3.5 %        | **≈ 6.52 %** |
 | **Ganancia Avoqado** = −0.23 % + 3.5 % | **≈ 3.27 %** |
 
 Aunque el precio base (2.6 %) sea más barato que el costo (3 %), Avoqado no se preocupa: el
@@ -82,13 +86,13 @@ markup 100 % tuyo sobre el costo, sin el precio base ni el reparto 50/50).
 
 ## Mapeo a la feature (modo "Vía agregador")
 
-| Concepto de negocio | Campo en la feature |
-|---|---|
-| Costo del procesador | `ProviderCostStructure` (débito/crédito/amex/intl) |
-| Precio base al venue | `MerchantRevenueShare.aggregatorPrice` |
-| Reparto tramo 1 (50 %) | `MerchantRevenueShare.avoqadoShareOfProviderMargin` = 0.5 |
-| Venue paga (precio base + markup) | `VenuePricingStructure` (por venue/slot) |
-| Reparto tramo 2 (100 %) | `MerchantRevenueShare.avoqadoShareOfAggregatorMargin` = 1.0 |
+| Concepto de negocio               | Campo en la feature                                         |
+| --------------------------------- | ----------------------------------------------------------- |
+| Costo del procesador              | `ProviderCostStructure` (débito/crédito/amex/intl)          |
+| Precio base al venue              | `MerchantRevenueShare.aggregatorPrice`                      |
+| Reparto tramo 1 (50 %)            | `MerchantRevenueShare.avoqadoShareOfProviderMargin` = 0.5   |
+| Venue paga (precio base + markup) | `VenuePricingStructure` (por venue/slot)                    |
+| Reparto tramo 2 (100 %)           | `MerchantRevenueShare.avoqadoShareOfAggregatorMargin` = 1.0 |
 
 ## Cómo lo captura el Pricing Wizard (implementado 2026-07-19)
 

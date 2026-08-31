@@ -20,13 +20,27 @@ export function AnnouncementPreview({
 }) {
   return (
     <div className="rounded-[12px] border border-[var(--line-strong)] bg-[var(--canvas-raised)] p-4">
-      <div className="text-[15px] font-medium text-[var(--ink)]">{title || 'Título del anuncio'}</div>
-      <p className="mt-1 text-[13px] leading-relaxed text-[var(--ink-muted)]">{body || 'El texto del aviso va aquí.'}</p>
+      <div className="text-[15px] font-medium text-[var(--ink)]">
+        {title || 'Título del anuncio'}
+      </div>
+      <p className="mt-1 text-[13px] leading-relaxed text-[var(--ink-muted)]">
+        {body || 'El texto del aviso va aquí.'}
+      </p>
 
       <div className="mt-3 space-y-3">
         {bloques.map((b, i) => {
-          if (b.type === 'heading') return <div key={i} className="text-[14px] font-medium text-[var(--ink)]">{b.text}</div>
-          if (b.type === 'paragraph') return <p key={i} className="text-[13px] leading-relaxed text-[var(--ink-muted)]">{b.text}</p>
+          if (b.type === 'heading')
+            return (
+              <div key={i} className="text-[14px] font-medium text-[var(--ink)]">
+                {b.text}
+              </div>
+            )
+          if (b.type === 'paragraph')
+            return (
+              <p key={i} className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
+                {b.text}
+              </p>
+            )
           if (b.type === 'bullets')
             return (
               <ul key={i} className="list-disc space-y-1 pl-4 text-[13px] text-[var(--ink-muted)]">
@@ -52,14 +66,19 @@ export function AnnouncementPreview({
                     foto del aparato
                   </div>
                 )}
-                {b.caption && <div className="mt-1 text-[12px] text-[var(--ink-faint)]">{b.caption}</div>}
+                {b.caption && (
+                  <div className="mt-1 text-[12px] text-[var(--ink-faint)]">{b.caption}</div>
+                )}
               </div>
             )
           if (b.type === 'specs')
             return (
               <div key={i} className="rounded-[8px] border border-[var(--line-strong)]">
                 {b.rows.map((r, k) => (
-                  <div key={k} className="flex justify-between border-b border-[var(--line-strong)] px-2.5 py-1.5 text-[12px] last:border-b-0">
+                  <div
+                    key={k}
+                    className="flex justify-between border-b border-[var(--line-strong)] px-2.5 py-1.5 text-[12px] last:border-b-0"
+                  >
                     <span className="text-[var(--ink-muted)]">{r.label}</span>
                     <span className="text-[var(--ink)]">{r.value}</span>
                   </div>
@@ -68,7 +87,10 @@ export function AnnouncementPreview({
             )
           if (b.type === 'callout')
             return (
-              <div key={i} className="rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 py-2 text-[12px] text-[var(--ink-muted)]">
+              <div
+                key={i}
+                className="rounded-[8px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 py-2 text-[12px] text-[var(--ink-muted)]"
+              >
                 {b.text}
               </div>
             )

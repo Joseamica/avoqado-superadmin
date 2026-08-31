@@ -6,12 +6,19 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/data-table/DataTable'
 import { QueryError } from '@/shared/components/QueryError'
 import { formatDate } from '@/shared/lib/datetime'
-import { useAnnouncements, useArchiveAnnouncement, usePublishAnnouncement } from './use-announcements'
+import {
+  useAnnouncements,
+  useArchiveAnnouncement,
+  usePublishAnnouncement,
+} from './use-announcements'
 import { AnnouncementEditor } from './AnnouncementEditor'
 import { AnnouncementDetail } from './AnnouncementDetail'
 import type { Announcement, AnnouncementStatus } from './types'
 
-const ESTADO: Record<AnnouncementStatus, { label: string; tone: 'muted' | 'success' | 'warn' | 'info' }> = {
+const ESTADO: Record<
+  AnnouncementStatus,
+  { label: string; tone: 'muted' | 'success' | 'warn' | 'info' }
+> = {
   DRAFT: { label: 'Borrador', tone: 'muted' },
   SCHEDULED: { label: 'Programado', tone: 'warn' },
   PUBLISHED: { label: 'Publicado', tone: 'success' },
@@ -83,7 +90,8 @@ export function AnnouncementsPage() {
         // eso exagera — alguien dueño de 12 negocios generaba 12 él solo.
         cell: ({ row }) => {
           const a = row.original
-          if (!a.deliveredAt) return <div className="text-right text-[13px] text-[var(--ink-faint)]">—</div>
+          if (!a.deliveredAt)
+            return <div className="text-right text-[13px] text-[var(--ink-faint)]">—</div>
           return (
             <div className="text-right">
               <div className="tabular text-[13px] text-[var(--ink)]">
@@ -101,7 +109,9 @@ export function AnnouncementsPage() {
         header: 'Publicado',
         cell: ({ row }) =>
           row.original.publishedAt ? (
-            <span className="text-[13px] text-[var(--ink-muted)]">{formatDate(row.original.publishedAt)}</span>
+            <span className="text-[13px] text-[var(--ink-muted)]">
+              {formatDate(row.original.publishedAt)}
+            </span>
           ) : (
             <span className="text-[13px] text-[var(--ink-faint)]">—</span>
           ),
@@ -188,7 +198,8 @@ export function AnnouncementsPage() {
         searchPlaceholder="Buscar anuncio…"
         emptyState={{
           title: 'Todavía no hay anuncios',
-          description: 'Crea el primero para avisarle a tus negocios de una función nueva o una promoción.',
+          description:
+            'Crea el primero para avisarle a tus negocios de una función nueva o una promoción.',
         }}
         caption="Anuncios de plataforma"
       />

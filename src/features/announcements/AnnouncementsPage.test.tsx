@@ -99,7 +99,10 @@ describe('AnnouncementsPage', () => {
       http.put(`${baseURL}/superadmin/announcements/:id`, ({ params, request }) => {
         metodo = request.method
         idTocado = params.id as string
-        return HttpResponse.json({ success: true, data: { announcement: { ...anuncio, title: 'Corregido' } } })
+        return HttpResponse.json({
+          success: true,
+          data: { announcement: { ...anuncio, title: 'Corregido' } },
+        })
       }),
       http.post(`${baseURL}/superadmin/announcements`, () => {
         throw new Error('no debe crear uno nuevo al editar')
@@ -124,7 +127,11 @@ describe('AnnouncementsPage', () => {
       http.get(`${baseURL}/superadmin/announcements`, () =>
         HttpResponse.json({
           success: true,
-          data: { announcements: [{ ...anuncio, status: 'PUBLISHED', publishedAt: '2026-08-27T11:00:00.000Z' }] },
+          data: {
+            announcements: [
+              { ...anuncio, status: 'PUBLISHED', publishedAt: '2026-08-27T11:00:00.000Z' },
+            ],
+          },
         }),
       ),
     )
@@ -151,30 +158,26 @@ describe('AnnouncementsPage', () => {
   })
 
   // ===== REGRESION: no publicar al vacio =====
-  it(
-    'no deja publicar si el anuncio no le llegaria a nadie',
-    async () => {
-      server.use(
-        http.post(`${baseURL}/superadmin/announcements/preview-audience`, () =>
-          HttpResponse.json({ success: true, data: { venues: 0, people: 0 } }),
-        ),
-      )
-      const user = userEvent.setup()
-      renderPage()
-      await screen.findByText('Ya está la terminal Sunmi D3')
-      await user.click(screen.getByRole('button', { name: 'Nuevo anuncio' }))
+  it('no deja publicar si el anuncio no le llegaria a nadie', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/announcements/preview-audience`, () =>
+        HttpResponse.json({ success: true, data: { venues: 0, people: 0 } }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Ya está la terminal Sunmi D3')
+    await user.click(screen.getByRole('button', { name: 'Nuevo anuncio' }))
 
-      // por etiqueta, no por placeholder: los campos ya usan `Field` y tienen label
-      await user.type(screen.getByLabelText('Título'), 'Hola')
-      await user.type(screen.getByLabelText('Texto del aviso'), 'Aviso')
+    // por etiqueta, no por placeholder: los campos ya usan `Field` y tienen label
+    await user.type(screen.getByLabelText('Título'), 'Hola')
+    await user.type(screen.getByLabelText('Texto del aviso'), 'Aviso')
 
-      await waitFor(() => expect(screen.getByText('Nadie lo recibiría')).toBeInTheDocument(), {
-        timeout: 4000,
-      })
-      const publicar = screen.getAllByRole('button', { name: 'Publicar' }).at(-1)
-      expect(publicar).toBeDisabled()
-    },
+    await waitFor(() => expect(screen.getByText('Nadie lo recibiría')).toBeInTheDocument(), {
+      timeout: 4000,
+    })
+    const publicar = screen.getAllByRole('button', { name: 'Publicar' }).at(-1)
+    expect(publicar).toBeDisabled()
     // el conteo pasa por un debounce de 350 ms y `user.type` escribe tecla por tecla
-    15000,
-  )
+  }, 15000)
 })

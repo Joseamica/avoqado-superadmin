@@ -10,3 +10,9 @@ test-results
 
 # Local-only Claude Code settings
 .claude/settings.local.json
+
+# Worktrees de git anidados: son copias del propio repo, con el trabajo en
+# vuelo de OTRA sesion y sus propias dependencias. Formatearlos desde aqui
+# seria escribir en el arbol de trabajo de alguien mas.
+.worktrees
+.claude/worktrees

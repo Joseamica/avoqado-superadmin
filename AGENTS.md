@@ -20,7 +20,6 @@ con el swap al límite. 🧪 Desde el 2026-08-24 este repo va **sólo al Alienwa
 
 Detalle completo: `Avoqado/CLAUDE.md`, sección "Verificación repartida".
 
-
 This file overrides default behavior for any AI assistant working on this repository. Read [AGENTS.md del workspace](../AGENTS.md) for ecosystem-wide rules; this file adds project-specific rules on top.
 
 ---
@@ -564,4 +563,3 @@ Regla completa en `~/.claude/CLAUDE.md` (aplica a todos sus proyectos) y en
 - **Las respuestas largas están bien** — le sirve que razones y no adivines.
 - 🔴 **SIEMPRE cierra con 2-3 líneas en lenguaje llano**: qué pasó, qué significa para él, y qué
   necesitas de él. Sin ese cierre, el contenido puede ser correcto y aun así no llegarle.
-

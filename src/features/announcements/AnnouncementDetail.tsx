@@ -33,7 +33,11 @@ function Metrica({ valor, etiqueta, de }: { valor: number; etiqueta: string; de?
     <div className="rounded-[8px] border border-[var(--line-strong)] px-3.5 py-3">
       <div className="tabular text-[22px] font-medium leading-none text-[var(--ink)]">{valor}</div>
       <div className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{etiqueta}</div>
-      {pct !== null && <div className="mt-0.5 text-[12px] text-[var(--ink-faint)]">{pct}% de los que lo recibieron</div>}
+      {pct !== null && (
+        <div className="mt-0.5 text-[12px] text-[var(--ink-faint)]">
+          {pct}% de los que lo recibieron
+        </div>
+      )}
     </div>
   )
 }
@@ -59,7 +63,7 @@ export function AnnouncementDetail({
   const sinAbrir = m ? Math.max(0, m.reachedPeople - m.opened) : 0
 
   return (
-    <Drawer open onOpenChange={abierto => !abierto && onClose()}>
+    <Drawer open onOpenChange={(abierto) => !abierto && onClose()}>
       <DrawerContent>
         <div className="flex items-start justify-between gap-3 border-b border-[var(--line-strong)] px-5 py-4">
           <div className="min-w-0">
@@ -108,7 +112,7 @@ export function AnnouncementDetail({
               <div className="space-y-2.5 text-[13px]">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[var(--ink-muted)]">Roles:</span>
-                  {anuncio.audienceRoles.map(r => (
+                  {anuncio.audienceRoles.map((r) => (
                     <Badge key={r}>{ROL[r] ?? r}</Badge>
                   ))}
                 </div>
@@ -117,7 +121,7 @@ export function AnnouncementDetail({
                   {anuncio.targetPlanTiers.length === 0 ? (
                     <span className="text-[var(--ink-faint)]">todos</span>
                   ) : (
-                    anuncio.targetPlanTiers.map(p => <Badge key={p}>{p}</Badge>)
+                    anuncio.targetPlanTiers.map((p) => <Badge key={p}>{p}</Badge>)
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -125,7 +129,7 @@ export function AnnouncementDetail({
                   {anuncio.targetCategories.length === 0 ? (
                     <span className="text-[var(--ink-faint)]">todos</span>
                   ) : (
-                    anuncio.targetCategories.map(c => <Badge key={c}>{GIRO[c] ?? c}</Badge>)
+                    anuncio.targetCategories.map((c) => <Badge key={c}>{GIRO[c] ?? c}</Badge>)
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">

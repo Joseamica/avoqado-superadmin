@@ -38,10 +38,12 @@
 ## Task 1: Lógica pura del wizard (`pricing-wizard.ts`)
 
 **Files:**
+
 - Create: `src/features/merchants/pricing-wizard.ts`
 - Test: `src/features/merchants/pricing-wizard.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CardRates`, `CardType`, `CARD_TYPES` de `./types`; `SaveCostInput`, `SaveRevenueShareInput`, `SaveVenuePricingInput` de `./api`; `computeMerchantEconomics`, `MerchantEconomics` de `./economics`.
 - Produces:
   - `type ChargeModel = 'flat' | 'cost-plus' | 'aggregator'`
@@ -57,7 +59,12 @@ Create `src/features/merchants/pricing-wizard.test.ts`:
 
 ```ts
 import { describe, it, expect } from 'vitest'
-import { buildWizardResult, wizardEconomics, EMPTY_WIZARD_STATE, type WizardState } from './pricing-wizard'
+import {
+  buildWizardResult,
+  wizardEconomics,
+  EMPTY_WIZARD_STATE,
+  type WizardState,
+} from './pricing-wizard'
 
 // Costos reales del caso Berthe (base, +IVA): 1.68 / 2.05 / 3 / 3.3
 const base: WizardState = {
@@ -78,7 +85,10 @@ describe('buildWizardResult', () => {
       hasPartner: false,
     })
     expect(r.venuePricingInput.rates).toEqual({
-      DEBIT: 0.035, CREDIT: 0.035, AMEX: 0.035, INTERNATIONAL: 0.035,
+      DEBIT: 0.035,
+      CREDIT: 0.035,
+      AMEX: 0.035,
+      INTERNATIONAL: 0.035,
     })
     expect(r.venuePricingInput.includesTax).toBe(true)
     expect(r.revenueShareInput.aggregatorPrice).toBeNull()
@@ -130,7 +140,10 @@ describe('buildWizardResult', () => {
       aggShareAggregator: 1,
     })
     expect(r.revenueShareInput.aggregatorPrice).toEqual({
-      DEBIT: 0.025, CREDIT: 0.025, AMEX: 0.035, INTERNATIONAL: 0.035,
+      DEBIT: 0.025,
+      CREDIT: 0.025,
+      AMEX: 0.035,
+      INTERNATIONAL: 0.035,
     })
     expect(r.revenueShareInput.avoqadoShareOfProviderMargin).toBe(0.5)
     expect(r.revenueShareInput.avoqadoShareOfAggregatorMargin).toBe(1)
@@ -377,10 +390,12 @@ git commit -m "feat(merchants): pricing wizard translation logic"
 ## Task 2: Prop `initialValues` en los drawers de economía y pricing
 
 **Files:**
+
 - Modify: `src/features/merchants/EditEconomicsDrawer.tsx`
 - Modify: `src/features/merchants/EditVenuePricingDrawer.tsx`
 
 **Interfaces:**
+
 - Produces:
   - `EditEconomicsDrawer` gana prop `initialValues?: { rates: CardRates; includesTax: boolean; revenueShare: RevenueShareDraft }`
   - `EditVenuePricingDrawer` gana prop `initialValues?: { rates: CardRates; includesTax: boolean }`
@@ -410,13 +425,15 @@ Añadir a la interface `Props` (después de `onSaved?`):
 Añadir `initialValues` al destructuring de props y cambiar los 3 `useState` iniciales:
 
 ```ts
-  const [rates, setRates] = useState<CardRates>(
-    initialValues?.rates ?? (cost ? rawCardRates(cost) : ZERO),
-  )
-  const [includesTax, setIncludesTax] = useState<boolean>(
-    initialValues?.includesTax ?? cost?.includesTax ?? true,
-  )
-  const [rs, setRs] = useState(() => initialValues?.revenueShare ?? initRevenueShareDraft(revenueShare))
+const [rates, setRates] = useState<CardRates>(
+  initialValues?.rates ?? (cost ? rawCardRates(cost) : ZERO),
+)
+const [includesTax, setIncludesTax] = useState<boolean>(
+  initialValues?.includesTax ?? cost?.includesTax ?? true,
+)
+const [rs, setRs] = useState(
+  () => initialValues?.revenueShare ?? initRevenueShareDraft(revenueShare),
+)
 ```
 
 - [ ] **Step 2: Añadir el prop a `EditVenuePricingDrawer`**
@@ -431,18 +448,18 @@ En `src/features/merchants/EditVenuePricingDrawer.tsx`, añadir a `Props`:
 Añadir `initialValues` al destructuring y cambiar el bloque de hidratación:
 
 ```ts
-  // Hidrata el form una vez que carga el pricing (computado en render, sin useEffect).
-  // Si el Asistente pasó initialValues, esos ganan sobre lo guardado.
-  if (open && !hydrated && (initialValues || pricingQ.isSuccess)) {
-    setHydrated(true)
-    if (initialValues) {
-      setRates(initialValues.rates)
-      setIncludesTax(initialValues.includesTax)
-    } else if (loaded) {
-      setRates(rawCardRates(loaded))
-      setIncludesTax(loaded.includesTax ?? true)
-    }
+// Hidrata el form una vez que carga el pricing (computado en render, sin useEffect).
+// Si el Asistente pasó initialValues, esos ganan sobre lo guardado.
+if (open && !hydrated && (initialValues || pricingQ.isSuccess)) {
+  setHydrated(true)
+  if (initialValues) {
+    setRates(initialValues.rates)
+    setIncludesTax(initialValues.includesTax)
+  } else if (loaded) {
+    setRates(rawCardRates(loaded))
+    setIncludesTax(loaded.includesTax ?? true)
   }
+}
 ```
 
 - [ ] **Step 3: Typecheck**
@@ -467,10 +484,12 @@ git commit -m "feat(merchants): optional initialValues on economics/pricing draw
 ## Task 3: Drawer del asistente (`PricingWizardDrawer.tsx`)
 
 **Files:**
+
 - Create: `src/features/merchants/PricingWizardDrawer.tsx`
 - Test: `src/features/merchants/PricingWizardDrawer.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `WizardState`, `EMPTY_WIZARD_STATE`, `buildWizardResult`, `wizardEconomics`, `ChargeModel` de `./pricing-wizard`; `CardRatesInput`, `Combobox`, `Drawer*`, `Button`, `Badge`; `computeMerchantEconomics` vía `wizardEconomics`; `humanizeCardType`, `CARD_TYPES`, `AccountSlot`, `ProviderCostStructure` de `./types`.
 - Produces:
   - `interface PricingWizardResult { result: WizardResult; venueId: string; venueName: string; slot: AccountSlot }`
@@ -529,17 +548,33 @@ Create `src/features/merchants/PricingWizardDrawer.tsx`. Estructura: 3 pasos con
 ```tsx
 import { useMemo, useState } from 'react'
 import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerSubtitle, DrawerBody, DrawerFooter,
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerSubtitle,
+  DrawerBody,
+  DrawerFooter,
 } from '@/shared/ui/Drawer'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Combobox } from '@/shared/ui/Combobox'
 import { CardRatesInput } from './CardRatesInput'
 import {
-  EMPTY_WIZARD_STATE, buildWizardResult, wizardEconomics,
-  type WizardState, type ChargeModel, type WizardResult,
+  EMPTY_WIZARD_STATE,
+  buildWizardResult,
+  wizardEconomics,
+  type WizardState,
+  type ChargeModel,
+  type WizardResult,
 } from './pricing-wizard'
-import { CARD_TYPES, humanizeCardType, rawCardRates, type AccountSlot, type ProviderCostStructure } from './types'
+import {
+  CARD_TYPES,
+  humanizeCardType,
+  rawCardRates,
+  type AccountSlot,
+  type ProviderCostStructure,
+} from './types'
 import { initRevenueShareDraft } from './revenue-share'
 
 export interface PricingWizardResult {
@@ -560,7 +595,9 @@ interface Props {
 const pct = (d: number) => String(Math.round(d * 10000) / 100)
 const toDec = (raw: string) => (raw.trim() === '' ? 0 : (parseFloat(raw) || 0) / 100)
 const money = (n: number | null) =>
-  n == null ? '—' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
+  n == null
+    ? '—'
+    : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
 
 const pctInput =
   'h-9 w-28 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 text-[13px] tabular-nums focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]'
@@ -594,13 +631,24 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
 
   function handlePrefill() {
     if (!venue) return
-    onPrefill({ result: buildWizardResult(s), venueId: venue.venueId, venueName: venue.venueName, slot: venue.slot })
+    onPrefill({
+      result: buildWizardResult(s),
+      venueId: venue.venueId,
+      venueName: venue.venueName,
+      slot: venue.slot,
+    })
     onOpenChange(false)
     reset()
   }
 
   return (
-    <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset() }}>
+    <Drawer
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o)
+        if (!o) reset()
+      }}
+    >
       <DrawerContent>
         <DrawerHeader onClose={() => onOpenChange(false)}>
           <DrawerTitle>Asistente de pricing</DrawerTitle>
@@ -609,11 +657,20 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
         <DrawerBody>
           {step === 1 && (
             <section className="flex flex-col gap-3">
-              <h3 className="text-[13px] font-semibold text-[var(--ink)]">¿Cuánto te cobra tu procesador?</h3>
-              <CardRatesInput value={s.cost} onChange={(cost) => patch({ cost })} idPrefix="wiz-cost" />
+              <h3 className="text-[13px] font-semibold text-[var(--ink)]">
+                ¿Cuánto te cobra tu procesador?
+              </h3>
+              <CardRatesInput
+                value={s.cost}
+                onChange={(cost) => patch({ cost })}
+                idPrefix="wiz-cost"
+              />
               <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                <input type="checkbox" checked={s.costIncludesTax}
-                  onChange={(e) => patch({ costIncludesTax: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={s.costIncludesTax}
+                  onChange={(e) => patch({ costIncludesTax: e.target.checked })}
+                />
                 Estas tasas ya incluyen IVA
               </label>
             </section>
@@ -624,14 +681,20 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
               <div>
                 <span className={labelCls}>¿Cómo le cobras al venue?</span>
                 <div className="flex flex-wrap gap-2">
-                  {([
-                    ['flat', 'Tasa pareja'],
-                    ['cost-plus', 'Costo + comisión'],
-                    ['aggregator', 'Vía agregador'],
-                  ] as [ChargeModel, string][]).map(([m, label]) => (
-                    <Button key={m} type="button" size="sm"
+                  {(
+                    [
+                      ['flat', 'Tasa pareja'],
+                      ['cost-plus', 'Costo + comisión'],
+                      ['aggregator', 'Vía agregador'],
+                    ] as [ChargeModel, string][]
+                  ).map(([m, label]) => (
+                    <Button
+                      key={m}
+                      type="button"
+                      size="sm"
                       variant={s.model === m ? 'primary' : 'secondary'}
-                      onClick={() => patch({ model: m })}>
+                      onClick={() => patch({ model: m })}
+                    >
                       {label}
                     </Button>
                   ))}
@@ -640,12 +703,22 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
 
               {s.model === 'flat' && (
                 <div>
-                  <label htmlFor="wiz-flat" className={labelCls}>% que paga el venue</label>
-                  <input id="wiz-flat" className={pctInput} inputMode="decimal"
-                    value={pct(s.flatRate)} onChange={(e) => patch({ flatRate: toDec(e.target.value) })} />
+                  <label htmlFor="wiz-flat" className={labelCls}>
+                    % que paga el venue
+                  </label>
+                  <input
+                    id="wiz-flat"
+                    className={pctInput}
+                    inputMode="decimal"
+                    value={pct(s.flatRate)}
+                    onChange={(e) => patch({ flatRate: toDec(e.target.value) })}
+                  />
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                    <input type="checkbox" checked={s.flatIncludesTax}
-                      onChange={(e) => patch({ flatIncludesTax: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      checked={s.flatIncludesTax}
+                      onChange={(e) => patch({ flatIncludesTax: e.target.checked })}
+                    />
                     Ya incluye IVA
                   </label>
                 </div>
@@ -654,12 +727,22 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
               {s.model === 'cost-plus' && (
                 <div className="flex flex-col gap-3">
                   <div>
-                    <label htmlFor="wiz-markup" className={labelCls}>Tu comisión (%)</label>
-                    <input id="wiz-markup" className={pctInput} inputMode="decimal"
-                      value={pct(s.markup)} onChange={(e) => patch({ markup: toDec(e.target.value) })} />
+                    <label htmlFor="wiz-markup" className={labelCls}>
+                      Tu comisión (%)
+                    </label>
+                    <input
+                      id="wiz-markup"
+                      className={pctInput}
+                      inputMode="decimal"
+                      value={pct(s.markup)}
+                      onChange={(e) => patch({ markup: toDec(e.target.value) })}
+                    />
                     <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                      <input type="checkbox" checked={s.markupIncludesTax}
-                        onChange={(e) => patch({ markupIncludesTax: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={s.markupIncludesTax}
+                        onChange={(e) => patch({ markupIncludesTax: e.target.checked })}
+                      />
                       Esa comisión lleva IVA
                     </label>
                   </div>
@@ -670,33 +753,59 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                 <div className="flex flex-col gap-3">
                   <div>
                     <span className={labelCls}>¿Cuánto le cobras al agregador?</span>
-                    <CardRatesInput value={s.aggregatorPrice}
-                      onChange={(aggregatorPrice) => patch({ aggregatorPrice })} idPrefix="wiz-agg" />
+                    <CardRatesInput
+                      value={s.aggregatorPrice}
+                      onChange={(aggregatorPrice) => patch({ aggregatorPrice })}
+                      idPrefix="wiz-agg"
+                    />
                     <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                      <input type="checkbox" checked={s.aggIncludesTax}
-                        onChange={(e) => patch({ aggIncludesTax: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={s.aggIncludesTax}
+                        onChange={(e) => patch({ aggIncludesTax: e.target.checked })}
+                      />
                       Ya incluye IVA
                     </label>
                   </div>
                   <div>
-                    <label htmlFor="wiz-agg-sp" className={labelCls}>Tu % del margen proveedor→agregador</label>
-                    <input id="wiz-agg-sp" className={pctInput} inputMode="decimal"
-                      value={pct(s.aggShareProvider)} onChange={(e) => patch({ aggShareProvider: toDec(e.target.value) })} />
+                    <label htmlFor="wiz-agg-sp" className={labelCls}>
+                      Tu % del margen proveedor→agregador
+                    </label>
+                    <input
+                      id="wiz-agg-sp"
+                      className={pctInput}
+                      inputMode="decimal"
+                      value={pct(s.aggShareProvider)}
+                      onChange={(e) => patch({ aggShareProvider: toDec(e.target.value) })}
+                    />
                   </div>
                   <div>
                     <span className={labelCls}>¿Cuánto le cobra el agregador al venue?</span>
-                    <CardRatesInput value={s.aggVenuePricing}
-                      onChange={(aggVenuePricing) => patch({ aggVenuePricing })} idPrefix="wiz-agg-venue" />
+                    <CardRatesInput
+                      value={s.aggVenuePricing}
+                      onChange={(aggVenuePricing) => patch({ aggVenuePricing })}
+                      idPrefix="wiz-agg-venue"
+                    />
                     <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                      <input type="checkbox" checked={s.aggVenueIncludesTax}
-                        onChange={(e) => patch({ aggVenueIncludesTax: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={s.aggVenueIncludesTax}
+                        onChange={(e) => patch({ aggVenueIncludesTax: e.target.checked })}
+                      />
                       Ya incluye IVA
                     </label>
                   </div>
                   <div>
-                    <label htmlFor="wiz-agg-sa" className={labelCls}>Tu % del margen agregador→venue</label>
-                    <input id="wiz-agg-sa" className={pctInput} inputMode="decimal"
-                      value={pct(s.aggShareAggregator)} onChange={(e) => patch({ aggShareAggregator: toDec(e.target.value) })} />
+                    <label htmlFor="wiz-agg-sa" className={labelCls}>
+                      Tu % del margen agregador→venue
+                    </label>
+                    <input
+                      id="wiz-agg-sa"
+                      className={pctInput}
+                      inputMode="decimal"
+                      value={pct(s.aggShareAggregator)}
+                      onChange={(e) => patch({ aggShareAggregator: toDec(e.target.value) })}
+                    />
                   </div>
                 </div>
               )}
@@ -704,21 +813,39 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
               {(s.model === 'flat' || s.model === 'cost-plus') && (
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                    <input type="checkbox" checked={s.hasPartner}
-                      onChange={(e) => patch({ hasPartner: e.target.checked, avoqadoShare: e.target.checked ? 0.5 : 1 })} />
+                    <input
+                      type="checkbox"
+                      checked={s.hasPartner}
+                      onChange={(e) =>
+                        patch({
+                          hasPartner: e.target.checked,
+                          avoqadoShare: e.target.checked ? 0.5 : 1,
+                        })
+                      }
+                    />
                     Reparto mi ganancia con un socio
                   </label>
                   {s.hasPartner && (
                     <div>
-                      <label htmlFor="wiz-share" className={labelCls}>% que es tuyo</label>
-                      <input id="wiz-share" className={pctInput} inputMode="decimal"
-                        value={pct(s.avoqadoShare)} onChange={(e) => patch({ avoqadoShare: toDec(e.target.value) })} />
+                      <label htmlFor="wiz-share" className={labelCls}>
+                        % que es tuyo
+                      </label>
+                      <input
+                        id="wiz-share"
+                        className={pctInput}
+                        inputMode="decimal"
+                        value={pct(s.avoqadoShare)}
+                        onChange={(e) => patch({ avoqadoShare: toDec(e.target.value) })}
+                      />
                     </div>
                   )}
                   {s.model === 'cost-plus' && s.hasPartner && (
                     <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                      <input type="checkbox" checked={s.markupIsNet}
-                        onChange={(e) => patch({ markupIsNet: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={s.markupIsNet}
+                        onChange={(e) => patch({ markupIsNet: e.target.checked })}
+                      />
                       Esa comisión es lo que quiero ganar limpio (no la que reparto)
                     </label>
                   )}
@@ -730,14 +857,20 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
           {step === 3 && (
             <section className="flex flex-col gap-4">
               <div className="rounded-[8px] border border-[var(--line)] bg-[var(--canvas-sunken)] p-3">
-                <p className="mb-2 text-[12px] font-medium text-[var(--ink)]">Tu margen neto (por $100)</p>
+                <p className="mb-2 text-[12px] font-medium text-[var(--ink)]">
+                  Tu margen neto (por $100)
+                </p>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
                   {CARD_TYPES.map((c) => {
                     const m = economics.byCard[c].avoqadoMargin
                     return (
                       <div key={c} className="flex items-baseline justify-between">
-                        <dt className="text-[12px] text-[var(--ink-muted)]">{humanizeCardType(c)}</dt>
-                        <dd className={`text-[13px] font-semibold tabular-nums ${(m ?? 0) < 0 ? 'text-[var(--danger)]' : 'text-[var(--success)]'}`}>
+                        <dt className="text-[12px] text-[var(--ink-muted)]">
+                          {humanizeCardType(c)}
+                        </dt>
+                        <dd
+                          className={`text-[13px] font-semibold tabular-nums ${(m ?? 0) < 0 ? 'text-[var(--danger)]' : 'text-[var(--success)]'}`}
+                        >
                           {money(m)}
                         </dd>
                       </div>
@@ -755,7 +888,10 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
                 <Combobox
                   value={s.venueId}
                   onChange={(v) => patch({ venueId: v })}
-                  options={venues.map((v) => ({ value: v.venueId, label: `${v.venueName} · ${v.slot}` }))}
+                  options={venues.map((v) => ({
+                    value: v.venueId,
+                    label: `${v.venueName} · ${v.slot}`,
+                  }))}
                   placeholder="Elegir venue"
                   ariaLabel="Venue destino"
                 />
@@ -765,12 +901,18 @@ export function PricingWizardDrawer({ open, onOpenChange, cost, venues, onPrefil
         </DrawerBody>
         <DrawerFooter>
           {step > 1 && (
-            <Button type="button" variant="ghost" onClick={() => setStep((n) => n - 1)}>Atrás</Button>
+            <Button type="button" variant="ghost" onClick={() => setStep((n) => n - 1)}>
+              Atrás
+            </Button>
           )}
           {step < 3 ? (
-            <Button type="button" onClick={() => setStep((n) => n + 1)}>Siguiente</Button>
+            <Button type="button" onClick={() => setStep((n) => n + 1)}>
+              Siguiente
+            </Button>
           ) : (
-            <Button type="button" disabled={!venue} onClick={handlePrefill}>Prellenar y revisar</Button>
+            <Button type="button" disabled={!venue} onClick={handlePrefill}>
+              Prellenar y revisar
+            </Button>
           )}
         </DrawerFooter>
       </DrawerContent>
@@ -798,9 +940,11 @@ git commit -m "feat(merchants): pricing wizard drawer (3-step stepper)"
 ## Task 4: Integrar en `MerchantDetailPage` (botón + prellenado secuencial)
 
 **Files:**
+
 - Modify: `src/features/merchants/MerchantDetailPage.tsx`
 
 **Interfaces:**
+
 - Consumes: `PricingWizardDrawer`, `PricingWizardResult` de `./PricingWizardDrawer`; `revenueShareToDraft` helper (ver Step 1) o `initRevenueShareDraft`.
 
 **Flujo:** el wizard emite `onPrefill(r)`. Guardamos `r` y abrimos `EditEconomicsDrawer` con `initialValues` (costo + reparto). Cuando el operador guarda (`onSaved`), abrimos `EditVenuePricingDrawer` con `initialValues` (pricing). Al guardar ese, limpiamos.
@@ -836,88 +980,107 @@ import { draftFromInput } from './revenue-share'
 Añadir estado (junto a los otros `useState`):
 
 ```ts
-  const [wizardOpen, setWizardOpen] = useState(false)
-  const [prefill, setPrefill] = useState<PricingWizardResult | null>(null)
-  const [prefillStage, setPrefillStage] = useState<'eco' | 'pricing' | null>(null)
+const [wizardOpen, setWizardOpen] = useState(false)
+const [prefill, setPrefill] = useState<PricingWizardResult | null>(null)
+const [prefillStage, setPrefillStage] = useState<'eco' | 'pricing' | null>(null)
 ```
 
 Añadir el botón en el header de la sección Economía (junto al "Editar" de `setEditingEco`):
 
 ```tsx
-            <Button size="sm" variant="ghost" onClick={() => setWizardOpen(true)}>
-              Asistente
-            </Button>
+<Button size="sm" variant="ghost" onClick={() => setWizardOpen(true)}>
+  Asistente
+</Button>
 ```
 
 Añadir el wizard + la orquestación cerca de los otros drawers (antes del `</Shell>`):
 
 ```tsx
-      <PricingWizardDrawer
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        cost={eco.cost}
-        venues={eco.venueConfigs.map((c) => ({
-          venueId: c.venueId, venueName: c.venue.name, slot: c.slot,
-        }))}
-        onPrefill={(r) => { setPrefill(r); setPrefillStage('eco') }}
-      />
+<PricingWizardDrawer
+  open={wizardOpen}
+  onOpenChange={setWizardOpen}
+  cost={eco.cost}
+  venues={eco.venueConfigs.map((c) => ({
+    venueId: c.venueId,
+    venueName: c.venue.name,
+    slot: c.slot,
+  }))}
+  onPrefill={(r) => {
+    setPrefill(r)
+    setPrefillStage('eco')
+  }}
+/>
 ```
 
 Modificar el `EditEconomicsDrawer` existente para aceptar el prefill: cambiar su `open` y añadir `initialValues` cuando estamos en la etapa `eco`:
 
 ```tsx
-      <EditEconomicsDrawer
-        open={editingEco || prefillStage === 'eco'}
-        onOpenChange={(o) => {
-          if (prefillStage === 'eco') { if (!o) { setEditingEco(false) } }
-          else setEditingEco(o)
-        }}
-        merchantId={m.id}
-        cost={eco.cost}
-        revenueShare={eco.revenueShare}
-        initialValues={
-          prefillStage === 'eco' && prefill
-            ? {
-                rates: prefill.result.costInput.rates,
-                includesTax: prefill.result.costInput.includesTax,
-                revenueShare: draftFromInput(prefill.result.revenueShareInput),
-              }
-            : undefined
+<EditEconomicsDrawer
+  open={editingEco || prefillStage === 'eco'}
+  onOpenChange={(o) => {
+    if (prefillStage === 'eco') {
+      if (!o) {
+        setEditingEco(false)
+      }
+    } else setEditingEco(o)
+  }}
+  merchantId={m.id}
+  cost={eco.cost}
+  revenueShare={eco.revenueShare}
+  initialValues={
+    prefillStage === 'eco' && prefill
+      ? {
+          rates: prefill.result.costInput.rates,
+          includesTax: prefill.result.costInput.includesTax,
+          revenueShare: draftFromInput(prefill.result.revenueShareInput),
         }
-        onSaved={() => {
-          eco.refetch()
-          if (prefillStage === 'eco') setPrefillStage('pricing')
-        }}
-      />
+      : undefined
+  }
+  onSaved={() => {
+    eco.refetch()
+    if (prefillStage === 'eco') setPrefillStage('pricing')
+  }}
+/>
 ```
 
 Modificar el bloque `pricingTarget` para que también dispare con el prefill de pricing. Reemplazar el bloque `{pricingTarget && (…)}` por:
 
 ```tsx
-      {(pricingTarget || (prefillStage === 'pricing' && prefill)) && (
-        <EditVenuePricingDrawer
-          open={!!pricingTarget || prefillStage === 'pricing'}
-          onOpenChange={(o) => {
-            if (!o) {
-              setPricingTarget(null)
-              if (prefillStage === 'pricing') { setPrefillStage(null); setPrefill(null) }
-            }
-          }}
-          venueId={pricingTarget?.venueId ?? prefill!.venueId}
-          venueName={pricingTarget?.venueName ?? prefill!.venueName}
-          slot={pricingTarget?.slot ?? prefill!.slot}
-          cost={eco.cost}
-          initialValues={
-            prefillStage === 'pricing' && prefill
-              ? { rates: prefill.result.venuePricingInput.rates, includesTax: prefill.result.venuePricingInput.includesTax }
-              : undefined
+{
+  ;(pricingTarget || (prefillStage === 'pricing' && prefill)) && (
+    <EditVenuePricingDrawer
+      open={!!pricingTarget || prefillStage === 'pricing'}
+      onOpenChange={(o) => {
+        if (!o) {
+          setPricingTarget(null)
+          if (prefillStage === 'pricing') {
+            setPrefillStage(null)
+            setPrefill(null)
           }
-          onSaved={() => {
-            eco.refetch()
-            if (prefillStage === 'pricing') { setPrefillStage(null); setPrefill(null) }
-          }}
-        />
-      )}
+        }
+      }}
+      venueId={pricingTarget?.venueId ?? prefill!.venueId}
+      venueName={pricingTarget?.venueName ?? prefill!.venueName}
+      slot={pricingTarget?.slot ?? prefill!.slot}
+      cost={eco.cost}
+      initialValues={
+        prefillStage === 'pricing' && prefill
+          ? {
+              rates: prefill.result.venuePricingInput.rates,
+              includesTax: prefill.result.venuePricingInput.includesTax,
+            }
+          : undefined
+      }
+      onSaved={() => {
+        eco.refetch()
+        if (prefillStage === 'pricing') {
+          setPrefillStage(null)
+          setPrefill(null)
+        }
+      }}
+    />
+  )
+}
 ```
 
 - [ ] **Step 3: Typecheck + lint**
@@ -942,6 +1105,7 @@ git commit -m "feat(merchants): wire pricing wizard into merchant detail"
 ## Task 5: Docs + verificación final
 
 **Files:**
+
 - Modify: `CHANGELOG.md`, `README.md`
 
 - [ ] **Step 1: CHANGELOG**
@@ -967,9 +1131,10 @@ Expected: build de producción sin errores.
 - [ ] **Step 4: Verificación en navegador (preview)**
 
 Levantar el dev server (preview_start con el nombre del server del repo), navegar al detalle de un merchant, abrir "Asistente", recorrer los 3 pasos con el caso Berthe (costo 1.68/2.05/3/3.3, cost-plus 3.5 % 50/50), confirmar que:
+
 - El Paso 3 muestra neto ≈ $1.75 parejo.
 - "Prellenar y revisar" abre el drawer de economía con costo + reparto puestos, y al guardar abre el de pricing con 5.45/5.88/6.98/7.33.
-Tomar screenshot como prueba.
+  Tomar screenshot como prueba.
 
 - [ ] **Step 5: Commit**
 

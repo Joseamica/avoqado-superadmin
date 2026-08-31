@@ -11,10 +11,24 @@ export type AnnouncementPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 
 export type PlanTier = 'GRATIS' | 'PRO' | 'PREMIUM' | 'ENTERPRISE'
 
-export type BusinessCategory = 'FOOD_SERVICE' | 'RETAIL' | 'SERVICES' | 'HOSPITALITY' | 'ENTERTAINMENT' | 'OTHER'
+export type BusinessCategory =
+  | 'FOOD_SERVICE'
+  | 'RETAIL'
+  | 'SERVICES'
+  | 'HOSPITALITY'
+  | 'ENTERTAINMENT'
+  | 'OTHER'
 
 /** Los roles que pueden recibir un anuncio. El default del backend es OWNER + ADMIN. */
-export type AudienceRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER' | 'WAITER' | 'KITCHEN' | 'HOST' | 'VIEWER'
+export type AudienceRole =
+  | 'OWNER'
+  | 'ADMIN'
+  | 'MANAGER'
+  | 'CASHIER'
+  | 'WAITER'
+  | 'KITCHEN'
+  | 'HOST'
+  | 'VIEWER'
 
 /**
  * Bloques del contenido ampliado — lo que se ve al hacer clic.
