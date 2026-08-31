@@ -7,7 +7,17 @@ import { MerchantEditDrawer } from './MerchantEditDrawer'
 import type { MerchantAccount, ProviderCostStructure } from './types'
 
 const baseURL = 'http://localhost:3000/api/v1'
-const server = setupServer()
+/**
+ * 🔴 Handler por DEFAULT del PIN. `onUnhandledRequest: 'bypass'` (la convención del
+ * repo, para que el `/auth/status` del AuthProvider no truene) manda al SERVIDOR REAL
+ * todo lo que no esté mockeado: sin esto, una prueba que revele el PIN pega contra
+ * `localhost:3000` de verdad y ensucia el log del backend con 401.
+ */
+const server = setupServer(
+  http.get(`${baseURL}/superadmin/angelpay-accounts/:id/pin`, () =>
+    HttpResponse.json({ data: { pin: '000000' } }),
+  ),
+)
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
 afterEach(() => server.resetHandlers())
