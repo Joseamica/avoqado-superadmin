@@ -25,7 +25,7 @@ import {
 import { EditEconomicsDrawer } from './EditEconomicsDrawer'
 import { PricingWizardDrawer, type PricingWizardResult } from './PricingWizardDrawer'
 import { draftFromInput } from './revenue-share'
-import { MerchantIdentityDrawer } from './MerchantIdentityDrawer'
+import { MerchantEditDrawer } from './MerchantEditDrawer'
 import { DeleteMerchantDialog } from './DeleteMerchantDialog'
 import { AssignTerminalDrawer } from './AssignTerminalDrawer'
 import { computeReadiness } from './readiness'
@@ -215,6 +215,9 @@ export function MerchantDetailPage() {
             Identidad &amp; banco
           </h3>
           <dl className="flex flex-col gap-1.5 text-[13px]">
+            {m.provider.code === 'ANGELPAY' && (
+              <Field label="Afiliación" value={m.angelpayAffiliation ?? '—'} />
+            )}
             <Field label="Banco" value={m.bankName ?? '—'} />
             <Field label="CLABE" value={m.clabeNumber ?? '—'} />
             <Field label="Titular" value={m.accountHolder ?? '—'} />
@@ -400,7 +403,19 @@ export function MerchantDetailPage() {
         settlements={eco.settlements}
         onSaved={eco.refetch}
       />
-      <MerchantIdentityDrawer open={editing} onOpenChange={setEditing} merchant={m} />
+      {/* Montado sólo cuando se abre: el borrador se siembra en el `useState`
+          inicial, así que un drawer siempre montado se quedaría con la foto de
+          la primera carga y no vería lo que se guardó después. */}
+      {editing && (
+        <MerchantEditDrawer
+          open
+          onOpenChange={setEditing}
+          merchant={m}
+          cost={eco.cost}
+          settlements={eco.settlements}
+          onSaved={eco.refetch}
+        />
+      )}
       <DeleteMerchantDialog
         open={deleting}
         onOpenChange={setDeleting}

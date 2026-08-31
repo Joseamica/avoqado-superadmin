@@ -258,12 +258,33 @@ export interface CreateMerchantInput {
   blumonMerchantId?: string
 }
 
+/**
+ * Parche de `PUT /superadmin/merchant-accounts/:id`.
+ *
+ * Sólo se mandan las llaves que cambiaron: el servidor discrimina `undefined`
+ * (deja la columna como está) de `null` (la borra). Mandar el objeto completo
+ * reescribiría columnas que nadie tocó — incluidas las de un proveedor ajeno.
+ */
 export interface UpdateMerchantInput {
   externalMerchantId?: string
   alias?: string | null
   displayName?: string | null
   active?: boolean
   displayOrder?: number
+  /** Rotación de credenciales. El servidor las MEZCLA con las existentes. */
+  credentials?: Partial<MerchantCredentialsInput>
+  // Blumon
+  blumonSerialNumber?: string | null
+  blumonPosId?: string | null
+  blumonEnvironment?: string | null
+  blumonMerchantId?: string | null
+  // AngelPay
+  angelpayAffiliation?: string | null
+  angelpayMerchantName?: string | null
+  // Banco
+  clabeNumber?: string | null
+  bankName?: string | null
+  accountHolder?: string | null
 }
 
 export async function createMerchant(input: CreateMerchantInput): Promise<MerchantAccount> {
