@@ -10,6 +10,7 @@ import {
   useGenerateActivationCode,
   useMerchantAccounts,
   useMigrateCancel,
+  useMigrateDiscard,
   useMigrateExecute,
   useMigratePreflight,
   useMigrateStatus,
@@ -384,6 +385,22 @@ describe('useMigrateCancel', () => {
     const data = await result.current.mutateAsync('t1')
     expect(data.cancelled).toBe(true)
     expect(data.restoredVenueId).toBe('v1')
+  })
+})
+
+describe('useMigrateDiscard', () => {
+  it('descarta el borrado pendiente y resuelve con los comandos cerrados', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-discard`, () =>
+        HttpResponse.json({ data: { discarded: 1, commandIds: ['cmd-old'] } }),
+      ),
+    )
+
+    const { result } = renderHook(() => useMigrateDiscard(), { wrapper: AllProviders })
+
+    const data = await result.current.mutateAsync('t1')
+    expect(data.discarded).toBe(1)
+    expect(data.commandIds).toEqual(['cmd-old'])
   })
 })
 

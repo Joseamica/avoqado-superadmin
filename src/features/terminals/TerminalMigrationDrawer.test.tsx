@@ -159,3 +159,133 @@ describe('TerminalMigrationDrawer — step order', () => {
     )
   }, 15000)
 })
+
+// Asana 1218069201250971 (2026-09-01): un blocker MIGRATION_IN_PROGRESS ya no es un
+// callejón sin salida. El backend describe el borrado pendiente (`pendingWipe`) y el
+// drawer ofrece la salida: aquí, la de «descartar» tras 24 h de silencio.
+describe('TerminalMigrationDrawer — MIGRATION_IN_PROGRESS tiene salida', () => {
+  it('con un borrado pendiente de 24 h+ ofrece «Descartar», llama migrate-discard y vuelve a verificar', async () => {
+    let discardCalled = false
+    let preflightCalls = 0
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, () => {
+        preflightCalls += 1
+        if (preflightCalls === 1) {
+          return HttpResponse.json({
+            data: {
+              canProceed: false,
+              blockers: [
+                { code: 'MIGRATION_IN_PROGRESS', message: 'Hay un borrado de fábrica pendiente.' },
+              ],
+              warnings: [],
+              fromVenueId: 'v_source',
+              toVenueId: 'v_dest',
+              pendingWipe: {
+                commandId: 'cmd-old',
+                queuedAt: '2026-04-09T16:30:40.000Z',
+                status: 'SENT',
+                origin: 'MANUAL',
+                toVenueId: null,
+                cancellable: false,
+                discardable: true,
+                discardableAt: '2026-04-10T16:30:40.000Z',
+              },
+            },
+          })
+        }
+        return HttpResponse.json({
+          data: {
+            canProceed: true,
+            blockers: [],
+            warnings: [],
+            fromVenueId: 'v_source',
+            toVenueId: 'v_dest',
+            pendingWipe: null,
+          },
+        })
+      }),
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-discard`, () => {
+        discardCalled = true
+        return HttpResponse.json({ data: { discarded: 1, commandIds: ['cmd-old'] } })
+      }),
+    )
+
+    const user = userEvent.setup({ delay: null })
+    renderWithProviders(
+      <TerminalMigrationDrawer terminal={makeTerminal()} open onOpenChange={() => {}} />,
+    )
+    const venueCombo = await screen.findByRole('button', { name: /selecciona venue destino/i })
+    await user.click(venueCombo)
+    await waitFor(() => expect(screen.getByText('Sucursal Norte')).toBeInTheDocument())
+    await user.click(screen.getByText('Sucursal Norte'))
+    await user.click(screen.getByRole('button', { name: /verificar destino/i }))
+    await waitFor(() => expect(screen.getByText('Dar acceso en el destino')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /^omitir$/i }))
+
+    // El bloqueo se explica con fecha y origen; el banner pelón NO se repite.
+    await waitFor(() =>
+      expect(screen.getByText(/factory reset pendiente desde el/i)).toBeInTheDocument(),
+    )
+    expect(screen.queryByText('Hay un borrado de fábrica pendiente.')).toBeNull()
+    expect(screen.getByText(/factory reset manual/i)).toBeInTheDocument()
+
+    // Descartar pide un segundo clic, y después vuelve a correr el preflight solo.
+    await user.click(screen.getByRole('button', { name: /descartar el borrado/i }))
+    await user.click(screen.getByRole('button', { name: /sí, descartarlo/i }))
+
+    await waitFor(() => expect(discardCalled).toBe(true))
+    await waitFor(() => expect(preflightCalls).toBe(2))
+    await waitFor(() =>
+      expect(screen.getByText(/sin bloqueadores ni advertencias/i)).toBeInTheDocument(),
+    )
+  }, 15000)
+
+  it('con un borrado que la terminal aún no recibe ofrece «Cancelar», no «Descartar»', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-preflight`, () =>
+        HttpResponse.json({
+          data: {
+            canProceed: false,
+            blockers: [
+              { code: 'MIGRATION_IN_PROGRESS', message: 'Hay un borrado de fábrica pendiente.' },
+            ],
+            warnings: [],
+            fromVenueId: 'v_source',
+            toVenueId: 'v_dest',
+            pendingWipe: {
+              commandId: 'cmd-q',
+              queuedAt: new Date().toISOString(),
+              status: 'QUEUED',
+              origin: 'MIGRATION',
+              toVenueId: 'v_other',
+              cancellable: true,
+              discardable: false,
+              discardableAt: new Date(Date.now() + 86_400_000).toISOString(),
+            },
+          },
+        }),
+      ),
+    )
+
+    const user = userEvent.setup({ delay: null })
+    renderWithProviders(
+      <TerminalMigrationDrawer terminal={makeTerminal()} open onOpenChange={() => {}} />,
+    )
+    const venueCombo = await screen.findByRole('button', { name: /selecciona venue destino/i })
+    await user.click(venueCombo)
+    await waitFor(() => expect(screen.getByText('Sucursal Norte')).toBeInTheDocument())
+    await user.click(screen.getByText('Sucursal Norte'))
+    await user.click(screen.getByRole('button', { name: /verificar destino/i }))
+    await waitFor(() => expect(screen.getByText('Dar acceso en el destino')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /^omitir$/i }))
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /cancelar el borrado pendiente/i }),
+      ).toBeInTheDocument(),
+    )
+    // Nombra el venue al que iba la migración que dejó el borrado.
+    expect(screen.getByText(/migración a Sucursal Sur/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /descartar el borrado/i })).toBeNull()
+  }, 15000)
+})

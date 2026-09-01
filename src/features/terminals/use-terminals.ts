@@ -9,6 +9,7 @@ import {
   fetchTpvSettings,
   generateActivationCode,
   migrateCancel,
+  migrateDiscard,
   migrateExecute,
   migratePreflight,
   migrateStatus,
@@ -157,6 +158,20 @@ export function useMigrateCancel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (terminalId: string) => migrateCancel(terminalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
+    },
+  })
+}
+
+/**
+ * Descarta un factory reset pendiente que la terminal nunca ejecutó (regla de
+ * 24 h en el backend). Invalida la lista igual que cancelar.
+ */
+export function useMigrateDiscard() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (terminalId: string) => migrateDiscard(terminalId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
     },

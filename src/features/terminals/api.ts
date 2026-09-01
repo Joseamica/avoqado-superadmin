@@ -176,6 +176,27 @@ export interface MigratePreflightResult {
   warnings: Array<{ code: string; message: string }>
   fromVenueId: string
   toVenueId: string
+  /**
+   * El factory reset que bloquea esta migración (viene exactamente cuando
+   * `MIGRATION_IN_PROGRESS` está entre los blockers), descrito para que el
+   * drawer diga desde cuándo está pendiente y ofrezca la salida: cancelar
+   * mientras la terminal no lo recibió, descartar cuando lleva 24 h muda.
+   * Opcional por si el servidor es anterior al campo.
+   */
+  pendingWipe?: PendingWipe | null
+}
+
+export interface PendingWipe {
+  commandId: string
+  /** ISO */
+  queuedAt: string
+  status: string
+  origin: 'MIGRATION' | 'MANUAL'
+  toVenueId: string | null
+  cancellable: boolean
+  discardable: boolean
+  /** ISO — desde cuándo `discardable` pasa a true */
+  discardableAt: string
 }
 
 /**
@@ -261,6 +282,32 @@ export async function migrateCancel(terminalId: string): Promise<MigrateCancelRe
     `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-cancel`,
   )
   if (!data?.data) throw new Error('Server returned empty response for migrateCancel')
+  return data.data
+}
+
+export interface MigrateDiscardResult {
+  discarded: number
+  commandIds: string[]
+  /**
+   * Venue en el que queda la terminal. Si el borrado descartado venía de una
+   * migración, se DESHACE: vuelve a su venue de origen (el factory reset es lo
+   * único que re-apunta las credenciales del comercio en el aparato, así que
+   * dejarla re-parentada sin borrado la haría cobrar con el comercio viejo).
+   */
+  restoredVenueId: string
+}
+
+/**
+ * Descarta un factory reset pendiente que la terminal recibió pero nunca
+ * ejecutó, para poder volver a migrarla. El backend sólo lo permite cuando la
+ * terminal lleva 24 h muda desde que se encoló (`pendingWipe.discardable`);
+ * antes —o mientras el borrado aún sea cancelable— responde error con motivo.
+ */
+export async function migrateDiscard(terminalId: string): Promise<MigrateDiscardResult> {
+  const { data } = await api.post<{ data: MigrateDiscardResult }>(
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-discard`,
+  )
+  if (!data?.data) throw new Error('Server returned empty response for migrateDiscard')
   return data.data
 }
 

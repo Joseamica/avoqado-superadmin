@@ -11,6 +11,7 @@ import {
   fetchTpvSettings,
   generateActivationCode,
   migrateCancel,
+  migrateDiscard,
   migrateExecute,
   migratePreflight,
   migrateStatus,
@@ -366,6 +367,34 @@ describe('migrateCancel', () => {
       ),
     )
     await expect(migrateCancel('t1')).rejects.toThrow()
+  })
+})
+
+describe('migrateDiscard', () => {
+  it('hace POST a migrate-discard y devuelve cuántos borrados se descartaron', async () => {
+    let called = false
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-discard`, () => {
+        called = true
+        return HttpResponse.json({ data: { discarded: 1, commandIds: ['cmd-old'] } })
+      }),
+    )
+
+    const result = await migrateDiscard('t1')
+    expect(called).toBe(true)
+    expect(result).toEqual({ discarded: 1, commandIds: ['cmd-old'] })
+  })
+
+  it('rejects cuando el backend lo rechaza (menos de 24 h / aún cancelable)', async () => {
+    server.use(
+      http.post(`${baseURL}/superadmin/terminals/t1/migrate-discard`, () =>
+        HttpResponse.json(
+          { message: 'El borrado se envió hace menos de 24 horas.' },
+          { status: 400 },
+        ),
+      ),
+    )
+    await expect(migrateDiscard('t1')).rejects.toThrow()
   })
 })
 

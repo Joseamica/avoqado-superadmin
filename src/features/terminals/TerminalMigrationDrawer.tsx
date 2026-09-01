@@ -23,16 +23,18 @@ import {
 } from '@/shared/ui/Drawer'
 import { cn } from '@/shared/lib/utils'
 import { inspectApiError } from '@/shared/lib/api-error'
+import { formatDateTime } from '@/shared/lib/datetime'
 import { useVenues } from '@/features/venues/use-venues'
 import {
   useMerchantAccounts,
   useMigrateCancel,
+  useMigrateDiscard,
   useMigrateExecute,
   useMigratePreflight,
   useMigrateStatus,
 } from './use-terminals'
 import { StaffAccessStep } from './StaffAccessStep'
-import type { MerchantAccountOption, MigratePreflightResult } from './api'
+import type { MerchantAccountOption, MigratePreflightResult, PendingWipe } from './api'
 import type { Terminal } from './types'
 
 /**
@@ -130,6 +132,12 @@ function MigrationDrawerBody({
   const merchantsQuery = useMerchantAccounts()
   const preflightMutation = useMigratePreflight()
   const executeMutation = useMigrateExecute()
+  // Las dos salidas de un blocker MIGRATION_IN_PROGRESS desde el preflight
+  // (Asana 1218069201250971): cancelar el borrado que la terminal no recibió, o
+  // descartar el que lleva 24 h muda. En ambos casos el drawer se queda y vuelve
+  // a correr el preflight — la idea es seguir con ESTA migración.
+  const cancelPendingMutation = useMigrateCancel()
+  const discardPendingMutation = useMigrateDiscard()
 
   // Excluye el venue actual de la terminal — no tiene sentido "migrar" al mismo.
   const venueOptions: ComboboxOption[] = useMemo(() => {
@@ -193,6 +201,33 @@ function MigrationDrawerBody({
         },
       },
     )
+  }
+
+  function handleCancelPendingWipe() {
+    cancelPendingMutation.mutate(terminal.id, {
+      onSuccess: () => {
+        toast.success('Borrado pendiente cancelado')
+        runPreflightThenAdvance()
+      },
+      onError: (error) => {
+        const info = inspectApiError(error, 'cancelar el borrado pendiente')
+        toast.error(info.title, { description: info.description })
+      },
+    })
+  }
+
+  function handleDiscardPendingWipe() {
+    discardPendingMutation.mutate(terminal.id, {
+      onSuccess: () => {
+        toast.success('Borrado pendiente descartado')
+        runPreflightThenAdvance()
+      },
+      onError: (error) => {
+        // El backend explica el porqué (aún cancelable / menos de 24 h / nada pendiente).
+        const info = inspectApiError(error, 'descartar el borrado pendiente')
+        toast.error(info.title, { description: info.description })
+      },
+    })
   }
 
   function handleExecute() {
@@ -276,6 +311,16 @@ function MigrationDrawerBody({
             terminal={terminal}
             preflight={preflight}
             destinationVenueName={destinationVenueName}
+            pendingWipeVenueName={
+              venuesQuery.data?.find((v) => v.id === preflight.pendingWipe?.toVenueId)?.name ?? null
+            }
+            pendingBusy={
+              cancelPendingMutation.isPending ||
+              discardPendingMutation.isPending ||
+              preflightMutation.isPending
+            }
+            onCancelPendingWipe={handleCancelPendingWipe}
+            onDiscardPendingWipe={handleDiscardPendingWipe}
             confirmInput={confirmInput}
             onChangeConfirm={setConfirmInput}
             onBack={() => {
@@ -453,6 +498,10 @@ function PreflightStep({
   terminal,
   preflight,
   destinationVenueName,
+  pendingWipeVenueName,
+  pendingBusy,
+  onCancelPendingWipe,
+  onDiscardPendingWipe,
   confirmInput,
   onChangeConfirm,
   onBack,
@@ -462,6 +511,11 @@ function PreflightStep({
   terminal: Terminal
   preflight: MigratePreflightResult
   destinationVenueName: string | null
+  /** Venue al que iba la migración que dejó el borrado pendiente (origen MIGRATION). */
+  pendingWipeVenueName: string | null
+  pendingBusy: boolean
+  onCancelPendingWipe: () => void
+  onDiscardPendingWipe: () => void
   confirmInput: string
   onChangeConfirm: (v: string) => void
   onBack: () => void
@@ -469,6 +523,12 @@ function PreflightStep({
   executing: boolean
 }) {
   const expected = terminal.serialNumber || terminal.name
+  const pendingWipe = preflight.pendingWipe ?? null
+  // MIGRATION_IN_PROGRESS tiene su propio bloque (fecha + origen + salida) en vez
+  // de un banner pelón que deja al operador sin qué hacer.
+  const plainBlockers = preflight.blockers.filter(
+    (b) => !(b.code === 'MIGRATION_IN_PROGRESS' && pendingWipe),
+  )
 
   return (
     <>
@@ -481,14 +541,24 @@ function PreflightStep({
           .
         </p>
 
-        {preflight.blockers.length > 0 && (
+        {plainBlockers.length > 0 && (
           <div className="mt-3 space-y-1.5">
-            {preflight.blockers.map((blocker) => (
+            {plainBlockers.map((blocker) => (
               <Banner key={blocker.code} tone="danger" icon={ShieldAlert}>
                 {blocker.message}
               </Banner>
             ))}
           </div>
+        )}
+
+        {pendingWipe && (
+          <PendingWipeBlock
+            pendingWipe={pendingWipe}
+            venueName={pendingWipeVenueName}
+            busy={pendingBusy}
+            onCancel={onCancelPendingWipe}
+            onDiscard={onDiscardPendingWipe}
+          />
         )}
 
         {preflight.warnings.length > 0 && (
@@ -556,6 +626,119 @@ function PreflightStep({
         </button>
       </div>
     </>
+  )
+}
+
+/**
+ * La salida de un blocker MIGRATION_IN_PROGRESS (decisión del founder 2026-09-01,
+ * Asana 1218069201250971). Dice desde CUÁNDO está pendiente el borrado, de DÓNDE
+ * salió, y ofrece exactamente una de dos: cancelar (la terminal no lo recibió) o
+ * los 3 pasos + descartar (la terminal lleva 24 h muda; antes de eso, dice desde
+ * cuándo se podrá). El botón de descartar pide un segundo clic para confirmar.
+ */
+function PendingWipeBlock({
+  pendingWipe,
+  venueName,
+  busy,
+  onCancel,
+  onDiscard,
+}: {
+  pendingWipe: PendingWipe
+  venueName: string | null
+  busy: boolean
+  onCancel: () => void
+  onDiscard: () => void
+}) {
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  const origin =
+    pendingWipe.origin === 'MIGRATION'
+      ? `Lo dejó una migración a ${venueName ?? 'otro venue'}.`
+      : 'Lo dejó un factory reset manual.'
+
+  return (
+    <div
+      className="mt-3 space-y-2 rounded-[8px] border border-[var(--warn)]/40 bg-[var(--warn-faint)]/40 p-3"
+      data-testid="pending-wipe-block"
+    >
+      <p className="flex items-start gap-2 text-[12.5px] font-semibold text-[var(--warn)]">
+        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+        Factory reset pendiente desde el {formatDateTime(pendingWipe.queuedAt)}
+      </p>
+      <p className="text-[12px] text-[var(--ink-muted)]">{origin} La terminal aún no lo ejecuta.</p>
+
+      {pendingWipe.cancellable ? (
+        <>
+          <p className="text-[12px] text-[var(--ink)]">
+            La terminal todavía no lo recibe: puedes cancelarlo y seguir con esta migración.
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onCancel}
+            disabled={busy}
+            className="gap-1.5"
+          >
+            {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+            Cancelar el borrado pendiente
+          </Button>
+        </>
+      ) : (
+        <>
+          <ol className="list-decimal space-y-0.5 pl-5 text-[12px] text-[var(--ink)]">
+            <li>Prende la terminal con internet.</li>
+            <li>Espera a que se reinicie sola (1-2 minutos).</li>
+            <li>Vuelve a verificar: este aviso desaparece en cuanto se reconecte.</li>
+          </ol>
+          {pendingWipe.discardable ? (
+            <>
+              <p className="text-[12px] text-[var(--ink)]">
+                Lleva más de 24 horas sin reaccionar. Si la terminal ya no va a ejecutar ese
+                borrado, puedes descartarlo y volver a migrarla.
+                {pendingWipe.origin === 'MIGRATION' && (
+                  <> La terminal vuelve a la sucursal donde estaba antes de esa migración.</>
+                )}
+              </p>
+              {confirmingDiscard ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={onDiscard}
+                    disabled={busy}
+                    className="gap-1.5"
+                  >
+                    {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+                    Sí, descartarlo
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setConfirmingDiscard(false)}
+                    disabled={busy}
+                  >
+                    No, esperar
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setConfirmingDiscard(true)}
+                  disabled={busy}
+                >
+                  Descartar el borrado
+                </Button>
+              )}
+            </>
+          ) : (
+            <p className="text-[12px] text-[var(--ink-muted)]">
+              Podrás descartarlo a partir del {formatDateTime(pendingWipe.discardableAt)} si la
+              terminal sigue sin aparecer.
+            </p>
+          )}
+        </>
+      )}
+    </div>
   )
 }
 
