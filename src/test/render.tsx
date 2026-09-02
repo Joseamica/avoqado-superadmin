@@ -3,7 +3,7 @@
  * Y re-exports de @testing-library/react. Las reglas de Fast Refresh no aplican
  * a archivos de test que jamás llegan al bundle de producción.
  */
-import { render, type RenderOptions } from '@testing-library/react'
+import { render, type RenderOptions, type RenderResult } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement, ReactNode } from 'react'
@@ -40,7 +40,7 @@ export function AllProviders({ children, initialEntries = ['/'] }: ProvidersProp
 export function renderWithProviders(
   ui: ReactElement,
   options: Omit<RenderOptions, 'wrapper'> & { initialEntries?: string[] } = {},
-) {
+): RenderResult {
   const { initialEntries, ...rest } = options
   return render(ui, {
     wrapper: ({ children }) => (

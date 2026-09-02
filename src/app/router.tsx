@@ -45,6 +45,11 @@ const SubscriptionsPage = lazy(() =>
     default: m.SubscriptionsPage,
   })),
 )
+const CommercialBillingPage = lazy(() =>
+  import('@/features/commercial-billing/CommercialBillingPage').then((m) => ({
+    default: m.CommercialBillingPage,
+  })),
+)
 const MasterCatalogAccessPage = lazy(() =>
   import('@/features/master-catalog/MasterCatalogAccessPage').then((m) => ({
     default: m.MasterCatalogAccessPage,
@@ -194,6 +199,7 @@ export function AppRoutes() {
           />
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/commercial-billing" element={<CommercialBillingPage />} />
           <Route path="/master-catalog" element={<MasterCatalogAccessPage />} />
           <Route path="/billing/emisor" element={<EmisorSetupPage />} />
           <Route path="/billing" element={<BillingPage />} />

@@ -2,6 +2,10 @@
 
 Consola interna de operaciones para el equipo Avoqado. Apunta al backend principal (`avoqado-server`) bajo el namespace `/api/v1/superadmin/*`. Auth interno con cookies HTTP-only — **sin Firebase**.
 
+## Superficies operativas
+
+- **Conciliación SPEI (`/commercial-billing`)**: cola auditada de transferencias manuales. Muestra importes desde minor units sin pérdida de precisión, expediente de evidencia, excepciones, revisiones y doble aprobación. Rechazar evidencia exige motivo; aprobar exige confirmación explícita y puede detonar la conciliación únicamente cuando Server determina que se alcanzó el umbral.
+
 ## Stack
 
 | Capa              | Librería                                                                                               |

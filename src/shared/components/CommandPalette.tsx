@@ -3,6 +3,7 @@ import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity,
+  Landmark,
   LayoutDashboard,
   LogOut,
   ScrollText,
@@ -71,6 +72,16 @@ export function CommandPalette() {
       shortcut: 'G D',
       run: () => {
         navigate('/dashboard')
+        close()
+      },
+    },
+    {
+      id: 'nav-commercial-billing',
+      label: 'Ir a Conciliación SPEI',
+      icon: Landmark,
+      group: 'Navegación',
+      run: () => {
+        navigate('/commercial-billing')
         close()
       },
     },
