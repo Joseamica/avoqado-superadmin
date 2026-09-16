@@ -38,15 +38,31 @@ interface Props {
   }
 }
 
-export function EditEconomicsDrawer({
-  open,
+export function EditEconomicsDrawer({ open, onOpenChange, ...form }: Props) {
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        {/* El formulario vive DENTRO del contenido, que Radix monta al abrir y desmonta al
+            cerrar: su borrador se siembra en cada apertura con el `cost` / `revenueShare` /
+            `initialValues` de ESE momento. Con el estado en el componente de arriba (que la
+            página monta desde el primer render, antes de que carguen las queries de
+            economía) el borrador se congelaba en la foto vacía: ceros, IVA marcado, 50/70
+            (AMAENA T, 2026-09-14). `CardRatesInput` y `PercentInput` ya asumen este
+            contrato — "móntalo fresco al abrir el form". */}
+        <EconomicsForm onOpenChange={onOpenChange} {...form} />
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function EconomicsForm({
   onOpenChange,
   merchantId,
   cost,
   revenueShare,
   onSaved,
   initialValues,
-}: Props) {
+}: Omit<Props, 'open'>) {
   const saveCost = useSaveCost()
   const saveRS = useSaveRevenueShare()
 
@@ -116,60 +132,58 @@ export function EditEconomicsDrawer({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader onClose={() => onOpenChange(false)}>
-          <DrawerTitle>Editar economía</DrawerTitle>
-          <DrawerSubtitle>Costo del proveedor y reparto del margen.</DrawerSubtitle>
-        </DrawerHeader>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <DrawerBody>
-            <div className="flex flex-col gap-5">
-              <section>
-                <h3 className="mb-2 text-[13px] font-semibold text-[var(--ink)]">
-                  Costo del proveedor
-                </h3>
-                <CardRatesInput value={rates} onChange={setRates} idPrefix="cost" />
-                <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                  <input
-                    type="checkbox"
-                    checked={includesTax}
-                    onChange={(e) => setIncludesTax(e.target.checked)}
-                  />
-                  Las tasas ya incluyen IVA
-                </label>
-              </section>
+    <>
+      <DrawerHeader onClose={() => onOpenChange(false)}>
+        <DrawerTitle>Editar economía</DrawerTitle>
+        <DrawerSubtitle>Costo del proveedor y reparto del margen.</DrawerSubtitle>
+      </DrawerHeader>
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <DrawerBody>
+          <div className="flex flex-col gap-5">
+            <section>
+              <h3 className="mb-2 text-[13px] font-semibold text-[var(--ink)]">
+                Costo del proveedor
+              </h3>
+              <CardRatesInput value={rates} onChange={setRates} idPrefix="cost" />
+              <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                <input
+                  type="checkbox"
+                  checked={includesTax}
+                  onChange={(e) => setIncludesTax(e.target.checked)}
+                />
+                Las tasas ya incluyen IVA
+              </label>
+            </section>
 
-              <section>
-                <h3 className="mb-2 text-[13px] font-semibold text-[var(--ink)]">Revenue-share</h3>
-                <RevenueShareFields value={rs} onChange={setRs} />
-              </section>
+            <section>
+              <h3 className="mb-2 text-[13px] font-semibold text-[var(--ink)]">Revenue-share</h3>
+              <RevenueShareFields value={rs} onChange={setRs} />
+            </section>
 
-              <MarginPreview economics={economics} />
-              <MoneyFlowDiagram
-                economics={economics}
-                shares={{
-                  provider: rs.shareProvider,
-                  aggregator: rs.mode === 'aggregator' ? rs.shareAgg : null,
-                }}
-              />
-              {error && (
-                <p className="text-[13px] text-[var(--danger)]" role="alert">
-                  {error}
-                </p>
-              )}
-            </div>
-          </DrawerBody>
-          <DrawerFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </DrawerFooter>
-        </form>
-      </DrawerContent>
-    </Drawer>
+            <MarginPreview economics={economics} />
+            <MoneyFlowDiagram
+              economics={economics}
+              shares={{
+                provider: rs.shareProvider,
+                aggregator: rs.mode === 'aggregator' ? rs.shareAgg : null,
+              }}
+            />
+            {error && (
+              <p className="text-[13px] text-[var(--danger)]" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+        </DrawerBody>
+        <DrawerFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </DrawerFooter>
+      </form>
+    </>
   )
 }

@@ -34,6 +34,28 @@ const revenueShare: MerchantRevenueShare = {
   active: true,
 }
 
+/**
+ * Reproduce el dato real de AMAENA T (prod, 2026-09-14): costo SIN IVA y
+ * agregador con 0 % del margen del agregador. El 0 y el `false` son valores
+ * legítimos que tienen que hidratar tal cual — nunca caer al default (70 % / IVA).
+ */
+const costSinIva: ProviderCostStructure = {
+  ...cost,
+  debitRate: 0.0067,
+  creditRate: 0.0067,
+  amexRate: 0.028,
+  internationalRate: 0.0325,
+  includesTax: false,
+}
+
+const revenueShareAgregadorCero: MerchantRevenueShare = {
+  ...revenueShare,
+  aggregatorPrice: { DEBIT: 0.007, CREDIT: 0.007, AMEX: 0.028, INTERNATIONAL: 0.0325 },
+  aggregatorPriceIncludesTax: false,
+  avoqadoShareOfProviderMargin: 0.5,
+  avoqadoShareOfAggregatorMargin: 0,
+}
+
 let capturedCostBody: Record<string, unknown> | null = null
 
 const server = setupServer(
@@ -137,5 +159,99 @@ describe('EditEconomicsDrawer', () => {
     // cost.debitRate = 0.015 → se muestra como "1.5" en el input (×100)
     const debitInput = screen.getByLabelText('Débito (%)') as HTMLInputElement
     expect(debitInput.value).toBe('1.5')
+  })
+
+  /** Lo que tiene que verse con el dato de AMAENA T (ver fixtures arriba). */
+  function expectAmaenaHidratada() {
+    const input = (id: string) => document.getElementById(id) as HTMLInputElement
+    // Costo del proveedor: 0.0067 → "0.67", y la casilla de IVA DESMARCADA.
+    expect(input('cost-DEBIT').value).toBe('0.67')
+    expect(input('cost-AMEX').value).toBe('2.8')
+    expect(screen.getByLabelText('Las tasas ya incluyen IVA')).not.toBeChecked()
+    // Modo agregador con su precio: 0.007 → "0.7", y su casilla de IVA DESMARCADA.
+    expect(screen.getByLabelText(/Vía agregador/)).toBeChecked()
+    expect(input('agg-DEBIT').value).toBe('0.7')
+    expect(screen.getByLabelText(/El precio al agregador ya incluye IVA/)).not.toBeChecked()
+    // 50 % del margen proveedor; 0 % del margen agregador. `PercentInput` pinta el 0
+    // como campo vacío con placeholder "0" (a propósito) — lo que NO puede aparecer es el 70.
+    expect(input('shp').value).toBe('50')
+    expect(input('sha').value).toBe('')
+    expect(input('sha').placeholder).toBe('0')
+  }
+
+  it('hidrata un 0 legítimo como 0 y "sin IVA" como desmarcado (no cae al default 70 % / con IVA)', () => {
+    renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    expectAmaenaHidratada()
+  })
+
+  it('siembra el formulario al ABRIR, no al montar: los datos que llegan después se ven al abrir', () => {
+    // Bug real (AMAENA T, 2026-09-14): la página monta el drawer cerrado en cuanto llega el
+    // merchant, ANTES de que carguen costo y revenue-share. Si el borrador se congela en ese
+    // momento, al abrir se ven ceros, IVA marcado y 50/70 aunque la página de fondo ya
+    // muestre los valores reales.
+    const { rerender } = renderWithProviders(
+      <EditEconomicsDrawer
+        open={false}
+        merchantId="m1"
+        cost={null}
+        revenueShare={null}
+        onOpenChange={() => {}}
+      />,
+    )
+    expect(screen.queryByText('Editar economía')).not.toBeInTheDocument()
+
+    rerender(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    expect(screen.getByText('Editar economía')).toBeInTheDocument()
+    expectAmaenaHidratada()
+  })
+
+  it('cada apertura vuelve a sembrar desde lo guardado (cerrar descarta lo tecleado)', () => {
+    const { rerender } = renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    fireEvent.change(document.getElementById('cost-DEBIT')!, { target: { value: '9' } })
+    expect((document.getElementById('cost-DEBIT') as HTMLInputElement).value).toBe('9')
+
+    rerender(
+      <EditEconomicsDrawer
+        open={false}
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    rerender(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    expectAmaenaHidratada()
   })
 })

@@ -32,16 +32,35 @@ interface Props {
 
 const DEFAULT_DAYS: Record<CardType, number> = { DEBIT: 1, CREDIT: 1, AMEX: 3, INTERNATIONAL: 3 }
 
-export function EditSettlementDrawer({
-  open,
+export function EditSettlementDrawer({ open, onOpenChange, ...form }: Props) {
+  // Los feriados se piden desde la cáscara (montada siempre) para que ya estén cuando se abra.
+  const holidaysQ = useHolidays(new Date().getFullYear())
+  const holidays = holidaysQ.data ?? new Set<string>()
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        {/* El formulario vive DENTRO del contenido, que Radix monta al abrir y desmonta al
+            cerrar: su borrador se siembra en cada apertura con los `settlements` de ESE
+            momento. Con el estado en el componente de arriba (que la página monta desde el
+            primer render, antes de que cargue la query de liquidación) el borrador se
+            congelaba con `settlements = []` → defaults D+1/1/3/3 hábiles y corte 23:00, y
+            guardar desde ahí pisaba la configuración real. Mismo defecto y mismo arreglo que
+            `EditEconomicsDrawer` (2026-09-14). */}
+        <SettlementForm onOpenChange={onOpenChange} holidays={holidays} {...form} />
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function SettlementForm({
   onOpenChange,
   merchantId,
   settlements,
   onSaved,
-}: Props) {
+  holidays,
+}: Omit<Props, 'open'> & { holidays: Set<string> }) {
   const save = useSaveSettlement()
-  const holidaysQ = useHolidays(new Date().getFullYear())
-  const holidays = holidaysQ.data ?? new Set<string>()
 
   const byCard = new Map(settlements.map((s) => [s.cardType, s]))
   const [rows, setRows] = useState(() =>
@@ -92,99 +111,97 @@ export function EditSettlementDrawer({
     'h-9 w-16 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 text-[13px] tabular-nums focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]'
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader onClose={() => onOpenChange(false)}>
-          <DrawerTitle>Editar liquidación</DrawerTitle>
-          <DrawerSubtitle>Días de depósito por tipo de tarjeta.</DrawerSubtitle>
-        </DrawerHeader>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <DrawerBody>
-            <div className="flex flex-col gap-3">
-              {rows.map((r) => {
-                const eta = projectSettlementDate(
-                  today,
-                  r.settlementDays,
-                  r.settlementDayType,
-                  holidays,
-                )
-                return (
-                  <div
-                    key={r.cardType}
-                    className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] py-2 last:border-0"
-                  >
-                    <span className="w-24 text-[13px] text-[var(--ink-muted)]">
-                      {humanizeCardType(r.cardType)}
-                    </span>
-                    <label className="flex items-center gap-1.5 text-[12px] text-[var(--ink-faint)]">
-                      D+
-                      <input
-                        className={numInput}
-                        inputMode="numeric"
-                        value={String(r.settlementDays)}
-                        onChange={(e) =>
-                          setRow(r.cardType, {
-                            settlementDays: Math.max(0, parseInt(e.target.value, 10) || 0),
-                          })
-                        }
-                        aria-label={`Días ${humanizeCardType(r.cardType)}`}
-                      />
-                    </label>
-                    <div className="w-36">
-                      <Combobox
-                        value={r.settlementDayType}
-                        onChange={(v) =>
-                          setRow(r.cardType, { settlementDayType: v as SettlementDayType })
-                        }
-                        options={[
-                          { value: 'BUSINESS_DAYS', label: 'Hábiles' },
-                          { value: 'CALENDAR_DAYS', label: 'Naturales' },
-                        ]}
-                        ariaLabel={`Tipo de días ${humanizeCardType(r.cardType)}`}
-                      />
-                    </div>
-                    <span className="ml-auto text-[12px] tabular-nums text-[var(--ink)]">
-                      {formatCivilDate(eta)}
-                    </span>
+    <>
+      <DrawerHeader onClose={() => onOpenChange(false)}>
+        <DrawerTitle>Editar liquidación</DrawerTitle>
+        <DrawerSubtitle>Días de depósito por tipo de tarjeta.</DrawerSubtitle>
+      </DrawerHeader>
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <DrawerBody>
+          <div className="flex flex-col gap-3">
+            {rows.map((r) => {
+              const eta = projectSettlementDate(
+                today,
+                r.settlementDays,
+                r.settlementDayType,
+                holidays,
+              )
+              return (
+                <div
+                  key={r.cardType}
+                  className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] py-2 last:border-0"
+                >
+                  <span className="w-24 text-[13px] text-[var(--ink-muted)]">
+                    {humanizeCardType(r.cardType)}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-[12px] text-[var(--ink-faint)]">
+                    D+
+                    <input
+                      className={numInput}
+                      inputMode="numeric"
+                      value={String(r.settlementDays)}
+                      onChange={(e) =>
+                        setRow(r.cardType, {
+                          settlementDays: Math.max(0, parseInt(e.target.value, 10) || 0),
+                        })
+                      }
+                      aria-label={`Días ${humanizeCardType(r.cardType)}`}
+                    />
+                  </label>
+                  <div className="w-36">
+                    <Combobox
+                      value={r.settlementDayType}
+                      onChange={(v) =>
+                        setRow(r.cardType, { settlementDayType: v as SettlementDayType })
+                      }
+                      options={[
+                        { value: 'BUSINESS_DAYS', label: 'Hábiles' },
+                        { value: 'CALENDAR_DAYS', label: 'Naturales' },
+                      ]}
+                      ariaLabel={`Tipo de días ${humanizeCardType(r.cardType)}`}
+                    />
                   </div>
-                )
-              })}
+                  <span className="ml-auto text-[12px] tabular-nums text-[var(--ink)]">
+                    {formatCivilDate(eta)}
+                  </span>
+                </div>
+              )
+            })}
 
-              <div className="mt-2 flex items-center gap-2">
-                <label htmlFor="cutoff" className="text-[12px] text-[var(--ink-muted)]">
-                  Corte
-                </label>
-                <input
-                  id="cutoff"
-                  className={numInput.replace('w-16', 'w-24')}
-                  value={cutoffTime}
-                  onChange={(e) => setCutoffTime(e.target.value)}
-                  placeholder="23:00"
-                />
-                <span className="text-[12px] text-[var(--ink-faint)]">{cutoffTimezone}</span>
-              </div>
-              <p className="text-[11.5px] text-[var(--ink-faint)]">
-                Estimado: excluye fines de semana
-                {holidays.size > 0 ? ' y feriados' : ' (feriados no disponibles)'}. No es la fecha
-                real de liquidación.
-              </p>
-              {error && (
-                <p className="text-[13px] text-[var(--danger)]" role="alert">
-                  {error}
-                </p>
-              )}
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="cutoff" className="text-[12px] text-[var(--ink-muted)]">
+                Corte
+              </label>
+              <input
+                id="cutoff"
+                className={numInput.replace('w-16', 'w-24')}
+                value={cutoffTime}
+                onChange={(e) => setCutoffTime(e.target.value)}
+                placeholder="23:00"
+              />
+              <span className="text-[12px] text-[var(--ink-faint)]">{cutoffTimezone}</span>
             </div>
-          </DrawerBody>
-          <DrawerFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </DrawerFooter>
-        </form>
-      </DrawerContent>
-    </Drawer>
+            <p className="text-[11.5px] text-[var(--ink-faint)]">
+              Estimado: excluye fines de semana
+              {holidays.size > 0 ? ' y feriados' : ' (feriados no disponibles)'}. No es la fecha
+              real de liquidación.
+            </p>
+            {error && (
+              <p className="text-[13px] text-[var(--danger)]" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+        </DrawerBody>
+        <DrawerFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </DrawerFooter>
+      </form>
+    </>
   )
 }

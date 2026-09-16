@@ -2,8 +2,39 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PricingWizardDrawer } from './PricingWizardDrawer'
+import type { ProviderCostStructure } from './types'
 
 const venues = [{ venueId: 'v1', venueName: 'Berthe', slot: 'SECONDARY' as const }]
+
+/**
+ * Dato real de AMAENA T (prod, 2026-09-14): costo SIN IVA. El `false` es un valor
+ * legítimo que tiene que hidratar tal cual — nunca caer al default (con IVA).
+ */
+const costoSinIva: ProviderCostStructure = {
+  id: 'c1',
+  merchantAccountId: 'm1',
+  debitRate: 0.0067,
+  creditRate: 0.0067,
+  amexRate: 0.028,
+  internationalRate: 0.0325,
+  includesTax: false,
+  taxRate: 0.16,
+  fixedCostPerTransaction: null,
+  effectiveFrom: '2026-01-01T00:00:00.000Z',
+  effectiveTo: null,
+  active: true,
+}
+
+const input = (id: string) => document.getElementById(id) as HTMLInputElement
+
+/** Lo que tiene que verse en el paso 1 con el costo de AMAENA T. */
+function expectPaso1ConCostoDeAmaena() {
+  expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument()
+  // 0.0067 → "0.67" (×100), y la casilla de IVA DESMARCADA.
+  expect(input('wiz-cost-DEBIT').value).toBe('0.67')
+  expect(input('wiz-cost-AMEX').value).toBe('2.8')
+  expect(screen.getByLabelText('Estas tasas ya incluyen IVA')).not.toBeChecked()
+}
 
 describe('PricingWizardDrawer', () => {
   it('recorre flat y emite onPrefill con el pricing pareja', () => {
@@ -57,5 +88,112 @@ describe('PricingWizardDrawer', () => {
     await user.click(screen.getByRole('button', { name: /Prellenar y revisar/i }))
     // cost=null → costo 0; markup 3.5% con IVA (default) → pricing = 0 + 0.035
     expect(onPrefill.mock.calls[0][0].result.venuePricingInput.rates.DEBIT).toBeCloseTo(0.035, 4)
+  })
+
+  it('pre-llena el paso 1 con el costo del proveedor (0.67 %, sin IVA)', () => {
+    render(
+      <PricingWizardDrawer
+        open
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    expectPaso1ConCostoDeAmaena()
+  })
+
+  it('siembra el paso 1 al ABRIR, no al montar: el costo que llega después se ve al abrir', () => {
+    // Hermano del defecto de «Editar economía» (AMAENA T, 2026-09-14): la página monta el
+    // Asistente cerrado en cuanto llega el merchant, ANTES de que cargue el costo. Si el
+    // borrador se congela en ese momento, la primera apertura arranca con ceros e IVA
+    // marcado aunque la página de fondo ya muestre el costo real.
+    const { rerender } = render(
+      <PricingWizardDrawer
+        open={false}
+        onOpenChange={() => {}}
+        cost={null}
+        venues={[]}
+        onPrefill={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText('Asistente de pricing')).not.toBeInTheDocument()
+
+    rerender(
+      <PricingWizardDrawer
+        open
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Asistente de pricing')).toBeInTheDocument()
+    expectPaso1ConCostoDeAmaena()
+  })
+
+  it('el venue destino también se siembra al abrir (los venues llegan después de montar)', () => {
+    // Mismo defecto, otra cara: `venueId` se sembraba con `venues[0]` cuando la lista aún
+    // era `[]` → en el paso 3 nada seleccionado y «Prellenar y revisar» deshabilitado.
+    const { rerender } = render(
+      <PricingWizardDrawer
+        open={false}
+        onOpenChange={() => {}}
+        cost={null}
+        venues={[]}
+        onPrefill={vi.fn()}
+      />,
+    )
+    rerender(
+      <PricingWizardDrawer
+        open
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Siguiente/i })) // → paso 2
+    fireEvent.click(screen.getByRole('button', { name: /Siguiente/i })) // → paso 3
+    expect(screen.getByRole('button', { name: 'Venue destino' })).toHaveTextContent('Berthe')
+    expect(screen.getByRole('button', { name: /Prellenar y revisar/i })).toBeEnabled()
+  })
+
+  it('cada apertura arranca limpia (paso 1, costo guardado) aunque el cierre venga del padre', () => {
+    // Antes esto dependía de que el cierre pasara por `onOpenChange` para correr `reset()`;
+    // ahora el contenido se desmonta al cerrar, así que lo tecleado y el paso se descartan
+    // sin importar quién cerró.
+    const { rerender } = render(
+      <PricingWizardDrawer
+        open
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    fireEvent.change(input('wiz-cost-DEBIT'), { target: { value: '9' } })
+    fireEvent.click(screen.getByRole('button', { name: /Siguiente/i })) // → paso 2
+    expect(screen.getByText('Paso 2 de 3')).toBeInTheDocument()
+
+    rerender(
+      <PricingWizardDrawer
+        open={false}
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    rerender(
+      <PricingWizardDrawer
+        open
+        onOpenChange={() => {}}
+        cost={costoSinIva}
+        venues={venues}
+        onPrefill={vi.fn()}
+      />,
+    )
+    expectPaso1ConCostoDeAmaena()
   })
 })

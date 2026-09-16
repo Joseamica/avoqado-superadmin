@@ -189,10 +189,24 @@ export function MerchantDetailPage() {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-[13px] font-semibold text-[var(--ink)]">Economía</h3>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={() => setWizardOpen(true)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                // El Asistente siembra su paso 1 con el costo cargado al ABRIR: mientras el
+                // costo siga en vuelo, abrirlo sería arrancar con ceros e IVA marcado.
+                disabled={eco.isLoading}
+                onClick={() => setWizardOpen(true)}
+              >
                 Asistente
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditingEco(true)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                // El editor siembra su borrador con lo cargado al ABRIR: mientras costo y
+                // revenue-share sigan en vuelo, abrirlo sería editar un formulario vacío.
+                disabled={eco.isLoading}
+                onClick={() => setEditingEco(true)}
+              >
                 Editar
               </Button>
             </div>
@@ -241,7 +255,14 @@ export function MerchantDetailPage() {
       <section id="section-settlement" className="scroll-mt-20 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[var(--ink)]">Liquidación</h2>
-          <Button size="sm" variant="ghost" onClick={() => setEditingSettlement(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            // El editor siembra su borrador con lo cargado al ABRIR: mientras la liquidación
+            // siga en vuelo, abrirlo sería editar los defaults y guardarlos encima.
+            disabled={eco.isLoading}
+            onClick={() => setEditingSettlement(true)}
+          >
             Editar
           </Button>
         </div>
@@ -341,10 +362,9 @@ export function MerchantDetailPage() {
         }}
       />
       <EditEconomicsDrawer
-        // El drawer está montado siempre; sin esta key, su estado se fija al cargar la
-        // página (con lo guardado) y NO toma el `initialValues` del Asistente al abrirse.
-        // Cambiar la key al entrar/salir del prefill fuerza un re-montaje que sí lo aplica.
-        key={ecoPrefillOpen ? 'eco-prefill' : 'eco-manual'}
+        // Puede vivir montado siempre: el formulario se siembra al ABRIR (dentro del
+        // contenido del drawer), así que toma lo guardado —o el `initialValues` del
+        // Asistente— del momento en que se abre, no del primer render de la página.
         open={editingEco || ecoPrefillOpen}
         onOpenChange={(o) => {
           if (o) {

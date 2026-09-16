@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "mcp__asana__asana_get_task",
+      "mcp__asana__asana_get_task_stories",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
+    ],
+    "additionalDirectories": [
+      "/Users/amieva/Documents/Programming/Avoqado/avoqado-server",
+      "/Users/amieva/Documents/Programming/Avoqado/avoqado-web-dashboard",
+      "/Users/amieva/Documents/Programming/Avoqado/avoqado-tpv"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "betterstack",
+    "notion",
+    "firebase-tpv"
+  ],
+  "worktree": {
+    "bgIsolation": "none"
+  }
+}
