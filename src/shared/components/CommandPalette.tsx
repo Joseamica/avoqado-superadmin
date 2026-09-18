@@ -3,6 +3,7 @@ import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity,
+  BadgePercent,
   LayoutDashboard,
   LogOut,
   ScrollText,
@@ -82,6 +83,16 @@ export function CommandPalette() {
       shortcut: 'G A',
       run: () => {
         navigate('/activity-log')
+        close()
+      },
+    },
+    {
+      id: 'nav-launch-campaigns',
+      label: 'Ir a Campañas de lanzamiento',
+      icon: BadgePercent,
+      group: 'Navegación',
+      run: () => {
+        navigate('/launch-campaigns')
         close()
       },
     },

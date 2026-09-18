@@ -40,6 +40,11 @@ const AnnouncementsPage = lazy(() =>
     default: m.AnnouncementsPage,
   })),
 )
+const LaunchCampaignsPage = lazy(() =>
+  import('@/features/launch-campaigns/LaunchCampaignsPage').then((m) => ({
+    default: m.LaunchCampaignsPage,
+  })),
+)
 const SubscriptionsPage = lazy(() =>
   import('@/features/subscriptions/SubscriptionsPage').then((m) => ({
     default: m.SubscriptionsPage,
@@ -193,6 +198,7 @@ export function AppRoutes() {
             element={<VenueResourcePlaceholder resource="pricing" />}
           />
           <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/launch-campaigns" element={<LaunchCampaignsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/master-catalog" element={<MasterCatalogAccessPage />} />
           <Route path="/billing/emisor" element={<EmisorSetupPage />} />
