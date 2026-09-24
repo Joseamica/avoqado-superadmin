@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
@@ -104,7 +104,7 @@ describe('LaunchCampaignEditor', () => {
     renderEditor(activa)
     expect(await screen.findByText('Editar POS22')).toBeInTheDocument()
     expect(screen.getByLabelText('Código')).toHaveValue('POS22')
-    expect(screen.getByLabelText('Precio anunciado (con IVA)')).toHaveValue('22.00')
+    expect(screen.getByLabelText('Precio final que paga el cliente')).toHaveValue('22.00')
     expect(screen.getByLabelText('Ciclos con descuento')).toHaveValue('3')
     expect(screen.getByLabelText('Cupo')).toHaveValue('100')
   })
@@ -119,7 +119,7 @@ describe('LaunchCampaignEditor', () => {
     renderEditor(activa)
     await screen.findByText('Editar POS22')
 
-    expect(screen.getByLabelText('Precio anunciado (con IVA)')).toBeDisabled()
+    expect(screen.getByLabelText('Precio final que paga el cliente')).toBeDisabled()
     expect(screen.getByLabelText('Ciclos con descuento')).toBeDisabled()
     expect(screen.getByLabelText('Código')).toBeDisabled()
     expect(screen.getByLabelText('Slug de la landing')).toBeDisabled()
@@ -137,7 +137,7 @@ describe('LaunchCampaignEditor', () => {
   it('en un borrador la oferta sí se edita', async () => {
     renderEditor(borrador)
     await screen.findByText('Editar RETAIL10')
-    expect(screen.getByLabelText('Precio anunciado (con IVA)')).toBeEnabled()
+    expect(screen.getByLabelText('Precio final que paga el cliente')).toBeEnabled()
     expect(screen.getByLabelText('Slug de la landing')).toBeEnabled()
     // El código es inmutable desde que la ficha existe, aunque siga en borrador.
     expect(screen.getByLabelText('Código')).toBeDisabled()
@@ -287,7 +287,7 @@ describe('LaunchCampaignEditor', () => {
 
     renderEditor(borrador)
     await screen.findByText('Editar RETAIL10')
-    const precio = screen.getByLabelText('Precio anunciado (con IVA)')
+    const precio = screen.getByLabelText('Precio final que paga el cliente')
     await user.clear(precio)
     await user.type(precio, '2000')
 
@@ -302,7 +302,7 @@ describe('LaunchCampaignEditor', () => {
     const user = userEvent.setup()
     renderEditor(borrador)
     await screen.findByText('Editar RETAIL10')
-    const precio = screen.getByLabelText('Precio anunciado (con IVA)')
+    const precio = screen.getByLabelText('Precio final que paga el cliente')
     await user.clear(precio)
     await user.type(precio, '5')
 
@@ -342,7 +342,7 @@ describe('LaunchCampaignEditor', () => {
     await user.type(screen.getByLabelText('Código'), 'RETAIL10')
     await user.type(screen.getByLabelText('Slug de la landing'), 'retail-10')
     await user.type(screen.getByLabelText('Nombre interno'), 'Retail a $10 — octubre')
-    await user.type(screen.getByLabelText('Precio anunciado (con IVA)'), '22.50')
+    await user.type(screen.getByLabelText('Precio final que paga el cliente'), '22.50')
     await user.type(screen.getByLabelText('Cupo'), '50')
     await user.type(screen.getByLabelText('Empieza'), '2026-10-01T00:00')
     await user.type(screen.getByLabelText('Termina'), '2026-10-31T23:59')
@@ -373,5 +373,37 @@ describe('LaunchCampaignEditor', () => {
     expect(screen.getByLabelText('Cupo')).toBeDisabled()
     // La explicación acompaña a CADA campo apagado, no una sola vez.
     expect(screen.getAllByText(/ya terminó/i).length).toBeGreaterThan(0)
+  })
+
+  // ── Vista previa de la página ──────────────────────────────────
+  // 🔴 Estas dos existen por POS22: nació a $25.52 porque «Precio anunciado (con IVA)» se
+  // leyó como «súmale el IVA», y una ficha activada YA NO puede corregir su precio.
+
+  it('el precio de la vista previa es EXACTAMENTE el capturado: no le suma IVA', async () => {
+    const user = userEvent.setup()
+    renderEditor(borrador)
+
+    const precio = screen.getByLabelText('Precio final que paga el cliente')
+    await user.clear(precio)
+    await user.type(precio, '22.00')
+
+    const pagina = screen.getByText('Así se verá la página').parentElement as HTMLElement
+    expect(within(pagina).getByText('$22.00')).toBeInTheDocument()
+    // 22 × 1.16 = 25.52: si alguien vuelve a meter IVA en esta pantalla, esto cae.
+    expect(within(pagina).queryByText('$25.52')).not.toBeInTheDocument()
+  })
+
+  it('sin encabezado, la vista previa arma el mismo título de respaldo que la landing', async () => {
+    const user = userEvent.setup()
+    renderEditor(borrador)
+
+    const precio = screen.getByLabelText('Precio final que paga el cliente')
+    await user.clear(precio)
+    await user.type(precio, '22.00')
+    // El fixture trae encabezado: se vacía para que entre el respaldo.
+    await user.clear(screen.getByLabelText('Encabezado'))
+
+    const pagina = screen.getByText('Así se verá la página').parentElement as HTMLElement
+    expect(within(pagina).getByText('Avoqado Pro a $22.00/mes')).toBeInTheDocument()
   })
 })

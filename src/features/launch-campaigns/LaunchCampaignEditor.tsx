@@ -341,14 +341,16 @@ function FormularioDeCampana({
             </div>
             <Field
               name="advertisedPrice"
-              label="Precio anunciado (con IVA)"
+              label="Precio final que paga el cliente"
               value={b.advertisedPrice}
               inputMode="decimal"
               disabled={Boolean(bloqueo('advertisedPrice'))}
               onChange={(e) => set('advertisedPrice', e.target.value)}
-              placeholder="22"
+              placeholder="22.00"
               error={errores.advertisedPrice}
-              hint="En pesos. Es lo que el cliente paga cada ciclo promocional."
+              // 🔴 «Precio anunciado (con IVA)» se leía como «súmale el IVA»: POS22 nació a
+              // $25.52 (22 × 1.16) y una ficha activada ya no puede corregir su precio.
+              hint="En pesos, con el IVA YA incluido: escribe el total, no le sumes el 16 %. Si quieres cobrar $22, pon 22.00."
             />
             <Field
               name="discountMonths"
@@ -461,6 +463,20 @@ function FormularioDeCampana({
                 {bloqueo('bullets') ?? 'Máximo 6.'}
               </p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[12px] font-medium text-[var(--ink)]">Así se verá la página</p>
+            <VistaPreviaDeLaPagina
+              planTier={b.planTier}
+              precioTexto={b.advertisedPrice}
+              meses={Number(b.discountMonths)}
+              renovacionCents={vista.data?.renewalMonthlyCents}
+              headline={b.headline}
+              subheadline={b.subheadline}
+              bullets={b.bullets}
+              slug={b.landingSlug}
+            />
           </div>
         </section>
       </div>
@@ -577,6 +593,106 @@ function VistaPreviaDeLaOferta({
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/**
+ * Cómo se verá /oferta/<slug> en la landing.
+ *
+ * Réplica del hero de `avoqado-landing/src/pages/oferta/[codigo].astro`: el mismo orden de
+ * bloques, los mismos textos fijos y el MISMO título de respaldo cuando el encabezado va vacío.
+ *
+ * 🔴 Es una RÉPLICA, no la página real. La landing es Astro y esto React: no hay render
+ * compartido, así que si aquel hero cambia, hay que mover éste con él. Se acepta esa deuda
+ * porque ver el precio en grande ANTES de activar es justo lo que evita el error que ya costó
+ * una ficha: POS22 nació a $25.52 porque «Precio anunciado (con IVA)» se leyó como «+ IVA»,
+ * y una ficha activada NO puede corregir su precio (`camposBloqueados` lo congela).
+ */
+function VistaPreviaDeLaPagina({
+  planTier,
+  precioTexto,
+  meses,
+  renovacionCents,
+  headline,
+  subheadline,
+  bullets,
+  slug,
+}: {
+  planTier: string
+  precioTexto: string
+  meses: number
+  renovacionCents?: number
+  headline: string
+  subheadline: string
+  bullets: string[]
+  slug: string
+}) {
+  // 🔴 `pesosInputToCents` LANZA con el campo vacío o a medio teclear, y esto se pinta en cada
+  // render del formulario: sin este catch, la vista previa tumba el editor entero.
+  let precioCents = 0
+  try {
+    precioCents = pesosInputToCents(precioTexto)
+  } catch {
+    precioCents = 0
+  }
+
+  const plan = planTier === 'PREMIUM' ? 'Premium' : 'Pro'
+  const precio = centsToLabel(precioCents)
+  // El mismo respaldo que arma la landing cuando `headline` viene vacío.
+  const titulo = headline.trim() || `Avoqado ${plan} a ${precio}/mes`
+  const puntos = bullets.map((p) => p.trim()).filter(Boolean)
+
+  if (!Number.isFinite(precioCents) || precioCents <= 0) {
+    return (
+      <p className="rounded-[8px] border border-dashed border-[var(--line-strong)] px-3.5 py-3 text-[13px] text-[var(--ink-faint)]">
+        Pon el precio anunciado para ver la página.
+      </p>
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[8px] border border-[var(--line-strong)]">
+      <p className="border-b border-[var(--line-strong)] bg-[var(--canvas-raised)] px-3.5 py-2 text-[11.5px] text-[var(--ink-faint)]">
+        avoqado.io/oferta/{slug.trim() || '…'}
+      </p>
+      <div className="space-y-3 px-3.5 py-3.5">
+        <p className="text-[11.5px] uppercase tracking-wide text-[var(--ink-muted)]">
+          Avoqado {plan}
+        </p>
+        <p className="text-[19px] font-medium leading-snug text-[var(--ink)]">{titulo}</p>
+        {subheadline.trim() && (
+          <p className="text-[13.5px] leading-relaxed text-[var(--ink-muted)]">
+            {subheadline.trim()}
+          </p>
+        )}
+        <div>
+          <p className="tabular text-[32px] font-medium leading-none text-[var(--ink)]">{precio}</p>
+          <p className="mt-1.5 text-[11.5px] text-[var(--ink-muted)]">
+            IVA incluido · por {meses} {meses === 1 ? 'mes' : 'meses'}
+            {renovacionCents ? ` · después ${centsToLabel(renovacionCents)}/mes` : ''} · con tarjeta
+            · cancela cuando quieras
+          </p>
+        </div>
+        {puntos.length > 0 && (
+          <ul className="space-y-1.5">
+            {puntos.map((p) => (
+              <li key={p} className="relative pl-4 text-[13px] text-[var(--ink)]">
+                <span className="absolute left-0 top-[7px] h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                {p}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div>
+          <span className="inline-block rounded-[6px] bg-[var(--accent)] px-3.5 py-2 text-[13px] font-medium text-[var(--on-accent,#fff)]">
+            Empezar con {precio}
+          </span>
+          <p className="mt-1.5 text-[11.5px] text-[var(--ink-faint)]">
+            Se paga con tarjeta. Cancela cuando quieras, desde tu panel.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
