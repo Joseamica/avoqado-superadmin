@@ -11,6 +11,8 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- **La vista previa de la página tacha el precio normal, igual que la landing.** Encima del precio en grande sale «Precio normal ~~$1,158.84~~/mes»: el «antes» es la **renovación** que devuelve el servidor —lo que de verdad se paga desde el mes siguiente, que es lo que exige PROFECO de un precio de referencia— y sólo aparece si hay descuento. La landing lo pinta igual en `/oferta/<slug>` y en `/restaurants`.
+
 - **La oferta de `avoqado.io/restaurants` se elige aquí, marcando una casilla — ya no con una variable de entorno de la landing.** En el editor, junto a «Giro al que apunta», la casilla **«Mostrar en la página de su giro»** pone la campaña en la **vitrina** de ese giro: la página de restaurantes enseña la campaña de Restaurantes que la tenga marcada. Marcarla **le quita la vitrina a la otra** del mismo giro (lo hace el servidor en una transacción, con un índice único en la base), y el texto lo avisa antes de guardar. Antes cambiar esa oferta exigía un commit en la landing.
   - **Dos campañas del mismo giro pueden estar activas a la vez** (Google a $22 y Meta a $25, cada una vendiendo por su `/oferta/<slug>`); sólo una ocupa la vitrina.
   - **No se congela al activar** — es lo contrario del precio: la vitrina se mueve sobre campañas vivas. Terminar la campaña la suelta; pausarla no (al reanudarla vuelve sola).

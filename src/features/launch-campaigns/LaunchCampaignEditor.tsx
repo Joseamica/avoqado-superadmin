@@ -690,6 +690,12 @@ function VistaPreviaDeLaPagina({
           </p>
         )}
         <div>
+          {/* Igual que la landing: el «antes» tachado es la renovación, y sólo si hay descuento. */}
+          {renovacionCents != null && renovacionCents > precioCents && (
+            <p className="mb-1 text-[12.5px] text-[var(--ink-muted)]">
+              Precio normal <s className="tabular">{centsToLabel(renovacionCents)}</s>/mes
+            </p>
+          )}
           <p className="tabular text-[32px] font-medium leading-none text-[var(--ink)]">{precio}</p>
           <p className="mt-1.5 text-[11.5px] text-[var(--ink-muted)]">
             IVA incluido · por {meses} {meses === 1 ? 'mes' : 'meses'}

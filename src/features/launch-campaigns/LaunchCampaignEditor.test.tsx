@@ -393,6 +393,20 @@ describe('LaunchCampaignEditor', () => {
     expect(within(pagina).queryByText('$25.52')).not.toBeInTheDocument()
   })
 
+  it('la vista previa tacha el precio normal, igual que la landing', async () => {
+    const user = userEvent.setup()
+    renderEditor(borrador)
+
+    const precio = screen.getByLabelText('Precio final que paga el cliente')
+    await user.clear(precio)
+    await user.type(precio, '22.00')
+
+    const pagina = screen.getByText('Así se verá la página').parentElement as HTMLElement
+    // El «antes» es la renovación que mandó el servidor: lo que de verdad se paga después.
+    const tachado = await within(pagina).findByText(/^\$1,158\.84$/, { selector: 's' })
+    expect(tachado.parentElement).toHaveTextContent('Precio normal')
+  })
+
   it('sin encabezado, la vista previa arma el mismo título de respaldo que la landing', async () => {
     const user = userEvent.setup()
     renderEditor(borrador)
@@ -415,7 +429,11 @@ describe('LaunchCampaignEditor', () => {
  * vivas sin desplegar nada.
  */
 describe('LaunchCampaignEditor — vitrina del giro', () => {
-  const restaurantes: LaunchCampaignRow = { ...activa, vertical: 'FOOD_SERVICE', featuredForVertical: false }
+  const restaurantes: LaunchCampaignRow = {
+    ...activa,
+    vertical: 'FOOD_SERVICE',
+    featuredForVertical: false,
+  }
 
   function capturarPut() {
     const cuerpos: Record<string, unknown>[] = []
@@ -448,7 +466,10 @@ describe('LaunchCampaignEditor — vitrina del giro', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(cuerpos).toHaveLength(1))
-    expect(cuerpos[0]).toMatchObject({ featuredForVertical: true, expectedUpdatedAt: activa.updatedAt })
+    expect(cuerpos[0]).toMatchObject({
+      featuredForVertical: true,
+      expectedUpdatedAt: activa.updatedAt,
+    })
   })
 
   it('🔴 guardar SIN tocar la casilla no manda la vitrina (no pisa lo que marcó otra pestaña)', async () => {
