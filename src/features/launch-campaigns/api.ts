@@ -17,6 +17,8 @@ import type {
   RedemptionRow,
   RedemptionsQuery,
   UpdateLaunchCampaignInput,
+  LaunchCampaignVertical,
+  VitrinaDelGiro,
 } from './types'
 
 const BASE = '/superadmin/launch-campaigns'
@@ -121,6 +123,28 @@ export async function endLaunchCampaign(id: string, reason: string): Promise<Lau
     reason,
   })
   return data.data
+}
+
+/**
+ * Lo que enseña HOY la página de un giro (p. ej. avoqado.io/restaurants): se lee del MISMO
+ * endpoint público que usa la landing, así que no puede decir algo distinto de lo que ve el
+ * visitante — aunque la campaña marcada esté en otra página de esta lista.
+ *
+ * 🔴 `fetch` con `credentials: 'omit'` y NO el cliente `api`: aquél manda cookies
+ * (`withCredentials`), el router público contesta `Access-Control-Allow-Origin: *`, y el navegador
+ * RECHAZA siempre esa combinación. Es el mismo defecto que ya dejó sin oferta el alta del
+ * dashboard el 18-sep (curl da 200 y el navegador no).
+ */
+export async function fetchVitrinaDelGiro(vertical: LaunchCampaignVertical): Promise<VitrinaDelGiro> {
+  const base = String(api.defaults.baseURL ?? '').replace(/\/+$/, '')
+  const res = await fetch(`${base}/public/launch-offers/featured/${vertical}`, {
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`La vitrina respondió ${res.status}`)
+  const cuerpo = (await res.json()) as { data?: VitrinaDelGiro }
+  return cuerpo.data ?? null
 }
 
 /** Paginado EN EL SERVIDOR: una campaña llena son miles de filas. */

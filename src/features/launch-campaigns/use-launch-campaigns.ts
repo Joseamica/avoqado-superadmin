@@ -8,6 +8,7 @@ import {
   fetchLaunchCampaign,
   fetchLaunchCampaigns,
   fetchRedemptions,
+  fetchVitrinaDelGiro,
   pauseLaunchCampaign,
   previewLaunchOffer,
   updateLaunchCampaign,
@@ -15,6 +16,7 @@ import {
 import type {
   CreateLaunchCampaignInput,
   LaunchCampaignListQuery,
+  LaunchCampaignVertical,
   LaunchOfferPreviewInput,
   UpdateLaunchCampaignInput,
 } from './types'
@@ -28,6 +30,18 @@ export function useLaunchCampaigns(query: LaunchCampaignListQuery = {}) {
   return useQuery({
     queryKey: [...LAUNCH_CAMPAIGNS_QUERY_KEY, 'list', query],
     queryFn: () => fetchLaunchCampaigns(query),
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * Lo que la página pública de un giro está enseñando ahora. Cuelga de la llave de campañas, así
+ * que se relee sola después de marcar, pausar o terminar una.
+ */
+export function useVitrinaDelGiro(vertical: LaunchCampaignVertical) {
+  return useQuery({
+    queryKey: [...LAUNCH_CAMPAIGNS_QUERY_KEY, 'vitrina', vertical],
+    queryFn: () => fetchVitrinaDelGiro(vertical),
     staleTime: 30_000,
   })
 }

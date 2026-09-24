@@ -52,6 +52,12 @@ export interface LaunchCampaignRow {
   landingSlug: string
   vertical: LaunchCampaignVertical
   channel: LaunchCampaignChannel | null
+  /**
+   * La VITRINA del giro: la campaña que enseña la página de un giro sin slug en su URL (hoy
+   * avoqado.io/restaurants ⇒ FOOD_SERVICE). Exclusiva por giro. Opcional: un servidor anterior no
+   * la manda, y ausente se lee como «no está en la vitrina».
+   */
+  featuredForVertical?: boolean
   planTier: LaunchCampaignPlanTier
   billingInterval: LaunchCampaignInterval
   /** Precio FINAL por ciclo CON IVA, en centavos (2200 = $22.00). */
@@ -172,7 +178,18 @@ export interface CreateLaunchCampaignInput {
   headline: string | null
   subheadline: string | null
   bullets: string[]
+  /** Marcarla le QUITA la vitrina a la otra campaña del mismo giro (en el servidor, atómico). */
+  featuredForVertical?: boolean
 }
+
+/**
+ * Lo que enseña HOY la página de un giro, leído del mismo endpoint público que la landing.
+ * `null` = nadie ocupa la vitrina (la página calla el precio).
+ */
+export type VitrinaDelGiro =
+  | { code: string; available: true; firstChargeCents: number }
+  | { code: string; available: false; unavailableReason: string }
+  | null
 
 /**
  * Cuerpo de `PUT /:id`. Todo opcional salvo `expectedUpdatedAt`: la revisión

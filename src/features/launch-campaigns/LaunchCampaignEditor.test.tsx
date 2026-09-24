@@ -407,3 +407,73 @@ describe('LaunchCampaignEditor', () => {
     expect(within(pagina).getByText('Avoqado Pro a $22.00/mes')).toBeInTheDocument()
   })
 })
+
+/**
+ * La VITRINA del giro (relevo 2026-09-24): qué campaña enseña la página de un giro que no lleva
+ * el slug en su URL (hoy avoqado.io/restaurants). Un interruptor EXPLÍCITO por campaña; marcarla
+ * le quita la vitrina a la otra del mismo giro. NO se congela al activar: se mueve sobre campañas
+ * vivas sin desplegar nada.
+ */
+describe('LaunchCampaignEditor — vitrina del giro', () => {
+  const restaurantes: LaunchCampaignRow = { ...activa, vertical: 'FOOD_SERVICE', featuredForVertical: false }
+
+  function capturarPut() {
+    const cuerpos: Record<string, unknown>[] = []
+    server.use(
+      http.put(`${BASE}/:id`, async ({ request }) => {
+        cuerpos.push((await request.json()) as Record<string, unknown>)
+        return HttpResponse.json({ success: true, data: restaurantes })
+      }),
+    )
+    return cuerpos
+  }
+
+  it('en una campaña ACTIVA de restaurantes la casilla se puede marcar y dice qué página cambia', async () => {
+    renderEditor(restaurantes)
+    await screen.findByText('Editar POS22')
+    const casilla = screen.getByRole('checkbox', { name: /mostrar en la página de su giro/i })
+    expect(casilla).toBeEnabled()
+    expect(casilla).not.toBeChecked()
+    expect(screen.getByText(/avoqado\.io\/restaurants/)).toBeInTheDocument()
+  })
+
+  it('🔴 marcarla manda featuredForVertical:true en el PUT, con la revisión optimista', async () => {
+    const user = userEvent.setup()
+    const cuerpos = capturarPut()
+    renderEditor(restaurantes)
+    await screen.findByText('Editar POS22')
+    await user.click(screen.getByRole('checkbox', { name: /mostrar en la página de su giro/i }))
+    // y avisa lo que hace con la otra del giro, antes de guardar
+    expect(screen.getByText(/se la quita/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(cuerpos).toHaveLength(1))
+    expect(cuerpos[0]).toMatchObject({ featuredForVertical: true, expectedUpdatedAt: activa.updatedAt })
+  })
+
+  it('🔴 guardar SIN tocar la casilla no manda la vitrina (no pisa lo que marcó otra pestaña)', async () => {
+    const user = userEvent.setup()
+    const cuerpos = capturarPut()
+    renderEditor(restaurantes)
+    await screen.findByText('Editar POS22')
+    await user.clear(screen.getByLabelText('Nombre interno'))
+    await user.type(screen.getByLabelText('Nombre interno'), 'Otro nombre')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await waitFor(() => expect(cuerpos).toHaveLength(1))
+    expect(cuerpos[0]).not.toHaveProperty('featuredForVertical')
+  })
+
+  it('🔴 mientras ocupa la vitrina, su giro no se cambia — y lo explica', async () => {
+    renderEditor({ ...restaurantes, featuredForVertical: true })
+    await screen.findByText('Editar POS22')
+    expect(screen.getByRole('checkbox', { name: /mostrar en la página de su giro/i })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Giro al que apunta' })).toBeDisabled()
+    expect(screen.getByText(/quítale la vitrina/i)).toBeInTheDocument()
+  })
+
+  it('en un giro sin página propia lo dice, en vez de prometer una página que no existe', async () => {
+    renderEditor({ ...activa, vertical: 'RETAIL', featuredForVertical: false })
+    await screen.findByText('Editar POS22')
+    expect(screen.getByText(/todavía no tiene página propia/i)).toBeInTheDocument()
+  })
+})

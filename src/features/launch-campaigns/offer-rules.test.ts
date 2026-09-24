@@ -23,6 +23,7 @@ const BORRADOR: BorradorCampana = {
   headline: 'Tu punto de venta a $22 al mes',
   subheadline: '',
   bullets: [],
+  featuredForVertical: false,
 }
 
 /** El precio de lista de PRO mensual con IVA, que es lo que devuelve la vista previa. */
@@ -320,5 +321,22 @@ describe('desgloseEsExacto', () => {
   it('sin desglose no hay veredicto que dar', () => {
     expect(desgloseEsExacto(null)).toBe(false)
     expect(desgloseEsExacto(undefined)).toBe(false)
+  })
+})
+
+describe('campoBloqueado — la vitrina del giro', () => {
+  const activa = { status: 'ACTIVE' as const, activatedAt: '2026-09-20T00:00:00Z', redemptionCount: 5 }
+
+  it('🔴 la vitrina NO se congela al activar: se mueve sobre campañas vivas', () => {
+    expect(campoBloqueado('featuredForVertical', activa)).toBeNull()
+  })
+
+  it('🔴 mientras ocupa la vitrina, su giro no se cambia', () => {
+    expect(campoBloqueado('vertical', { ...activa, featuredForVertical: true })).toMatch(/vitrina/)
+    expect(campoBloqueado('vertical', { ...activa, featuredForVertical: false })).toBeNull()
+  })
+
+  it('una campaña terminada no se toca, tampoco su vitrina', () => {
+    expect(campoBloqueado('featuredForVertical', { ...activa, status: 'ENDED' })).toBeTruthy()
   })
 })

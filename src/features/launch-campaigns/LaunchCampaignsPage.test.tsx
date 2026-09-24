@@ -495,3 +495,46 @@ describe('LaunchCampaignDetail (desde la lista)', () => {
     expect(screen.queryByText(/Al menos/)).not.toBeInTheDocument()
   })
 })
+
+/**
+ * La vitrina, VISIBLE en la lista (relevo 2026-09-24): su único riesgo es que nadie marque ninguna y
+ * /restaurants se quede sin precio — y eso sólo se ve si está a la vista. La línea de arriba lee el
+ * MISMO endpoint público que la landing, así que dice lo que la página enseña de verdad.
+ */
+describe('LaunchCampaignsPage — vitrina', () => {
+  const VITRINA = 'http://localhost:3000/api/v1/public/launch-offers/featured/FOOD_SERVICE'
+
+  it('marca en la lista la campaña que ocupa la vitrina de su giro', async () => {
+    server.use(
+      http.get(BASE, () =>
+        HttpResponse.json({
+          success: true,
+          data: [{ ...campana, vertical: 'FOOD_SERVICE', featuredForVertical: true }],
+          meta: { total: 1, page: 1, pageSize: 100 },
+        }),
+      ),
+      http.get(VITRINA, () =>
+        HttpResponse.json({ success: true, data: { code: campana.code, available: true, firstChargeCents: 2200 } }),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText('Vitrina')).toBeInTheDocument()
+    expect(await screen.findByText(/avoqado\.io\/restaurants muestra/i)).toHaveTextContent(campana.code)
+  })
+
+  it('🔴 sin campaña en la vitrina lo AVISA: la página de restaurantes está sin precio', async () => {
+    server.use(http.get(VITRINA, () => HttpResponse.json({ code: 'LAUNCH_OFFER_NOT_FOUND' }, { status: 404 })))
+    renderPage()
+    expect(await screen.findByText(/sin precio/i)).toBeInTheDocument()
+  })
+
+  it('🔴 marcada pero pausada tampoco vende, y también lo dice', async () => {
+    server.use(
+      http.get(VITRINA, () =>
+        HttpResponse.json({ success: true, data: { code: 'REST22', available: false, unavailableReason: 'PAUSED' } }),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText(/sin precio/i)).toHaveTextContent('REST22')
+  })
+})

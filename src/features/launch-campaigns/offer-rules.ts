@@ -51,9 +51,19 @@ export interface BorradorCampana {
   headline: string
   subheadline: string
   bullets: string[]
+  /** La vitrina de su giro. Se edita sobre campañas vivas: NO se congela al activar. */
+  featuredForVertical: boolean
 }
 
 export type CampoDeCampana = keyof BorradorCampana
+
+/**
+ * Qué página pública enseña la vitrina de cada giro. Hoy sólo restaurantes tiene página propia;
+ * un giro fuera de esta tabla todavía no la tiene y la pantalla lo dice en vez de prometerla.
+ */
+export const PAGINA_DE_LA_VITRINA: Partial<Record<LaunchCampaignVertical, string>> = {
+  FOOD_SERVICE: 'avoqado.io/restaurants',
+}
 
 export interface ContextoDeValidacion {
   /**
@@ -169,6 +179,8 @@ export interface EstadoDeLaFicha {
   status: LaunchCampaignStatus
   activatedAt: string | null
   redemptionCount: number
+  /** Si la ficha GUARDADA ocupa la vitrina de su giro. */
+  featuredForVertical?: boolean
 }
 
 /**
@@ -200,6 +212,12 @@ export function campoBloqueado(campo: CampoDeCampana, ficha: EstadoDeLaFicha): s
       return 'La oferta de una campaña ya activada no se cambia: se termina esta ficha y se crea otra con otro código.'
     }
     return null
+  }
+
+  // Moverla de giro movería la vitrina en silencio: la página de su giro se quedaría sin precio.
+  // El servidor lo rechaza (`LAUNCH_CAMPAIGN_FEATURED_VERTICAL_CHANGE`); aquí se explica antes.
+  if (campo === 'vertical' && ficha.featuredForVertical) {
+    return 'Esta campaña ocupa la vitrina de su giro: quítale la vitrina y guarda antes de cambiarla de giro.'
   }
 
   if (campo === 'validFrom' && ficha.status !== 'DRAFT' && ficha.redemptionCount > 0) {

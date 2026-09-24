@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { Checkbox } from '@/shared/ui/Checkbox'
 import { Combobox } from '@/shared/ui/Combobox'
 import { Drawer, DrawerClose, DrawerContent, DrawerSubtitle, DrawerTitle } from '@/shared/ui/Drawer'
 import { Field } from '@/shared/ui/Field'
@@ -16,6 +17,7 @@ import {
   type BorradorCampana,
   type CampoDeCampana,
   type EstadoDeLaFicha,
+  PAGINA_DE_LA_VITRINA,
 } from './offer-rules'
 import {
   useCreateLaunchCampaign,
@@ -71,6 +73,7 @@ function borradorInicial(c?: LaunchCampaignRow | null): BorradorCampana {
     headline: c?.headline ?? '',
     subheadline: c?.subheadline ?? '',
     bullets: c?.bullets ?? [],
+    featuredForVertical: c?.featuredForVertical ?? false,
   }
 }
 
@@ -115,6 +118,7 @@ function FormularioDeCampana({
     status: campana?.status ?? 'DRAFT',
     activatedAt: campana?.activatedAt ?? null,
     redemptionCount: campana?.redemptionCount ?? 0,
+    featuredForVertical: campana?.featuredForVertical ?? false,
   }
   /** En una ficha nueva el código sí se escribe; en una existente es inmutable. */
   const bloqueo = (campo: CampoDeCampana) => (editando ? campoBloqueado(campo, ficha) : null)
@@ -191,6 +195,13 @@ function FormularioDeCampana({
       const desde = campoBloqueado('validFrom', ficha)
         ? {}
         : { validFrom: mexicoLocalToIso(b.validFrom) as string }
+      // 🔴 La vitrina viaja SÓLO si el operador la cambió: mandarla siempre re-marcaría (o
+      // desmarcaría) la que otra pestaña acaba de mover. Si otra pestaña movió ESTA ficha, la
+      // revisión optimista ya devuelve 409.
+      const vitrina =
+        b.featuredForVertical !== (campana.featuredForVertical ?? false)
+          ? { featuredForVertical: b.featuredForVertical }
+          : {}
 
       await actualizar.mutateAsync({
         id: campana.id,
@@ -199,6 +210,7 @@ function FormularioDeCampana({
           ...oferta,
           ...slug,
           ...desde,
+          ...vitrina,
           // 🔴 La revisión optimista: el `updatedAt` que se LEYÓ al abrir. Si otro
           // operador guardó mientras tanto, el servidor contesta 409 y nadie pisa
           // el trabajo del otro en silencio.
@@ -216,6 +228,7 @@ function FormularioDeCampana({
         billingInterval: 'MONTHLY',
         advertisedPriceCents: pesosInputToCents(b.advertisedPrice),
         discountMonths: Number(b.discountMonths),
+        ...(b.featuredForVertical ? { featuredForVertical: true } : {}),
       }
       await crear.mutateAsync(input)
     }
@@ -311,6 +324,16 @@ function FormularioDeCampana({
               />
             </div>
           </div>
+          <VitrinaDelGiroCasilla
+            vertical={b.vertical}
+            marcada={b.featuredForVertical}
+            estabaMarcada={campana?.featuredForVertical ?? false}
+            bloqueo={bloqueo('featuredForVertical')}
+            onChange={(v) => set('featuredForVertical', v)}
+          />
+          {bloqueo('vertical') && b.featuredForVertical && (
+            <p className="text-[12px] text-[var(--ink-muted)]">{bloqueo('vertical')}</p>
+          )}
         </section>
 
         <section className="space-y-4 border-t border-[var(--line-strong)] pt-5">
@@ -692,6 +715,55 @@ function VistaPreviaDeLaPagina({
             Se paga con tarjeta. Cancela cuando quieras, desde tu panel.
           </p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * La casilla de la VITRINA del giro. Dice, antes de guardar, qué página cambia y qué le pasa a la
+ * otra campaña del mismo giro: su único riesgo es moverla sin saberlo.
+ */
+function VitrinaDelGiroCasilla({
+  vertical,
+  marcada,
+  estabaMarcada,
+  bloqueo,
+  onChange,
+}: {
+  vertical: LaunchCampaignVertical
+  marcada: boolean
+  estabaMarcada: boolean
+  bloqueo: string | null
+  onChange: (v: boolean) => void
+}) {
+  const pagina = PAGINA_DE_LA_VITRINA[vertical]
+  const nombreGiro = VERTICALES.find((v) => v.value === vertical)?.label ?? vertical
+  let explicacion: string
+  if (bloqueo) explicacion = bloqueo
+  else if (!pagina)
+    explicacion = `${nombreGiro} todavía no tiene página propia: la marca queda lista para cuando exista.`
+  else if (marcada && !estabaMarcada)
+    explicacion = `Al guardar, ${pagina} enseñará esta oferta. Si otra campaña de ${nombreGiro} ocupaba la vitrina, se la quita.`
+  else if (marcada)
+    explicacion = `${pagina} enseña esta oferta mientras se pueda vender. Pausada, vencida o agotada, la página calla el precio.`
+  else
+    explicacion = `${pagina} enseña la campaña de ${nombreGiro} que tenga esta casilla marcada. Sin ninguna, la página no muestra precio.`
+
+  return (
+    <div className="flex items-start gap-2.5">
+      <Checkbox
+        id="featuredForVertical"
+        checked={marcada}
+        disabled={Boolean(bloqueo)}
+        onCheckedChange={(v) => onChange(v === true)}
+        className="mt-0.5"
+      />
+      <div className="min-w-0">
+        <label htmlFor="featuredForVertical" className="text-[13px] font-medium text-[var(--ink)]">
+          Mostrar en la página de su giro
+        </label>
+        <p className="mt-0.5 text-[12px] text-[var(--ink-muted)]">{explicacion}</p>
       </div>
     </div>
   )

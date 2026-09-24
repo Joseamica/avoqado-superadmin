@@ -9,7 +9,7 @@ import { QueryError } from '@/shared/components/QueryError'
 import { formatDate } from '@/shared/lib/datetime'
 import { centsToLabel } from './money'
 import { estadoDeLaCampana } from './campaign-status'
-import { useLaunchCampaigns } from './use-launch-campaigns'
+import { useLaunchCampaigns, useVitrinaDelGiro } from './use-launch-campaigns'
 import { LaunchCampaignEditor } from './LaunchCampaignEditor'
 import { LaunchCampaignDetail } from './LaunchCampaignDetail'
 import { LaunchCampaignStatusActions } from './LaunchCampaignStatusActions'
@@ -94,8 +94,15 @@ export function LaunchCampaignsPage() {
             onClick={() => setDetalle(row.original)}
             className="min-w-0 max-w-full text-left transition-colors hover:text-[var(--ink)]"
           >
-            <div className="tabular truncate text-[13px] text-[var(--ink)] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[var(--ink-faint)]">
-              {row.original.code}
+            <div className="flex items-center gap-1.5">
+              <span className="tabular truncate text-[13px] text-[var(--ink)] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[var(--ink-faint)]">
+                {row.original.code}
+              </span>
+              {row.original.featuredForVertical && (
+                <span title="Es la oferta que enseña la página de su giro">
+                  <Badge tone="info">Vitrina</Badge>
+                </span>
+              )}
             </div>
             <div className="truncate text-[12px] text-[var(--ink-muted)]">{row.original.name}</div>
           </button>
@@ -222,6 +229,8 @@ export function LaunchCampaignsPage() {
         </Button>
       </header>
 
+      <LineaDeLaVitrina />
+
       {campanas.isError && (
         <QueryError
           className="mb-5"
@@ -268,5 +277,42 @@ export function LaunchCampaignsPage() {
       />
       <LaunchCampaignDetail campana={detalle} onClose={() => setDetalle(null)} />
     </div>
+  )
+}
+
+/**
+ * 🔴 Lo que avoqado.io/restaurants está enseñando AHORA. Su único riesgo es que nadie marque una
+ * campaña (o que la marcada se pause) y la página se quede sin precio — y eso sólo se ve si está a
+ * la vista. Sale del mismo endpoint público que la landing: no puede decir otra cosa que la página.
+ */
+function LineaDeLaVitrina() {
+  const vitrina = useVitrinaDelGiro('FOOD_SERVICE')
+  if (vitrina.isLoading) return null
+  let texto: string
+  let alerta = false
+  if (vitrina.isError) {
+    texto = 'No se pudo leer qué muestra avoqado.io/restaurants.'
+    alerta = true
+  } else if (!vitrina.data) {
+    texto =
+      'avoqado.io/restaurants está sin precio: ninguna campaña de Restaurantes está en la vitrina. Márcala en su ficha.'
+    alerta = true
+  } else if (!vitrina.data.available) {
+    texto = `avoqado.io/restaurants está sin precio: la campaña en la vitrina (${vitrina.data.code}) no se puede vender ahora.`
+    alerta = true
+  } else {
+    texto = `avoqado.io/restaurants muestra ${vitrina.data.code} — ${centsToLabel(vitrina.data.firstChargeCents)} el primer mes.`
+  }
+  return (
+    <p
+      role={alerta ? 'alert' : undefined}
+      className={`mb-5 rounded-md border px-3 py-2 text-[13px] ${
+        alerta
+          ? 'border-[var(--danger)] text-[var(--danger)]'
+          : 'border-[var(--line-strong)] text-[var(--ink-muted)]'
+      }`}
+    >
+      {texto}
+    </p>
   )
 }
