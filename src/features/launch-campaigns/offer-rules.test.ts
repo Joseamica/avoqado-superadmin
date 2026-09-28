@@ -325,7 +325,11 @@ describe('desgloseEsExacto', () => {
 })
 
 describe('campoBloqueado — la vitrina del giro', () => {
-  const activa = { status: 'ACTIVE' as const, activatedAt: '2026-09-20T00:00:00Z', redemptionCount: 5 }
+  const activa = {
+    status: 'ACTIVE' as const,
+    activatedAt: '2026-09-20T00:00:00Z',
+    redemptionCount: 5,
+  }
 
   it('🔴 la vitrina NO se congela al activar: se mueve sobre campañas vivas', () => {
     expect(campoBloqueado('featuredForVertical', activa)).toBeNull()
