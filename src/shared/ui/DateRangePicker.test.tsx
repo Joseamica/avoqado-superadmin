@@ -10,6 +10,15 @@ vi.stubEnv('TZ', 'America/Mexico_City')
 const EMPTY_RANGE: DateRangeValue = {}
 
 describe('DateRangePicker', () => {
+  it('keeps future dates disabled for existing historical filters', () => {
+    const future = DateTime.now().setZone('America/Mexico_City').plus({ days: 1 })
+    render(<DateRangePicker value={{ startTime: future.toISO()! }} onApply={() => {}} />)
+    for (const day of screen.getAllByRole('button', {
+      name: future.setLocale('es').toFormat('d LLLL yyyy'),
+    })) {
+      expect(day).toBeDisabled()
+    }
+  })
   it('renderiza el dual calendar con dos meses', () => {
     render(<DateRangePicker value={EMPTY_RANGE} onApply={() => {}} />)
 

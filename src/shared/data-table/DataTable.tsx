@@ -23,6 +23,8 @@ export interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[]
   /** Placeholder del input de búsqueda global. */
   searchPlaceholder?: string
+  /** With paginated APIs, search belongs to the server; never filter away only the current page. */
+  serverSearch?: { value: string; onChange: (value: string) => void }
   /** Slot para chips/filter pills justo después del search. */
   toolbar?: ReactNode
   /** Empty state cuando data + filtros no devuelven nada. */
@@ -53,6 +55,7 @@ export function DataTable<TData>({
   data,
   columns,
   searchPlaceholder = 'Buscar…',
+  serverSearch,
   toolbar,
   emptyState,
   exportable,
@@ -114,6 +117,7 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    manualFiltering: Boolean(serverSearch),
     getPaginationRowModel: pageSize ? getPaginationRowModel() : undefined,
     getExpandedRowModel: renderExpandedRow ? getExpandedRowModel() : undefined,
     getRowCanExpand: renderExpandedRow ? () => true : undefined,
@@ -136,8 +140,10 @@ export function DataTable<TData>({
           />
           <input
             id="dt-search"
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            value={serverSearch?.value ?? globalFilter ?? ''}
+            onChange={(e) =>
+              serverSearch ? serverSearch.onChange(e.target.value) : setGlobalFilter(e.target.value)
+            }
             placeholder={searchPlaceholder}
             className="h-10 w-full rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] pl-9 pr-3 text-[14px] placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           />

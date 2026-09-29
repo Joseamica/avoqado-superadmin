@@ -2,6 +2,12 @@
 
 Consola interna de operaciones para el equipo Avoqado. Apunta al backend principal (`avoqado-server`) bajo el namespace `/api/v1/superadmin/*`. Auth interno con cookies HTTP-only — **sin Firebase**.
 
+## Ofertas de planes y funciones
+
+`/hybrid-campaigns` permite crear, duplicar y revisar ofertas de plan, funciones específicas y paquetes con cantidad a elección. Publicar guarda condiciones inmutables y deja la campaña pausada; activar ventas requiere confirmación y que el backend tenga habilitada la contratación híbrida. Los importes son totales mensuales en pesos MXN con IVA incluido. La búsqueda y la paginación se resuelven en el servidor. Las campañas de lanzamiento existentes siguen en `/launch-campaigns`.
+
+Desplegar primero las migraciones y API híbrida de `avoqado-server`. Mantener ventas deshabilitadas hasta verificar onboarding, pagos y acceso en los clientes.
+
 ## Stack
 
 | Capa              | Librería                                                                                               |

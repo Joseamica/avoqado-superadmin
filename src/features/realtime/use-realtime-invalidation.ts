@@ -20,6 +20,7 @@ import { connectSocket } from '@/features/realtime/socket'
  * Cuando agregues una página nueva al superadmin, mapea su evento aquí.
  */
 const EVENT_INVALIDATIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly string[]>]> = [
+  ['superadmin:hybrid-campaign:updated', [['superadmin', 'hybrid-campaigns']]],
   ['superadmin:activity-log:new', [['superadmin', 'activity-log']]],
   ['superadmin:kyc:updated', [['superadmin', 'kyc']]],
   ['superadmin:venue:updated', [['superadmin', 'venues']]],

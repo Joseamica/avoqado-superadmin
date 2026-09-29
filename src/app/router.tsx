@@ -40,6 +40,11 @@ const AnnouncementsPage = lazy(() =>
     default: m.AnnouncementsPage,
   })),
 )
+const HybridCampaignsPage = lazy(() =>
+  import('@/features/launch-campaigns/HybridCampaignsPage').then((m) => ({
+    default: m.HybridCampaignsPage,
+  })),
+)
 const LaunchCampaignsPage = lazy(() =>
   import('@/features/launch-campaigns/LaunchCampaignsPage').then((m) => ({
     default: m.LaunchCampaignsPage,
@@ -198,6 +203,7 @@ export function AppRoutes() {
             element={<VenueResourcePlaceholder resource="pricing" />}
           />
           <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/hybrid-campaigns" element={<HybridCampaignsPage />} />
           <Route path="/launch-campaigns" element={<LaunchCampaignsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/master-catalog" element={<MasterCatalogAccessPage />} />

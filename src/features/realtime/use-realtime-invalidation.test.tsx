@@ -77,9 +77,10 @@ describe('useRealtimeInvalidation', () => {
     })
 
     expect(connectSocketMock).toHaveBeenCalledTimes(1)
-    // 6 events registered per the EVENT_INVALIDATIONS map
-    expect(socket.on).toHaveBeenCalledTimes(6)
+    // 7 events registered per the EVENT_INVALIDATIONS map
+    expect(socket.on).toHaveBeenCalledTimes(7)
     const eventNames = socket.on.mock.calls.map((c) => c[0])
+    expect(eventNames).toContain('superadmin:hybrid-campaign:updated')
     expect(eventNames).toContain('superadmin:activity-log:new')
     expect(eventNames).toContain('superadmin:kyc:updated')
     expect(eventNames).toContain('superadmin:venue:updated')
@@ -98,7 +99,7 @@ describe('useRealtimeInvalidation', () => {
     })
     unmount()
     // Each .on() pair should have a matching .off()
-    expect(socket.off).toHaveBeenCalledTimes(6)
+    expect(socket.off).toHaveBeenCalledTimes(7)
   })
 
   it('the handler invalidates the mapped query keys when fired', async () => {

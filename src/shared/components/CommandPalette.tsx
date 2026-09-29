@@ -87,6 +87,16 @@ export function CommandPalette() {
       },
     },
     {
+      id: 'nav-hybrid-campaigns',
+      label: 'Ir a Planes y funciones',
+      icon: BadgePercent,
+      group: 'Navegación',
+      run: () => {
+        navigate('/hybrid-campaigns')
+        close()
+      },
+    },
+    {
       id: 'nav-launch-campaigns',
       label: 'Ir a Campañas de lanzamiento',
       icon: BadgePercent,

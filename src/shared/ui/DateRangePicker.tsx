@@ -136,6 +136,7 @@ export function formatDateRangeLabel(
 interface MonthCalendarProps {
   month: DateTime
   today: DateTime
+  allowFuture: boolean
   /** Fecha mínima seleccionable (inclusive). Días anteriores se deshabilitan. */
   minDate: DateTime | null
   rangeStart: DateTime | null
@@ -153,6 +154,7 @@ interface MonthCalendarProps {
 function MonthCalendar({
   month,
   today,
+  allowFuture,
   minDate,
   rangeStart,
   rangeEnd,
@@ -216,7 +218,7 @@ function MonthCalendar({
           const isEnd = sameDay(d, endDate)
           const isSelected = isStart || isEnd
           const inRange = dayInRange(d, rangeStart, rangeEnd)
-          const isFuture = d > today
+          const isFuture = !allowFuture && d > today
           const isTooOld = !!(minDate && d < minDate)
           const isDisabled = isFuture || isTooOld
 
@@ -296,6 +298,8 @@ interface DateRangePickerProps {
   presets?: DateRangePreset[]
   /** Mostrar inputs de hora debajo del calendario. Default: false. */
   showTime?: boolean
+  /** Campañas pueden programarse; los filtros históricos conservan su límite por defecto. */
+  allowFuture?: boolean
   /**
    * Días máximos hacia atrás que se pueden seleccionar (desde hoy).
    * Días anteriores a `today - maxDaysBack` se deshabilitan en el calendario.
@@ -314,6 +318,7 @@ export function DateRangePicker({
   timezone = DEFAULT_TIMEZONE,
   presets,
   showTime = false,
+  allowFuture = false,
   maxDaysBack,
   maxDaysBackHint,
   className,
@@ -355,6 +360,7 @@ export function DateRangePicker({
 
   // Navigation — no dejar avanzar más allá del mes actual + 1.
   const canForward =
+    allowFuture ||
     rightMonth.plus({ months: 1 }).startOf('month') <= today.plus({ months: 1 }).startOf('month')
   const goBack = () => setLeftMonth((m) => m.minus({ months: 1 }))
   const goForward = () => canForward && setLeftMonth((m) => m.plus({ months: 1 }))
@@ -475,6 +481,7 @@ export function DateRangePicker({
         <MonthCalendar
           month={leftMonth}
           today={today}
+          allowFuture={allowFuture}
           minDate={minDate}
           rangeStart={rangeStart}
           rangeEnd={rangeEnd}
@@ -491,6 +498,7 @@ export function DateRangePicker({
         <MonthCalendar
           month={rightMonth}
           today={today}
+          allowFuture={allowFuture}
           minDate={minDate}
           rangeStart={rangeStart}
           rangeEnd={rangeEnd}
