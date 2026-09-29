@@ -135,7 +135,9 @@ export async function endLaunchCampaign(id: string, reason: string): Promise<Lau
  * RECHAZA siempre esa combinación. Es el mismo defecto que ya dejó sin oferta el alta del
  * dashboard el 18-sep (curl da 200 y el navegador no).
  */
-export async function fetchVitrinaDelGiro(vertical: LaunchCampaignVertical): Promise<VitrinaDelGiro> {
+export async function fetchVitrinaDelGiro(
+  vertical: LaunchCampaignVertical,
+): Promise<VitrinaDelGiro> {
   const base = String(api.defaults.baseURL ?? '').replace(/\/+$/, '')
   const res = await fetch(`${base}/public/launch-offers/featured/${vertical}`, {
     credentials: 'omit',

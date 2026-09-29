@@ -514,16 +514,25 @@ describe('LaunchCampaignsPage — vitrina', () => {
         }),
       ),
       http.get(VITRINA, () =>
-        HttpResponse.json({ success: true, data: { code: campana.code, available: true, firstChargeCents: 2200 } }),
+        HttpResponse.json({
+          success: true,
+          data: { code: campana.code, available: true, firstChargeCents: 2200 },
+        }),
       ),
     )
     renderPage()
     expect(await screen.findByText('Vitrina')).toBeInTheDocument()
-    expect(await screen.findByText(/avoqado\.io\/restaurants muestra/i)).toHaveTextContent(campana.code)
+    expect(await screen.findByText(/avoqado\.io\/restaurants muestra/i)).toHaveTextContent(
+      campana.code,
+    )
   })
 
   it('🔴 sin campaña en la vitrina lo AVISA: la página de restaurantes está sin precio', async () => {
-    server.use(http.get(VITRINA, () => HttpResponse.json({ code: 'LAUNCH_OFFER_NOT_FOUND' }, { status: 404 })))
+    server.use(
+      http.get(VITRINA, () =>
+        HttpResponse.json({ code: 'LAUNCH_OFFER_NOT_FOUND' }, { status: 404 }),
+      ),
+    )
     renderPage()
     expect(await screen.findByText(/sin precio/i)).toBeInTheDocument()
   })
@@ -531,7 +540,10 @@ describe('LaunchCampaignsPage — vitrina', () => {
   it('🔴 marcada pero pausada tampoco vende, y también lo dice', async () => {
     server.use(
       http.get(VITRINA, () =>
-        HttpResponse.json({ success: true, data: { code: 'REST22', available: false, unavailableReason: 'PAUSED' } }),
+        HttpResponse.json({
+          success: true,
+          data: { code: 'REST22', available: false, unavailableReason: 'PAUSED' },
+        }),
       ),
     )
     renderPage()
