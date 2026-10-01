@@ -138,3 +138,9 @@ export function inspectApiError(error: unknown, context?: string): ApiErrorInfo 
     description: 'Ocurrió un error que no pudimos categorizar.',
   }
 }
+
+/** The server's machine-readable error (`{ code, details }` next to the message), to branch on a specific refusal. */
+export function apiErrorPayload(error: unknown): { code?: string; details?: unknown } {
+  if (!axios.isAxiosError(error)) return {}
+  return (error.response?.data as { code?: string; details?: unknown } | undefined) ?? {}
+}

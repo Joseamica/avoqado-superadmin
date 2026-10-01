@@ -1,5 +1,5 @@
-import axios from 'axios'
 import { api } from '@/shared/lib/api'
+import { apiErrorPayload } from '@/shared/lib/api-error'
 import { formatDate } from '@/shared/lib/datetime'
 import { formatMoney } from '@/shared/lib/money'
 
@@ -18,6 +18,8 @@ export interface ListPriceRow {
   status: 'ACTIVE' | 'PAUSED' | null
   price: number | null
   pendingPrice: number | null
+  /** «% de descuento» groups on sale over it: after a list change they need «Recalcular» (optional: older servers). */
+  activeGroups?: { id: string; name: string; revision: number }[]
 }
 
 export interface PriceGapSummaryRow {
@@ -128,10 +130,7 @@ export async function pausePromotions(violations: RuleViolation[]) {
 }
 
 /** The server's machine-readable error: `{ code, details }` next to the message. */
-export function pricingError(error: unknown): { code?: string; details?: unknown } {
-  if (!axios.isAxiosError(error)) return {}
-  return (error.response?.data as { code?: string; details?: unknown } | undefined) ?? {}
-}
+export const pricingError = apiErrorPayload
 
 /** Somebody else moved the list (or the promotion) since this screen read it. */
 export const isStale = (code?: string) =>

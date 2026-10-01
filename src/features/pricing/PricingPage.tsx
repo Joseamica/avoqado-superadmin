@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/data-table/DataTable'
 import { QueryError } from '@/shared/components/QueryError'
 import { inspectApiError } from '@/shared/lib/api-error'
+import { FEATURE_CATEGORIES } from '@/shared/lib/feature-categories'
 import { formatMoney } from '@/shared/lib/money'
 import { ListPriceDialog } from './ListPriceDialog'
 import { PriceGapDrawer, type GapTarget } from './PriceGapDrawer'
@@ -21,16 +22,6 @@ import {
 } from './pricing-api'
 import { useInvalidatePricing, usePriceBoard, usePriceGaps } from './use-pricing'
 
-// Same names as the plan comparison of the dashboard and the landing.
-const CATEGORIES: Record<string, string> = {
-  sell: 'Cobrar y vender',
-  customers: 'Clientes',
-  inventory: 'Inventario',
-  money: 'Dinero y reportes',
-  team: 'Tu equipo',
-  ai: 'Asistente y conexión',
-  custom: 'A la medida',
-}
 const TIERS: Record<string, string> = {
   FREE: 'Gratis',
   PRO: 'Pro',
@@ -135,7 +126,7 @@ export default function PricingPage() {
         <div>
           <p className="text-[var(--ink)]">{row.original.name}</p>
           <p className="text-[12px] text-[var(--ink-faint)]">
-            {CATEGORIES[row.original.category] ?? row.original.category}
+            {FEATURE_CATEGORIES[row.original.category] ?? row.original.category}
           </p>
         </div>
       ),

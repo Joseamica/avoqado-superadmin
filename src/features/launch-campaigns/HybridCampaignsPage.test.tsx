@@ -42,6 +42,7 @@ vi.mock('./hybrid-api', async (importOriginal) => ({
   fetchHybridCampaigns: (...args: unknown[]) => list(...args),
   fetchHybridCampaign: async () => campaign,
   changeHybridStatus: (...args: unknown[]) => change(...args),
+  fetchPercentGroups: async () => ({ items: [], total: 0, page: 1, pageSize: 25 }),
 }))
 beforeAll(() =>
   vi.stubGlobal(
@@ -72,7 +73,7 @@ it('searches the server and shows total pagination; activation requires reviewin
   await user.type(screen.getByPlaceholderText('Buscar campañas'), 'otono')
   await waitFor(() =>
     expect(list).toHaveBeenLastCalledWith(
-      expect.objectContaining({ q: 'otono', page: 1, pageSize: 25 }),
+      expect.objectContaining({ q: 'otono', page: 1, pageSize: 25, excludeGrouped: true }),
     ),
   )
   await user.click(await screen.findByRole('button', { name: 'Ver Campaña de otoño' }))

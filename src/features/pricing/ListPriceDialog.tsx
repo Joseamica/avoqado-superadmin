@@ -51,6 +51,7 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
   const [violations, setViolations] = useState<RuleViolation[] | null>(null)
   const [pendingPrice, setPendingPrice] = useState<number | null>(null)
   const price = Number(value)
+  const groups = row.activeGroups ?? []
   const valid = PESOS.test(value) && price >= MIN_PRICE && price <= MAX_PRICE
 
   const finish = () => {
@@ -99,13 +100,14 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
       save.mutate()
     },
     onError: (error) => {
-      // Some may have paused already: saving again asks the server which ones still block.
+      // Some may have paused already: saving again asks the server which ones still block (its 409 lists them).
       setViolations(null)
       void invalidate()
       const issue = inspectApiError(error, 'pausar las promociones')
       toast.error(issue.title, {
-        description: `${issue.serverMessage ?? issue.description} Vuelve a guardar para ver cuáles siguen activas.`,
+        description: `${issue.serverMessage ?? issue.description} Volvemos a revisar cuáles siguen activas.`,
       })
+      save.mutate()
     },
   })
   const busy = save.isPending || retry.isPending || pause.isPending
@@ -146,12 +148,19 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
         />
         {valid && (
           <p className="tabular text-[14px] text-[var(--ink)]">
-            {`Precio actual ${row.price === null ? 'sin precio' : formatMoney(row.price)} → Nuevo ${formatMoney(price)}`}
+            {`${row.price === null ? 'Sin precio actual' : `Precio actual ${formatMoney(row.price)}`} → Nuevo ${formatMoney(price)}`}
           </p>
         )}
         <p className="text-[13px] text-[var(--ink-muted)]">
           Quien ya la paga conserva su precio. El nuevo aplica a las contrataciones que vengan.
         </p>
+        {groups.length > 0 && (
+          <p className="text-[13px] text-[var(--ink)]">
+            {groups.length === 1
+              ? `Un descuento activo la abarca: «${groups[0].name}». Después de guardar, recalcúlalo en Descuentos % para que el % aplique sobre el precio nuevo.`
+              : `Descuentos activos la abarcan: ${groups.map((group) => `«${group.name}»`).join(', ')}. Después de guardar, recalcúlalos en Descuentos % para que el % aplique sobre el precio nuevo.`}
+          </p>
+        )}
 
         {violations && (
           <section

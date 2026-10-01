@@ -28,6 +28,8 @@ export interface HybridCampaign {
   audience: 'ALL' | 'NEW_ORGANIZATIONS' | 'ORGANIZATIONS'
   eligibleOrganizationIds: string[]
   listed: boolean
+  /** Set when a «% de descuento» group generated it: the group shows it once, in «Descuentos %». */
+  promotionGroupId?: string | null
   draftDefinition: HybridDefinition
   publications?: {
     id: string
@@ -45,6 +47,7 @@ export type HybridDraft = Omit<
   | 'redeemedCount'
   | 'draftDefinition'
   | 'publications'
+  | 'promotionGroupId'
 > & { definition: HybridDefinition }
 export interface HybridPage<T> {
   items: T[]
@@ -77,6 +80,8 @@ export async function fetchHybridCampaigns(query: {
   pageSize: number
   q?: string
   status?: string
+  /** Leaves out the campaigns a «% de descuento» group owns (they show once, as their group). */
+  excludeGrouped?: true
 }) {
   return (await api.get<{ data: HybridPage<HybridCampaign> }>(BASE, { params: query })).data.data
 }
@@ -148,4 +153,99 @@ export async function fetchHybridRedemptions(
       params: query,
     })
   ).data.data
+}
+
+/** «% de descuento»: one PROMOTION per function with a list on sale, at that % off its list (spec §4.3). */
+export type PercentTarget =
+  | { kind: 'ALL_FEATURES' }
+  | { kind: 'CATEGORIES'; categories: string[] }
+  | { kind: 'FEATURES'; featureCodes: string[] }
+export interface PercentPromotionInput {
+  name: string
+  percentOff: number
+  target: PercentTarget
+  startsAt: string
+  endsAt: string
+  /** null = the discount lasts forever; N = N months, then it renews at the list price. */
+  promotionCycles: number | null
+  capacityPerFeature: number
+}
+/** NO_LIST: no list on sale (missing or paused), omitted. BELOW_MINIMUM: under $10, blocks the group. */
+export interface PercentPreviewRow {
+  featureCode: string
+  name: string
+  listPrice: number | null
+  price: number | null
+  renewalPrice: number | null
+  status: 'OK' | 'NO_LIST' | 'BELOW_MINIMUM'
+  requires: string[]
+}
+export type PercentGroupStatus = 'ACTIVE' | 'PAUSED' | 'ENDED'
+export interface PercentGroup {
+  id: string
+  name: string
+  percentOff: number
+  target: PercentTarget
+  startsAt: string
+  endsAt: string
+  promotionCycles: number | null
+  capacityPerFeature: number
+  status: PercentGroupStatus
+  revision: number
+  /** How many functions (campaigns) it generated. */
+  functions: number
+  createdAt: string
+}
+export type PercentGroupDetail = Omit<PercentGroup, 'functions'> & {
+  campaigns: (HybridCampaign & { publication: { definition: HybridDefinition } | null })[]
+}
+/** TanStack key of «Descuentos %» (the list and each group's detail). */
+export const PERCENT_GROUPS = ['superadmin', 'hybrid-percent-groups'] as const
+const PERCENT = '/superadmin/hybrid-pricing/percent'
+const percentPath = (id: string) => `${PERCENT}/${encodeURIComponent(id)}`
+export async function previewPercent(input: PercentPromotionInput) {
+  return (
+    await api.post<{ data: { rows: PercentPreviewRow[]; creatable: boolean } }>(
+      `${PERCENT}/preview`,
+      input,
+    )
+  ).data.data
+}
+export async function createPercent(input: PercentPromotionInput) {
+  return (await api.post<{ data: { groupId: string; campaignIds: string[] } }>(PERCENT, input)).data
+    .data
+}
+export async function fetchPercentGroups(query: { page: number; pageSize: number }) {
+  return (await api.get<{ data: HybridPage<PercentGroup> }>(PERCENT, { params: query })).data.data
+}
+export async function fetchPercentGroup(id: string) {
+  return (await api.get<{ data: PercentGroupDetail }>(percentPath(id))).data.data
+}
+export async function setPercentGroupStatus(group: PercentGroup, status: PercentGroupStatus) {
+  return (
+    await api.post<{ data: PercentGroup }>(`${percentPath(group.id)}/status`, {
+      status,
+      expectedRevision: group.revision,
+    })
+  ).data.data
+}
+export async function recalculatePercentGroup(group: PercentGroup) {
+  return (
+    await api.post<{ data: PercentGroup }>(`${percentPath(group.id)}/recalculate`, {
+      expectedRevision: group.revision,
+    })
+  ).data.data
+}
+/** featureCode → name of every catalog function (the «Precios» board), to say what a function requires. */
+export async function fetchFeatureNames() {
+  const rows = (
+    await api.get<{ data: { featureCode: string | null; name: string }[] }>(
+      '/superadmin/hybrid-pricing',
+    )
+  ).data.data
+  return new Map(
+    rows.flatMap((row): [string, string][] =>
+      row.featureCode ? [[row.featureCode, row.name]] : [],
+    ),
+  )
 }

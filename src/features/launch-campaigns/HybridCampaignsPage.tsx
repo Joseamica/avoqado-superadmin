@@ -19,6 +19,8 @@ import { QueryError } from '@/shared/components/QueryError'
 import { inspectApiError } from '@/shared/lib/api-error'
 import { formatDateTime } from '@/shared/lib/datetime'
 import { HybridCampaignEditor } from './HybridCampaignEditor'
+import { PercentGroups } from './PercentGroups'
+import { PercentPromotionForm } from './PercentPromotionForm'
 import {
   changeHybridStatus,
   fetchHybridCampaign,
@@ -26,6 +28,7 @@ import {
   type HybridRedemption,
   fetchHybridCampaigns,
   hybridPesos,
+  PERCENT_GROUPS,
   publishHybridCampaign,
   type HybridCampaign,
   type HybridStatus,
@@ -50,6 +53,7 @@ export function HybridCampaignsPage() {
     [q, setQ] = useState(''),
     [page, setPage] = useState(1),
     [status, setStatus] = useState('')
+  const [creatingPercent, setCreatingPercent] = useState(false)
   const [selected, setSelected] = useState<string | null>(null),
     [editing, setEditing] = useState<{ campaign?: HybridCampaign; duplicate?: boolean } | null>(
       null,
@@ -64,7 +68,15 @@ export function HybridCampaignsPage() {
   const cache = useQueryClient()
   const list = useQuery({
     queryKey: [...QUERY, q, status, page],
-    queryFn: () => fetchHybridCampaigns({ q, ...(status ? { status } : {}), page, pageSize: 25 }),
+    // A «% de descuento» group's campaigns show once, as their group in «Descuentos %».
+    queryFn: () =>
+      fetchHybridCampaigns({
+        q,
+        ...(status ? { status } : {}),
+        page,
+        pageSize: 25,
+        excludeGrouped: true,
+      }),
     staleTime: 30000,
   })
   const columns = useMemo<ColumnDef<HybridCampaign, unknown>[]>(
@@ -148,10 +160,17 @@ export function HybridCampaignsPage() {
             Ver campañas de lanzamiento existentes
           </Link>
         </div>
-        <Button size="lg" onClick={() => setEditing({})}>
-          Crear campaña
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="lg" variant="secondary" onClick={() => setCreatingPercent(true)}>
+            Descuento %
+          </Button>
+          <Button size="lg" onClick={() => setEditing({})}>
+            Crear campaña
+          </Button>
+        </div>
       </header>
+      <PercentGroups />
+      <h2 className="eyebrow">Campañas</h2>
       <DataTable
         columns={columns}
         data={list.data?.items ?? []}
@@ -232,6 +251,30 @@ export function HybridCampaignsPage() {
                 onEdit={(campaign, duplicate) => {
                   setSelected(null)
                   setEditing({ campaign, duplicate })
+                }}
+              />
+            )}
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
+      <Drawer open={creatingPercent} onOpenChange={setCreatingPercent}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Descuento %</DrawerTitle>
+            <DrawerSubtitle>
+              Un % sobre el precio de lista de cada función. Importes en pesos MXN con IVA incluido.
+            </DrawerSubtitle>
+          </DrawerHeader>
+          <DrawerBody>
+            {creatingPercent && (
+              <PercentPromotionForm
+                onCreated={() => {
+                  setCreatingPercent(false)
+                  void cache.invalidateQueries({ queryKey: PERCENT_GROUPS })
+                  void cache.invalidateQueries({ queryKey: ['pricing'] })
+                  toast.success('Descuento creado en pausa', {
+                    description: 'Revísalo en Descuentos % y actívalo cuando esté listo.',
+                  })
                 }}
               />
             )}

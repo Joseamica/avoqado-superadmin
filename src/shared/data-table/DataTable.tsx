@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useId, useMemo, useState, type ReactNode } from 'react'
 import {
   flexRender,
   getCoreRowModel,
@@ -69,6 +69,8 @@ export function DataTable<TData>({
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [expanded, setExpanded] = useState<ExpandedState>({})
+  // Unique per table: a page with two tables keeps each search box tied to its own label.
+  const searchId = useId()
 
   // Cuando hay renderExpandedRow, prepend una columna de chevron antes de las
   // del consumidor. Useamos useMemo para que la referencia sea estable y la
@@ -131,7 +133,7 @@ export function DataTable<TData>({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-2.5">
         <div className="relative min-w-0 flex-1">
-          <label htmlFor="dt-search" className="sr-only">
+          <label htmlFor={searchId} className="sr-only">
             {searchPlaceholder}
           </label>
           <Search
@@ -139,7 +141,7 @@ export function DataTable<TData>({
             aria-hidden
           />
           <input
-            id="dt-search"
+            id={searchId}
             value={serverSearch?.value ?? globalFilter ?? ''}
             onChange={(e) =>
               serverSearch ? serverSearch.onChange(e.target.value) : setGlobalFilter(e.target.value)

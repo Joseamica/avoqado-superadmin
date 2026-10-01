@@ -146,6 +146,93 @@ describe('PricingPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
+  it('a first price reads «Sin precio actual → Nuevo»', async () => {
+    const user = await renderPage()
+    await user.click(screen.getByRole('button', { name: 'Editar precio de Inventario FIFO' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Precio nuevo'), '249')
+    expect(within(dialog).getByText('Sin precio actual → Nuevo $249.00')).toBeInTheDocument()
+  })
+
+  it('names the % discount on sale over the function, to recalculate it after saving', async () => {
+    server.use(
+      http.get(`${BASE}/hybrid-pricing`, () =>
+        HttpResponse.json({
+          success: true,
+          data: pricingBoard.map((row) =>
+            row.productKey === 'FEATURE:CFDI'
+              ? { ...row, activeGroups: [{ id: 'group-1', name: 'Septiembre 20 %', revision: 3 }] }
+              : row,
+          ),
+        }),
+      ),
+    )
+    const user = await renderPage()
+    const dialog = await openCfdiDialog(user, '249')
+    expect(
+      within(dialog).getByText(
+        'Un descuento activo la abarca: «Septiembre 20 %». Después de guardar, recalcúlalo en Descuentos % para que el % aplique sobre el precio nuevo.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('when only some promotions could be paused, saves again so the list shows exactly what still blocks', async () => {
+    let puts = 0
+    const blocking = (
+      campaignId: string,
+      campaignName: string,
+      promotionGroupId: string | null,
+    ) => ({
+      campaignId,
+      campaignName,
+      price: 260,
+      renewalPrice: null,
+      listPrice: 249,
+      revision: 2,
+      promotionGroupId,
+      groupRevision: promotionGroupId ? 7 : null,
+    })
+    server.use(
+      http.put(`${BASE}/hybrid-pricing/lists/:productKey`, () => {
+        puts += 1
+        return HttpResponse.json(
+          {
+            message:
+              'Hay promociones activas que costarían lo mismo o más que este precio de lista.',
+            code: 'HYBRID_LIST_BREAKS_PROMOTIONS',
+            details:
+              puts === 1
+                ? [
+                    blocking('promo-1', 'Promo CFDI 20 %', 'group-1'),
+                    blocking('manual-1', 'CFDI de otoño', null),
+                  ]
+                : [blocking('manual-1', 'CFDI de otoño', null)],
+          },
+          { status: 409 },
+        )
+      }),
+      http.post(`${BASE}/hybrid-pricing/percent/:groupId/status`, () =>
+        HttpResponse.json({ success: true, data: {} }),
+      ),
+      http.post(`${BASE}/hybrid-campaigns/:id/status`, () =>
+        HttpResponse.json(
+          { message: 'La ficha cambió.', code: 'HYBRID_CAMPAIGN_STALE' },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = await renderPage()
+    const dialog = await openCfdiDialog(user, '249')
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar precio' }))
+    await user.click(
+      await within(dialog).findByRole('button', { name: 'Pausar estas promociones' }),
+    )
+
+    await waitFor(() => expect(puts).toBe(2))
+    expect(await within(dialog).findByText('CFDI de otoño · $260.00')).toBeInTheDocument()
+    expect(within(dialog).queryByText('Promo CFDI 20 % · $260.00')).toBeNull()
+  })
+
   it('shows a price Stripe could not prepare as pending, with «Reintentar», instead of an error', async () => {
     let retries = 0
     server.use(

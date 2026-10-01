@@ -31,6 +31,7 @@ const pricingRow = {
   status: null,
   price: null,
   pendingPrice: null,
+  activeGroups: [] as { id: string; name: string; revision: number }[],
 }
 
 /** «Precios» board (`GET /superadmin/hybrid-pricing`): both plans, an editable function, a system one and a pending price. */
@@ -129,5 +130,29 @@ export const handlers = [
   ),
   http.get(`${baseURL}/superadmin/hybrid-pricing/gaps/:productKey`, () =>
     HttpResponse.json({ success: true, data: { items: [], total: 0 } }),
+  ),
+  // «Descuentos %» and «Campañas» of /hybrid-campaigns: empty pages until a test answers them.
+  http.get(`${baseURL}/superadmin/hybrid-pricing/percent`, () =>
+    HttpResponse.json({
+      success: true,
+      data: { items: [], total: 0, page: 1, pageSize: 25, totalPages: 0 },
+    }),
+  ),
+  http.get(`${baseURL}/superadmin/hybrid-campaigns`, () =>
+    HttpResponse.json({ success: true, data: { items: [], total: 0, page: 1, pageSize: 25 } }),
+  ),
+  // The configurable functions the «Funciones» picker offers.
+  http.get(`${baseURL}/superadmin/hybrid-campaigns/catalog`, () =>
+    HttpResponse.json({
+      success: true,
+      data: {
+        items: [
+          { id: 'CFDI', featureCode: 'CFDI', name: 'Facturación CFDI', offering: 'CONFIGURABLE' },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+      },
+    }),
   ),
 ]

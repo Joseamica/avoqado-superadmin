@@ -1,0 +1,256 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { HttpResponse, http } from 'msw'
+import { DateTime } from 'luxon'
+import { renderWithProviders, screen, waitFor, within } from '@/test/render'
+import { installGlobalServer, server } from '@/test/mocks/server'
+import { toast } from 'sonner'
+import { PercentPromotionForm } from './PercentPromotionForm'
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
+installGlobalServer()
+beforeAll(() =>
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  ),
+)
+// cmdk (Combobox) scrolls the active option into view; jsdom does not implement it.
+beforeAll(() => {
+  if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {}
+})
+afterAll(() => vi.unstubAllGlobals())
+
+const PERCENT = 'http://localhost:3000/api/v1/superadmin/hybrid-pricing/percent'
+// The window picked in the calendar: the 1st to the 28th of next month, Mexico City time, sent in UTC.
+const next = DateTime.now().setZone('America/Mexico_City').plus({ months: 1 }).startOf('month')
+const startsAt = next.toUTC().toISO()
+const endsAt = next
+  .set({ day: 28, hour: 23, minute: 59, second: 59, millisecond: 999 })
+  .toUTC()
+  .toISO()
+
+const row = {
+  requires: [] as string[],
+  renewalPrice: null as number | null,
+}
+const previewRows = [
+  {
+    ...row,
+    featureCode: 'CFDI',
+    name: 'Facturación CFDI',
+    listPrice: 199,
+    price: 159.2,
+    status: 'OK',
+  },
+  {
+    ...row,
+    featureCode: 'AUTO_REORDER',
+    name: 'Reorden automático',
+    listPrice: 299,
+    price: 239.2,
+    status: 'OK',
+    requires: ['INVENTORY_TRACKING'],
+  },
+  {
+    ...row,
+    featureCode: 'REFERRAL_PROGRAM',
+    name: 'Programa de referidos',
+    listPrice: null,
+    price: null,
+    status: 'NO_LIST',
+  },
+]
+
+function show() {
+  const onCreated = vi.fn()
+  const user = userEvent.setup()
+  renderWithProviders(<PercentPromotionForm onCreated={onCreated} />)
+  return { user, onCreated }
+}
+
+async function choose(user: ReturnType<typeof userEvent.setup>, combobox: string, option: string) {
+  await user.click(screen.getByRole('button', { name: combobox }))
+  await user.click(await screen.findByRole('option', { name: option }))
+}
+
+async function fill(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('Nombre del descuento'), 'Octubre 20 %')
+  await user.type(screen.getByLabelText('Porcentaje de descuento'), '20')
+  await user.click(screen.getByRole('button', { name: /Vigencia · Ciudad de México/ }))
+  await user.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+  // The month on the left also draws the first days of the next one: the right calendar's cell is the last.
+  for (const day of [next, next.set({ day: 28 })])
+    await user.click(
+      screen
+        .getAllByRole('button', { name: day.toFormat('d MMMM yyyy', { locale: 'es' }) })
+        .at(-1)!,
+    )
+  await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+  await user.type(screen.getByLabelText('Cupo por función'), '10')
+}
+
+/** Answers the preview with `rows` and records every body the form sends. */
+function previewAnswers(rows: unknown[]) {
+  const bodies: unknown[] = []
+  server.use(
+    http.post(`${PERCENT}/preview`, async ({ request }) => {
+      bodies.push(await request.json())
+      return HttpResponse.json({
+        success: true,
+        data: {
+          rows,
+          creatable:
+            rows.some((r) => (r as { status: string }).status === 'OK') &&
+            rows.every((r) => (r as { status: string }).status !== 'BELOW_MINIMUM'),
+        },
+      })
+    }),
+  )
+  return bodies
+}
+
+describe('PercentPromotionForm', () => {
+  it('asks for the name, the % (1–90), what it applies to, the dates, how long it lasts and the capacity per function', async () => {
+    const { user } = show()
+    expect(screen.getByLabelText('Porcentaje de descuento')).toHaveAttribute('min', '1')
+    expect(screen.getByLabelText('Porcentaje de descuento')).toHaveAttribute('max', '90')
+    expect(screen.getByRole('button', { name: /Vigencia · Ciudad de México/ })).toBeInTheDocument()
+    expect(screen.getByText(/hasta 10 contrataciones de cada una/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'A qué aplica' }))
+    for (const option of ['Todas las funciones con precio', 'Categorías', 'Funciones'])
+      expect(await screen.findByRole('option', { name: option })).toBeInTheDocument()
+    await user.click(screen.getByRole('option', { name: 'Categorías' }))
+    expect(screen.getByRole('button', { name: /Categorías/ })).toBeInTheDocument()
+
+    await choose(user, 'A qué aplica', 'Funciones')
+    expect(await screen.findByLabelText('Buscar en todas las funcionalidades')).toBeInTheDocument()
+
+    expect(screen.queryByLabelText('Meses con descuento')).toBeNull()
+    await choose(user, 'Cuánto dura el descuento', 'Por N meses')
+    expect(screen.getByLabelText('Meses con descuento')).toHaveAttribute('min', '1')
+    expect(screen.getByLabelText('Meses con descuento')).toHaveAttribute('max', '24')
+  })
+
+  it('«Revisar» previews each function: list price, discounted price, the omitted, the ones under $10 and what they require', async () => {
+    const bodies = previewAnswers([
+      ...previewRows,
+      {
+        ...row,
+        featureCode: 'CUSTOMER_CAMPAIGNS',
+        name: 'Campañas a clientes',
+        listPrice: 12,
+        price: 9.6,
+        status: 'BELOW_MINIMUM',
+      },
+    ])
+    const { user } = show()
+    await fill(user)
+    await choose(user, 'A qué aplica', 'Categorías')
+    await user.click(screen.getByRole('button', { name: /Categorías/ }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Inventario' }))
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+    await choose(user, 'Cuánto dura el descuento', 'Por N meses')
+    await user.type(screen.getByLabelText('Meses con descuento'), '3')
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+
+    await waitFor(() =>
+      expect(bodies).toEqual([
+        {
+          name: 'Octubre 20 %',
+          percentOff: 20,
+          target: { kind: 'CATEGORIES', categories: ['inventory'] },
+          startsAt,
+          endsAt,
+          promotionCycles: 3,
+          capacityPerFeature: 10,
+        },
+      ]),
+    )
+    const table = await screen.findByRole('table', { name: 'Vista previa del descuento' })
+    const cfdi = within(table).getByText('Facturación CFDI').closest('tr') as HTMLElement
+    expect(within(cfdi).getByText('$199.00')).toBeInTheDocument()
+    expect(within(cfdi).getByText('$159.20')).toBeInTheDocument()
+    expect(within(table).getByText('Requiere Inventario FIFO')).toBeInTheDocument()
+    expect(within(table).getByText('Sin precio de lista activo (se omite)')).toBeInTheDocument()
+    expect(within(table).getByText('Queda bajo $10')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeDisabled()
+  })
+
+  it('creates the reviewed group once nothing is under $10, and hands back its id', async () => {
+    previewAnswers(previewRows)
+    const created: unknown[] = []
+    server.use(
+      http.post(PERCENT, async ({ request }) => {
+        created.push(await request.json())
+        return HttpResponse.json(
+          { success: true, data: { groupId: 'group-1', campaignIds: ['c1', 'c2'] } },
+          { status: 201 },
+        )
+      }),
+    )
+    const { user, onCreated } = show()
+    await fill(user)
+    expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+    await screen.findByRole('table', { name: 'Vista previa del descuento' })
+    await user.click(screen.getByRole('button', { name: 'Crear descuento' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('group-1'))
+    expect(created).toEqual([
+      {
+        name: 'Octubre 20 %',
+        percentOff: 20,
+        target: { kind: 'ALL_FEATURES' },
+        startsAt,
+        endsAt,
+        promotionCycles: null,
+        capacityPerFeature: 10,
+      },
+    ])
+  })
+
+  it('a list that changed since the preview previews again instead of creating a different group', async () => {
+    const bodies = previewAnswers(previewRows)
+    server.use(
+      http.post(PERCENT, () =>
+        HttpResponse.json(
+          {
+            message: 'El precio de lista de una función cambió; vuelve a la vista previa.',
+            code: 'HYBRID_PROMOTION_CHANGED',
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    const { user, onCreated } = show()
+    await fill(user)
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+    await screen.findByRole('table', { name: 'Vista previa del descuento' })
+    await user.click(screen.getByRole('button', { name: 'Crear descuento' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(2))
+    expect(toast.error).toHaveBeenCalledWith(
+      'Un precio de lista cambió desde la vista previa',
+      expect.objectContaining({ description: expect.stringMatching(/revísala/) }),
+    )
+    expect(onCreated).not.toHaveBeenCalled()
+  })
+
+  it('editing after «Revisar» asks to review again before creating', async () => {
+    previewAnswers(previewRows)
+    const { user } = show()
+    await fill(user)
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+    await screen.findByRole('table', { name: 'Vista previa del descuento' })
+    expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeEnabled()
+    await user.type(screen.getByLabelText('Nombre del descuento'), ' bis')
+    expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeDisabled()
+  })
+})

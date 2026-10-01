@@ -26,7 +26,8 @@ import {
   type HybridTerms,
 } from './hybrid-api'
 
-function FeaturePicker({
+/** Configurable functions of the catalog, paged by the server; the selection is kept across pages. */
+export function FeaturePicker({
   codes,
   onChange,
   label,
