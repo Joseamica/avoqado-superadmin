@@ -243,6 +243,76 @@ describe('PercentPromotionForm', () => {
     expect(onCreated).not.toHaveBeenCalled()
   })
 
+  describe('only «Crear descuento» creates the group', () => {
+    // 30 configurable functions: the picker pages them 25 + 5.
+    const catalog = Array.from({ length: 30 }, (_, i) => ({
+      id: `F${i + 1}`,
+      featureCode: `F${i + 1}`,
+      name: `Función ${i + 1}`,
+      offering: 'CONFIGURABLE',
+    }))
+    async function reviewPickedFunction() {
+      previewAnswers(previewRows)
+      const created: unknown[] = []
+      server.use(
+        http.get(
+          'http://localhost:3000/api/v1/superadmin/hybrid-campaigns/catalog',
+          ({ request }) => {
+            const page = Number(new URL(request.url).searchParams.get('page') ?? 1)
+            return HttpResponse.json({
+              success: true,
+              data: {
+                items: catalog.slice((page - 1) * 25, page * 25),
+                total: 30,
+                page,
+                pageSize: 25,
+              },
+            })
+          },
+        ),
+        http.post(PERCENT, async ({ request }) => {
+          created.push(await request.json())
+          return HttpResponse.json(
+            { success: true, data: { groupId: 'group-1', campaignIds: ['c1'] } },
+            { status: 201 },
+          )
+        }),
+      )
+      const { user, onCreated } = show()
+      await fill(user)
+      await choose(user, 'A qué aplica', 'Funciones')
+      await user.click(await screen.findByRole('button', { name: /^Funciones/ }))
+      await user.click(await screen.findByRole('checkbox', { name: 'Función 1' }))
+      await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+      await user.click(screen.getByRole('button', { name: 'Revisar' }))
+      await screen.findByRole('table', { name: 'Vista previa del descuento' })
+      expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeEnabled()
+      return { user, onCreated, created }
+    }
+
+    it('paging the function picker after «Revisar» does not create it', async () => {
+      const { user, onCreated, created } = await reviewPickedFunction()
+      await user.click(screen.getByRole('button', { name: 'Siguiente' }))
+      expect(await screen.findByText(/página 2 de 2/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Anterior' }))
+      expect(await screen.findByText(/página 1 de 2/)).toBeInTheDocument()
+      expect(created).toEqual([])
+      expect(onCreated).not.toHaveBeenCalled()
+    })
+
+    it('Enter in the picker search or in a field does not create it', async () => {
+      const { user, onCreated, created } = await reviewPickedFunction()
+      await user.type(screen.getByLabelText('Buscar en todas las funcionalidades'), 'Fun{Enter}')
+      await user.type(screen.getByLabelText('Cupo por función'), '{Enter}')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(created).toEqual([])
+      expect(onCreated).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Crear descuento' }))
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('group-1'))
+      expect(created).toHaveLength(1)
+    })
+  })
+
   it('editing after «Revisar» asks to review again before creating', async () => {
     previewAnswers(previewRows)
     const { user } = show()

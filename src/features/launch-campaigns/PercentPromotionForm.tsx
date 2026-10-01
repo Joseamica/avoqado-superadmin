@@ -167,13 +167,8 @@ export function PercentPromotionForm({ onCreated }: { onCreated: (groupId: strin
   ]
 
   return (
-    <form
-      className="space-y-8"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (current?.creatable && !create.isPending) create.mutate()
-      }}
-    >
+    // Only «Crear descuento» creates: Enter in a field, or paging the picker, never submits the group.
+    <form className="space-y-8" onSubmit={(event) => event.preventDefault()}>
       <div className="space-y-4">
         <Field
           id="percent-name"
@@ -331,7 +326,12 @@ export function PercentPromotionForm({ onCreated }: { onCreated: (groupId: strin
         )}
       </section>
       <div className="flex justify-end border-t border-[var(--line)] pt-5">
-        <Button type="submit" size="lg" disabled={!current?.creatable || create.isPending}>
+        <Button
+          type="button"
+          size="lg"
+          disabled={!current?.creatable || create.isPending}
+          onClick={() => create.mutate()}
+        >
           {create.isPending ? 'Creando…' : 'Crear descuento'}
         </Button>
       </div>

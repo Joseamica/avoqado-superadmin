@@ -57,6 +57,24 @@ const DONE: Record<Action, { title: string; description: string }> = {
       'El % ya aplica sobre la lista vigente. Sigue pausado: actívalo cuando lo revises.',
   },
 }
+// What the server refuses a group action for, in the operator's words; without a description the server's message is it.
+const STALE = 'Ya cargamos su estado vigente: revísalo y vuelve a intentarlo.'
+const REFUSALS: Record<string, { title: string; description?: string }> = {
+  HYBRID_SALES_CLOSED: {
+    title: 'La venta de ofertas está cerrada',
+    description:
+      'Activar abre contrataciones nuevas y el servidor todavía no las admite. El descuento sigue pausado.',
+  },
+  HYBRID_CAMPAIGN_STALE: { title: 'El descuento cambió mientras lo veías', description: STALE },
+  HYBRID_PROMOTION_GROUP_ENDED: {
+    title: 'Este descuento ya terminó',
+    description: 'Ya cargamos su estado vigente. Un descuento terminado no se reactiva: crea otro.',
+  },
+  HYBRID_PROMOTION_GROUP_NOT_PAUSED: { title: 'Pausa el descuento antes de recalcularlo' },
+  HYBRID_PUBLICATION_REQUIRED: { title: 'Hay una promoción sin publicar' },
+  HYBRID_PROMOTION_NO_LIST: { title: 'Una función ya no tiene precio de lista' },
+  HYBRID_OFFER_UNAVAILABLE: { title: 'La vigencia del descuento ya terminó' },
+}
 const CONTEXT: Record<Action, string> = {
   ACTIVE: 'activar el descuento',
   PAUSED: 'pausar el descuento',
@@ -99,21 +117,11 @@ export function PercentGroups() {
       setEnding(null)
       void refresh()
       const { code } = apiErrorPayload(error)
-      if (code === 'HYBRID_SALES_CLOSED') {
-        toast.error('La venta de ofertas está cerrada', {
-          description:
-            'Activar abre contrataciones nuevas y el servidor todavía no las admite. El descuento sigue pausado.',
-        })
-        return
-      }
-      if (code === 'HYBRID_CAMPAIGN_STALE') {
-        toast.error('El descuento cambió mientras lo veías', {
-          description: 'Ya cargamos su estado vigente: revísalo y vuelve a intentarlo.',
-        })
-        return
-      }
       const issue = inspectApiError(error, CONTEXT[next])
-      toast.error(issue.title, { description: issue.serverMessage ?? issue.description })
+      const known = code ? REFUSALS[code] : undefined
+      toast.error(known?.title ?? issue.title, {
+        description: known?.description ?? issue.serverMessage ?? issue.description,
+      })
     },
   })
   const run = (group: PercentGroup, next: Action) => action.mutate({ group, next })

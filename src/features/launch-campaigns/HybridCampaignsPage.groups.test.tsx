@@ -200,6 +200,43 @@ describe('HybridCampaignsPage · «Descuentos %»', () => {
     )
   })
 
+  it('names the other refusals of a group action, with the server message as detail', async () => {
+    serve([group({})])
+    const refusal = (code: string, message: string) => () =>
+      HttpResponse.json({ message, code }, { status: 409 })
+    server.use(
+      http.post(
+        `${BASE}/hybrid-pricing/percent/:id/recalculate`,
+        refusal(
+          'HYBRID_PROMOTION_NO_LIST',
+          'Una función de este descuento ya no tiene precio de lista.',
+        ),
+      ),
+      http.post(
+        `${BASE}/hybrid-pricing/percent/:id/status`,
+        refusal('HYBRID_PROMOTION_GROUP_ENDED', 'Este descuento terminó. Crea otro.'),
+      ),
+    )
+    const user = await renderPage()
+    await user.click(
+      await within(groupsSection()).findByRole('button', { name: 'Recalcular Septiembre 20 %' }),
+    )
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Una función ya no tiene precio de lista', {
+        description: 'Una función de este descuento ya no tiene precio de lista.',
+      }),
+    )
+    await user.click(
+      within(groupsSection()).getByRole('button', { name: 'Activar Septiembre 20 %' }),
+    )
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Este descuento ya terminó',
+        expect.objectContaining({ description: expect.stringMatching(/crea otro/) }),
+      ),
+    )
+  })
+
   it('explains that sales are closed when activating is refused for it', async () => {
     serve([group({})])
     server.use(

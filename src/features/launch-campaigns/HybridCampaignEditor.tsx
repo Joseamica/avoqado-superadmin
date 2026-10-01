@@ -64,6 +64,10 @@ export function FeaturePicker({
         label="Buscar en todas las funcionalidades"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        // The search runs as you type; Enter here must not submit the form around the picker.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.preventDefault()
+        }}
       />
       {catalog.isPending ? (
         <p role="status">Cargando catálogo…</p>
@@ -90,6 +94,7 @@ export function FeaturePicker({
               {Math.max(1, Math.ceil(catalog.data.total / 25))}
             </span>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={page === 1}
@@ -98,6 +103,7 @@ export function FeaturePicker({
               Anterior
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={page * 25 >= catalog.data.total}
