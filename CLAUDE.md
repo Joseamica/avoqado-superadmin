@@ -358,6 +358,8 @@ Si alguno falla, NO se reporta como completada. El usuario no debería tener que
 
 El pre-push hook ya corre `check`, pero esa red de seguridad llega tarde — si el build falla en CI, el ciclo de feedback es de minutos. Corrr `check + build` local antes de declarar finalizada cualquier tarea no trivial.
 
+**Build Vite en `avq-verify` dual:** el `.env` local no viaja al Alienware; los hashes del bundle pueden diferir aunque ambos comandos salgan 0. No aceptar `DIFIEREN` como verde ni enviar el `.env`. Para QA aislado, repetir con los mismos valores públicos de fixture definidos explícitamente en ambos procesos de build para todas las variables consumidas (hoy `VITE_API_URL` y `VITE_GOOGLE_CLIENT_ID`); esa corrida debe decir `COINCIDEN`. El bundle con esos valores es sólo evidencia de QA, nunca un artefacto de deploy. El typecheck `npx tsc -b` no depende de esas variables. Comprobado el 1-oct-2026 con el retest TPV: sin cambiar código, los hashes coincidieron al igualar ambos valores.
+
 ### Por qué NO duplicamos el login en el backend
 
 `avoqado-server` tiene `/api/v1/dashboard/auth/*` endurecido con años de incidentes reales (CSRF, session fixation, JWT rotation, OAuth callback). El "desastre" de `avoqado-web-dashboard` está en su **frontend** (AuthContext con live demo, multi-venue, white-label, pendingInvitations, etc.). Nuestro `AuthContext` (124 líneas) ya es la versión mínima.

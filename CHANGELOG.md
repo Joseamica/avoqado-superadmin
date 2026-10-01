@@ -11,6 +11,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Fixed
 
+- La autorización de migración etiqueta el campo del serial y usa el botón destructivo del sistema para conservar contraste y foco accesibles.
+- Nexgo explica su actualización por TMS sin mostrar el selector de versiones que no puede instalar.
+- La migración conserva su confirmación cuando los eventos actualizan la terminal; completar el traslado ya no reinicia el wizard en la selección de destino.
+
 - Los reintentos de comandos reutilizan su clave de idempotencia. Sincronización remota no implementada se muestra deshabilitada; Nexgo explica actualización mediante TMS.
 
 - TPVs muestra sólo terminales de pago, con búsqueda y paginación en servidor. Agrupar por venue conserva la búsqueda y la exportación completa por páginas; una exportación incompleta falla explícitamente.

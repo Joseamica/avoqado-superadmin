@@ -114,6 +114,46 @@ afterEach(() => {
 })
 afterAll(() => server.close())
 
+it('conserva la confirmación cuando el refetch deja de marcar la migración en progreso', async () => {
+  server.use(
+    http.get(`${baseURL}/superadmin/terminals/t1/migrate-status`, () =>
+      HttpResponse.json({
+        data: {
+          commandStatus: 'COMPLETED',
+          commandDelivered: true,
+          reboundAfterWipe: true,
+          currentlyOnline: true,
+          onlineUnderNewVenue: true,
+          confirmed: true,
+          elapsedMs: 1000,
+        },
+      }),
+    ),
+  )
+  const terminal = makeTerminal()
+  const { rerender } = renderWithProviders(
+    <TerminalMigrationDrawer
+      terminal={terminal}
+      open
+      onOpenChange={() => {}}
+      resumeMigration={{ inProgress: true, commandId: 'migration1', toVenueId: 'v_dest' }}
+    />,
+  )
+  expect(await screen.findByRole('button', { name: 'Finalizar' })).toBeInTheDocument()
+  rerender(
+    <TerminalMigrationDrawer
+      terminal={{ ...terminal, venueId: 'v_dest' }}
+      open
+      onOpenChange={() => {}}
+      resumeMigration={null}
+    />,
+  )
+  expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: /selecciona venue destino/i }),
+  ).not.toBeInTheDocument()
+})
+
 describe('TerminalMigrationDrawer — step order', () => {
   it('desde "pick", al verificar destino avanza al paso de staff (NO directo a preflight)', async () => {
     const user = userEvent.setup({ delay: null })
@@ -170,6 +210,11 @@ describe('TerminalMigrationDrawer — step order', () => {
             : /borrará sus datos locales/,
         ),
       ).toBeInTheDocument()
+      const confirmation = screen.getByRole('textbox', { name: 'Serial para autorizar migración' })
+      const migrate = screen.getByRole('button', { name: 'Migrar ahora' })
+      expect(migrate).toBeDisabled()
+      await user.type(confirmation, '1850072345')
+      expect(migrate).toBeEnabled()
     },
     15000,
   )

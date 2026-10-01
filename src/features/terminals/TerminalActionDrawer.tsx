@@ -314,12 +314,14 @@ function TerminalActionDrawerBody({
               {terminal.version || '—'}
             </p>
           </div>
-          <VersionInstaller
-            currentVersion={terminal.version}
-            run={run}
-            queued={!online}
-            pending={commandsDisabled || isNexgo}
-          />
+          {!isNexgo && (
+            <VersionInstaller
+              currentVersion={terminal.version}
+              run={run}
+              queued={!online}
+              pending={commandsDisabled}
+            />
+          )}
           <ActionRow
             icon={Zap}
             label="Pedir actualización"

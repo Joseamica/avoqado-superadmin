@@ -95,10 +95,8 @@ export function TerminalMigrationDrawer({
       <DrawerContent>
         {terminal ? (
           <MigrationDrawerBody
-            // Key fuerza re-mount (y reset de estado) cuando cambia la terminal
-            // o el modo de reanudación. Sin esto el wizard arrastraría el venue
-            // elegido de la terminal anterior.
-            key={`${terminal.id}:${resumeMigration?.commandId ?? 'new'}`}
+            // Keep progress when realtime removes the completed migration badge.
+            key={terminal.id}
             terminal={terminal}
             resumeMigration={resumeMigration ?? null}
             onClose={() => onOpenChange(false)}
@@ -602,8 +600,12 @@ function PreflightStep({
             <code className="font-mono text-[11px] text-[var(--ink)]">{expected}</code> para
             autorizar.
           </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="migration-confirm-serial" className="mt-3 block label">
+            Serial para autorizar migración
+          </label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
+              id="migration-confirm-serial"
               type="text"
               value={confirmInput}
               onChange={(e) => onChangeConfirm(e.target.value)}
@@ -611,15 +613,16 @@ function PreflightStep({
               autoFocus
               className="h-9 flex-1 rounded-[4px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2 font-mono text-[12px] text-[var(--ink)] outline-none focus:border-[var(--danger)]"
             />
-            <button
+            <Button
               type="button"
+              variant="danger"
               onClick={onExecute}
               disabled={confirmInput.trim() !== expected || executing}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[4px] bg-[var(--danger)] px-3 text-[12px] font-semibold text-white hover:bg-[var(--danger)]/90 disabled:opacity-50"
+              className="shrink-0"
             >
               {executing && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
               Migrar ahora
-            </button>
+            </Button>
           </div>
         </section>
       ) : (

@@ -342,6 +342,17 @@ describe('TerminalActionDrawer', () => {
   })
 })
 
+it('explica TMS en Nexgo sin ofrecer el selector de instalación incompatible', async () => {
+  renderDrawer({
+    terminal: makeTerminal({ brand: 'NEXGO', model: 'N86' }),
+    open: true,
+    onOpenChange: () => {},
+  })
+  expect(await screen.findByText('Esta TPV se actualiza mediante TMS.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Versión a instalar' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Pedir actualización/ })).toBeDisabled()
+})
+
 it('instala usando el versionCode numérico publicado', async () => {
   let body: unknown
   server.use(
