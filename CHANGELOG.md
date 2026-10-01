@@ -11,6 +11,13 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- **Pantalla «Precios» (`/pricing`, grupo _Catálogo_): el precio de lista mensual de cada función para venderla suelta, y quién paga una tarifa anterior.** Dos secciones: **Planes** (Pro y Premium, sólo lectura: su precio se edita en la fase 2) y **Funciones** (las 40 del catálogo; las no editables dicen por qué: «Incluida en Gratis», «Se cotiza» o «Parte del sistema»). Montos en pesos MXN con IVA incluido.
+  - **Guardar un precio** abre una confirmación «Precio actual $A → Nuevo $B» con «Quien ya la paga conserva su precio», y manda `PUT /superadmin/hybrid-pricing/lists/:productKey` con la revisión de la fila (escritura condicional). Si el precio rompería promociones activas (`HYBRID_LIST_BREAKS_PROMOTIONS`), las lista y ofrece **«Pausar estas promociones»**: una vez por grupo de «% de descuento» (`/percent/:groupId/status`) y por campaña para las manuales (`/hybrid-campaigns/:id/status`), cada una con su revisión; después reintenta el guardado.
+  - **Un precio que Stripe no terminó de preparar no es un error**: queda como «Precio nuevo pendiente: $X» con **«Reintentar»** (`/retry`), en el diálogo y en la tabla, mientras el anterior se sigue vendiendo. Si alguien más cambió el precio, la pantalla recarga y lo dice.
+  - **Pausar / Reanudar** la venta suelta de una función (`/lists/:productKey/status`).
+  - **Aviso de tarifa anterior** por función: «N negocios con tarifa anterior · diferencia de tarifas: $X al mes» (diferencia de **tarifas**, no de cobros), más las líneas «pagan más que la lista de hoy» y «En paquetes». **Ver quiénes** abre un cajón paginado por el servidor, una fila por contrato, con el motivo en español (lista anterior, promoción para siempre, temporal con su fecha de cambio, renovó a una lista anterior, o termina el …).
+  - Requiere el servidor con `/api/v1/superadmin/hybrid-pricing`.
+
 - Editor de campañas de planes, funciones y paquetes a elección con cantidad, precio total, duración y renovación configurables; catálogo paginado, vista previa, duplicación y publicación separada de la activación.
 
 - **La vista previa de la página tacha el precio normal, igual que la landing.** Encima del precio en grande sale «Precio normal ~~$1,158.84~~/mes»: el «antes» es la **renovación** que devuelve el servidor —lo que de verdad se paga desde el mes siguiente, que es lo que exige PROFECO de un precio de referencia— y sólo aparece si hay descuento. La landing lo pinta igual en `/oferta/<slug>` y en `/restaurants`.

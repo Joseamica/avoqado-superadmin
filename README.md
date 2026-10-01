@@ -169,6 +169,7 @@ Toda ruta es `lazy()` + `<Suspense>` (code-splitting por ruta) y vive en [`src/a
 | `/venues/:id/{owner,kyc,pricing,terminals/new}`             | Sub-páginas de un venue                                                                                                            | `venues`              |
 | `/venues/:id/merchant`                                      | Asignación de merchants a slots (primary/secondary/tertiary) + procesador preferido                                                | `venues`              |
 | `/master-catalog`                                           | Entitlement, módulo, config y rollout por venue del catálogo maestro                                                               | `master-catalog`      |
+| `/pricing`                                                  | Precios: lista mensual por función (venta suelta), planes en sólo lectura y quién paga una tarifa anterior                         | `pricing`             |
 | `/terminals` · `/terminals/new` · `/terminals/:id/settings` | TPVs: listado, alta, ajustes                                                                                                       | `terminals`           |
 | `/merchants` · `/merchants/:id`                             | Registro de merchant accounts + detalle (editor completo según proveedor, economía + asistente de pricing, liquidación, readiness) | `merchants`           |
 | `/merchants/new`                                            | Alta guiada **Blumon** (panel de cards → un POST a `blumon/full-setup`)                                                            | `merchants`           |
@@ -189,6 +190,7 @@ src/
 │   ├── system-logs/    # /system-logs (stream de Render)
 │   ├── venues/         # /venues (+ alta, detalle, owner, kyc, pricing, config de pagos)
 │   ├── master-catalog/ # /master-catalog (control plane ENTERPRISE/custom, sin edición de contenido)
+│   ├── pricing/        # /pricing (precio de lista por función + aviso de tarifa anterior)
 │   ├── terminals/      # /terminals (+ alta, settings) — TPVs
 │   ├── merchants/      # /merchants (registro + economía + liquidación + alta guiada Blumon/AngelPay)
 │   └── realtime/       # socket.io + use-realtime-invalidation
