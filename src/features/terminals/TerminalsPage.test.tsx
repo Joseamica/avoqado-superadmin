@@ -58,8 +58,15 @@ const rawTerminal = {
 }
 
 const server = setupServer(
-  http.get(`${baseURL}/superadmin/terminals`, () =>
-    HttpResponse.json({ data: [rawTerminal], count: 1 }),
+  http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+    HttpResponse.json({
+      data: [rawTerminal],
+      total: 1,
+      page: 1,
+      pageSize: 25,
+      stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
+      count: 1,
+    }),
   ),
 )
 
@@ -71,7 +78,7 @@ describe('TerminalsPage', () => {
   it('renderiza el título y lista terminals', async () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'Terminals' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'TPVs' })).toBeInTheDocument()
 
     await waitFor(() => expect(screen.getByText('TPV Barra')).toBeInTheDocument())
     expect(screen.getByText('1850072345')).toBeInTheDocument()
@@ -88,7 +95,7 @@ describe('TerminalsPage', () => {
 
   it('muestra error cuando el endpoint falla', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -109,19 +116,28 @@ describe('TerminalsPage', () => {
 
   it('muestra estado vacío cuando no hay terminals', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ data: [], count: 0 })),
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+        HttpResponse.json({
+          data: [],
+          total: 0,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 0, online: 1, offline: 0, pending: 0, maintenance: 0 },
+          count: 0,
+        }),
+      ),
     )
 
     renderPage()
 
     await waitFor(() =>
-      expect(screen.getByText(/Sin terminals registradas|Cargando terminals/)).toBeInTheDocument(),
+      expect(screen.getByText(/Sin TPVs registradas|Cargando TPVs/)).toBeInTheDocument(),
     )
   })
 
   it('muestra terminales con distintos estados (PENDING, MAINTENANCE, sin heartbeat)', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
         HttpResponse.json({
           data: [
             { ...rawTerminal, id: 't1', name: 'TPV Online' },
@@ -141,6 +157,10 @@ describe('TerminalsPage', () => {
               status: 'MAINTENANCE',
             },
           ],
+          total: 3,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 3, online: 1, offline: 0, pending: 0, maintenance: 0 },
           count: 3,
         }),
       ),
@@ -158,8 +178,15 @@ describe('TerminalsPage', () => {
 
   it('muestra el view por venue cuando groupBy=venue está activo', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
-        HttpResponse.json({ data: [rawTerminal], count: 1 }),
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+        HttpResponse.json({
+          data: [rawTerminal],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
+          count: 1,
+        }),
       ),
     )
 
@@ -175,13 +202,13 @@ describe('TerminalsPage', () => {
     await waitFor(() => expect(screen.getByText('Por venue')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Por venue'))
 
-    // Debería ahora mostrar la lista agrupada (header "agrupados por venue")
-    await waitFor(() => expect(screen.getByText(/agrupados por venue/)).toBeInTheDocument())
+    // Debería ahora mostrar la lista agrupada (header "agrupadas por venue")
+    await waitFor(() => expect(screen.getByText(/agrupadas por venue/)).toBeInTheDocument())
   })
 
   it('renderiza KPI "En mantenimiento" cuando hay un terminal MAINTENANCE y nada pending', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
         HttpResponse.json({
           data: [
             {
@@ -191,6 +218,10 @@ describe('TerminalsPage', () => {
               status: 'MAINTENANCE',
             },
           ],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
           count: 1,
         }),
       ),
@@ -205,7 +236,7 @@ describe('TerminalsPage', () => {
 
   it('renderiza terminales sin heartbeat ni serial (estado fresh)', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
         HttpResponse.json({
           data: [
             {
@@ -221,6 +252,10 @@ describe('TerminalsPage', () => {
               activatedAt: null,
             },
           ],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
           count: 1,
         }),
       ),
@@ -237,7 +272,7 @@ describe('TerminalsPage', () => {
 
   it('renderiza terminal bloqueada con la badge "Bloqueada"', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
         HttpResponse.json({
           data: [
             {
@@ -249,6 +284,10 @@ describe('TerminalsPage', () => {
               lockedReason: 'Suspended',
             },
           ],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
           count: 1,
         }),
       ),

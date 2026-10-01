@@ -77,8 +77,8 @@ describe('useRealtimeInvalidation', () => {
     })
 
     expect(connectSocketMock).toHaveBeenCalledTimes(1)
-    // 7 events registered per the EVENT_INVALIDATIONS map
-    expect(socket.on).toHaveBeenCalledTimes(7)
+    // Seven domain events plus reconnection.
+    expect(socket.on).toHaveBeenCalledTimes(8)
     const eventNames = socket.on.mock.calls.map((c) => c[0])
     expect(eventNames).toContain('superadmin:hybrid-campaign:updated')
     expect(eventNames).toContain('superadmin:activity-log:new')
@@ -99,7 +99,7 @@ describe('useRealtimeInvalidation', () => {
     })
     unmount()
     // Each .on() pair should have a matching .off()
-    expect(socket.off).toHaveBeenCalledTimes(7)
+    expect(socket.off).toHaveBeenCalledTimes(8)
   })
 
   it('the handler invalidates the mapped query keys when fired', async () => {
@@ -127,5 +127,32 @@ describe('useRealtimeInvalidation', () => {
     handler()
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['superadmin', 'activity-log'] })
+  })
+
+  it('coalesces terminal bursts and cancels the pending refresh on unmount', async () => {
+    vi.useFakeTimers()
+    try {
+      const socket = createMockSocket()
+      connectSocketMock.mockReturnValue(socket)
+      const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+      const { useRealtimeInvalidation } = await import('./use-realtime-invalidation')
+      const { unmount } = renderHook(() => useRealtimeInvalidation(), {
+        wrapper: wrapperFactory(buildAuth()),
+      })
+      const handler = socket.on.mock.calls.find(
+        (c) => c[0] === 'superadmin:terminal:status',
+      )![1] as () => void
+      for (let i = 0; i < 20; i++) handler()
+      expect(invalidate).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(500)
+      expect(invalidate).toHaveBeenCalledTimes(1)
+      handler()
+      unmount()
+      vi.advanceTimersByTime(500)
+      expect(invalidate).toHaveBeenCalledTimes(1)
+      invalidate.mockRestore()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -5,7 +5,8 @@ import {
   fetchAppVersions,
   fetchMerchantAccounts,
   fetchTerminalDetail,
-  fetchTerminals,
+  fetchTpvFleet,
+  fetchTerminalCommands,
   fetchTpvSettings,
   generateActivationCode,
   migrateCancel,
@@ -18,7 +19,7 @@ import {
   updateTerminal,
   updateTpvSettings,
   type CreateTerminalPayload,
-  type FetchTerminalsParams,
+  type FleetParams,
   type TpvSettings,
   type UpdateTerminalPayload,
 } from './api'
@@ -26,15 +27,11 @@ import type { Terminal, TpvCommand } from './types'
 
 export const TERMINALS_QUERY_KEY = ['superadmin', 'terminals'] as const
 
-export function useTerminals(params: FetchTerminalsParams = {}) {
+export function useTerminals(params: FleetParams = {}) {
   return useQuery({
     queryKey: [...TERMINALS_QUERY_KEY, params],
-    queryFn: () => fetchTerminals(params),
-    // Heartbeat-driven status — refetch cada 30s para que online/offline
-    // se mueva en algo cercano a tiempo real sin spammear al server.
+    queryFn: () => fetchTpvFleet(params),
     staleTime: 15_000,
-    refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
   })
 }
 
@@ -50,9 +47,12 @@ export function useTerminalDetail(terminalId: string | undefined) {
     staleTime: 10_000,
     placeholderData: () => {
       if (!terminalId) return undefined
-      const caches = queryClient.getQueriesData<Terminal[]>({ queryKey: TERMINALS_QUERY_KEY })
+      const caches = queryClient.getQueriesData<Terminal[] | { data?: Terminal[] }>({
+        queryKey: TERMINALS_QUERY_KEY,
+      })
       for (const [, list] of caches) {
-        const hit = list?.find((t) => t.id === terminalId)
+        const rows = Array.isArray(list) ? list : list?.data
+        const hit = Array.isArray(rows) ? rows.find((t) => t.id === terminalId) : undefined
         if (hit) return hit
       }
       return undefined
@@ -73,8 +73,9 @@ export function useTerminalCommand() {
       terminalId: string
       command: TpvCommand
       payload?: Record<string, unknown>
+      idempotencyKey?: string
     }) => {
-      return sendCommand(input.terminalId, input.command, input.payload)
+      return sendCommand(input.terminalId, input.command, input.payload, input.idempotencyKey)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
@@ -126,8 +127,11 @@ export function useRemoteActivate() {
  */
 export function useMigratePreflight() {
   return useMutation({
-    mutationFn: async (input: { terminalId: string; toVenueId: string }) =>
-      migratePreflight(input.terminalId, input.toVenueId),
+    mutationFn: async (input: {
+      terminalId: string
+      toVenueId: string
+      assignedMerchantIds?: string[]
+    }) => migratePreflight(input.terminalId, input.toVenueId, input.assignedMerchantIds),
   })
 }
 
@@ -180,12 +184,7 @@ export function useMigrateDiscard() {
 
 export const MIGRATE_STATUS_QUERY_KEY = ['superadmin', 'terminals', 'migrate-status'] as const
 
-/**
- * Polling del estado de una migración. Refetch cada 4s mientras la terminal
- * no haya confirmado su reaparición bajo el venue destino; en cuanto
- * `confirmed === true` el polling se detiene (`refetchInterval` → false).
- * Sólo corre cuando hay `terminalId` + `commandId`.
- */
+/** Estado refrescado por Socket.IO o por acción explícita del operador. */
 export function useMigrateStatus(terminalId: string | undefined, commandId: string | undefined) {
   return useQuery({
     queryKey: [...MIGRATE_STATUS_QUERY_KEY, terminalId ?? null, commandId ?? null],
@@ -194,8 +193,7 @@ export function useMigrateStatus(terminalId: string | undefined, commandId: stri
       return migrateStatus(terminalId, commandId)
     },
     enabled: !!terminalId && !!commandId,
-    refetchInterval: (query) => (query.state.data?.confirmed ? false : 4_000),
-    refetchIntervalInBackground: false,
+    // Socket invalidation and explicit refresh; no migration polling.
     // Sin stale time — el estado de la migración debe sentirse en vivo.
     staleTime: 0,
   })
@@ -283,5 +281,13 @@ export function useDeleteTerminal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TERMINALS_QUERY_KEY })
     },
+  })
+}
+
+export function useTerminalCommands(terminalId: string, page: number) {
+  return useQuery({
+    queryKey: [...TERMINALS_QUERY_KEY, 'commands', terminalId, page],
+    queryFn: () => fetchTerminalCommands(terminalId, page),
+    staleTime: 15_000,
   })
 }

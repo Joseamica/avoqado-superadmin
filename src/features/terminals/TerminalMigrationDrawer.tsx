@@ -1,3 +1,4 @@
+import { compatibleMerchants } from './api'
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   AlertTriangle,
@@ -50,7 +51,7 @@ import type { Terminal } from './types'
  *   3. **preflight** — render de blockers (danger, bloquean) + warnings
  *      (atención). Si `canProceed`, una compuerta destructiva de confirmación
  *      tipiada (escribir el serial) antes de ejecutar.
- *   4. **progress** — polling del estado: checklist (comando entregado / rebote
+ *   4. **progress** — consulta manual y eventos: checklist (comando entregado / rebote
  *      post-wipe / online bajo el nuevo venue) + nota de timeout ~10 min.
  *      Mientras no se confirme, botón "Cancelar migración". Al confirmar,
  *      "Finalizar".
@@ -60,7 +61,7 @@ import type { Terminal } from './types'
  * la consola.
  *
  * Por qué un drawer aparte y no una sección del action drawer: la migración es
- * un flujo largo con estado propio (polling) que debe sobrevivir aunque el
+ * un flujo largo con estado propio que debe sobrevivir aunque el
  * operador navegue; aislarlo evita que su estado se mezcle con las acciones
  * rápidas.
  */
@@ -154,7 +155,10 @@ function MigrationDrawerBody({
       }))
   }, [venuesQuery.data, terminal.venueId])
 
-  const merchantOptions = useMemo(() => merchantsQuery.data ?? [], [merchantsQuery.data])
+  const merchantOptions = useMemo(
+    () => compatibleMerchants(merchantsQuery.data ?? [], terminal.brand),
+    [merchantsQuery.data, terminal.brand],
+  )
   const destinationVenueName = useMemo(
     () => venuesQuery.data?.find((v) => v.id === toVenueId)?.name ?? null,
     [venuesQuery.data, toVenueId],
@@ -189,7 +193,11 @@ function MigrationDrawerBody({
       return
     }
     preflightMutation.mutate(
-      { terminalId: terminal.id, toVenueId },
+      {
+        terminalId: terminal.id,
+        toVenueId,
+        assignedMerchantIds: merchantIds.size > 0 ? [...merchantIds] : undefined,
+      },
       {
         onSuccess: (result) => {
           setPreflight(result)
@@ -275,7 +283,9 @@ function MigrationDrawerBody({
             <span className="italic">{terminal.name}</span>
           )}
           <span className="mx-1.5 opacity-50">·</span>
-          <span>desde {terminal.venue.name}</span>
+          <span>
+            {step === 'progress' ? 'Venue registrado' : 'Desde'}: {terminal.venue.name}
+          </span>
         </DrawerSubtitle>
       </DrawerHeader>
 
@@ -442,8 +452,8 @@ function MerchantPicker({
   if (merchants.length === 0) {
     return (
       <p className="text-[12.5px] text-[var(--ink-faint)]">
-        El venue destino no tiene merchant accounts disponibles. La terminal heredará el primario
-        del venue.
+        No hay merchant accounts compatibles para seleccionar. La verificación comprobará si el
+        venue destino tiene un merchant primario compatible.
       </p>
     )
   }
@@ -534,7 +544,7 @@ function PreflightStep({
     <>
       <Section title="Resultado de la verificación">
         <p className="text-[12.5px] leading-snug text-[var(--ink-muted)]">
-          Migrando a{' '}
+          Venue destino:{' '}
           <span className="font-semibold text-[var(--ink)]">
             {destinationVenueName ?? 'el venue destino'}
           </span>
@@ -585,8 +595,10 @@ function PreflightStep({
             <h3 className="text-[13px] font-semibold text-[var(--danger)]">Autorizar migración</h3>
           </div>
           <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-            La terminal se restablecerá de fábrica (borra TODA la data local) y quedará vinculada al
-            nuevo venue. No se puede deshacer una vez completada. Escribe{' '}
+            {(terminal.commandProtocolVersion ?? 1) >= 2
+              ? 'La TPV borrará su configuración y sesión, conservará la evidencia de pagos y esperará a que no haya operaciones pendientes antes de vincularse al nuevo venue.'
+              : 'La terminal se restablecerá de fábrica y borrará sus datos locales. Verifica que todas las operaciones estén sincronizadas antes de vincularla al nuevo venue.'}{' '}
+            No se puede deshacer una vez completada. Escribe{' '}
             <code className="font-mono text-[11px] text-[var(--ink)]">{expected}</code> para
             autorizar.
           </p>
@@ -759,6 +771,9 @@ function ProgressStep({
   const status = statusQuery.data
   const confirmed = status?.confirmed ?? false
   const elapsedMs = status?.elapsedMs ?? 0
+  const failed = status && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(status.commandStatus)
+  const cancellable =
+    status && (status.cancellable ?? ['PENDING', 'QUEUED'].includes(status.commandStatus))
   const timedOut = !confirmed && elapsedMs > REBOUND_TIMEOUT_MS
 
   function handleCancel() {
@@ -791,40 +806,57 @@ function ProgressStep({
             <ChecklistRow
               done={status?.commandDelivered ?? false}
               label="Comando entregado a la terminal"
-              description="La orden de migración llegó al dispositivo."
+              description="La terminal confirmó que recibió la orden."
             />
             <ChecklistRow
               done={status?.reboundAfterWipe ?? false}
-              label="Rebote post-restablecimiento"
-              description="La terminal se restableció y volvió a contactar al servidor."
+              label="Contacto posterior a la solicitud"
+              description="El servidor recibió contacto de activación posterior a la solicitud."
             />
             <ChecklistRow
               done={status?.onlineUnderNewVenue ?? false}
-              label="Online bajo el nuevo venue"
-              description="La terminal reapareció vinculada al venue destino."
+              label="Contacto reciente y venue asignado"
+              description="El servidor registra el venue destino y un contacto reciente de la terminal."
             />
           </div>
         )}
       </Section>
 
-      {confirmed ? (
+      {statusQuery.isError && (
+        <Banner tone="warn" icon={AlertTriangle}>
+          No se pudo consultar el estado. No vuelvas a migrar sin verificar la terminal.
+        </Banner>
+      )}
+      {failed ? (
+        <Banner tone="warn" icon={AlertTriangle}>
+          La migración no se completó: {status.commandStatus}.{' '}
+          {status.resultMessage ?? 'Revisa el comando y la terminal antes de reintentar.'}
+        </Banner>
+      ) : confirmed ? (
         <Banner tone="success" icon={CheckCircle2}>
-          Migración completada. La terminal ya opera bajo el nuevo venue.
+          El servidor registra la terminal en el nuevo venue y recibió contacto de la app. Confirma
+          el venue y los merchants en el aparato antes de usarlo para cobrar.
         </Banner>
       ) : timedOut ? (
         <Banner tone="warn" icon={Clock}>
-          La terminal no ha reaparecido tras ~10 minutos. Revisa que esté prendida y con red en el
-          venue destino. El servidor sigue esperando su rebote; aún puedes cancelar para restaurar
-          el venue original.
+          Han pasado más de 10 minutos sin confirmar la migración. Revisa que la TPV esté prendida y
+          con red. Consulta el estado del comando antes de volver a intentar la migración.
         </Banner>
       ) : (
         <Banner tone="info" icon={Loader2} spinIcon>
-          Esperando a que la terminal complete el restablecimiento y vuelva online. Esto suele
-          tardar unos minutos; puede llegar hasta ~10.
+          La solicitud sigue pendiente. La TPV necesita conexión y una ventana libre de cobros y
+          devoluciones para completar la migración. Encolar no confirma que ya se haya ejecutado.
         </Banner>
       )}
 
-      <div className="flex justify-end border-t border-[var(--line)] pt-5">
+      <div className="flex justify-end gap-2 border-t border-[var(--line)] pt-5">
+        <Button
+          variant="secondary"
+          disabled={statusQuery.isFetching}
+          onClick={() => statusQuery.refetch()}
+        >
+          Actualizar estado
+        </Button>
         {confirmed ? (
           <Button size="lg" onClick={onClose} className="gap-2">
             <Check className="h-3.5 w-3.5" aria-hidden />
@@ -834,7 +866,7 @@ function ProgressStep({
           <button
             type="button"
             onClick={handleCancel}
-            disabled={cancelMutation.isPending}
+            disabled={cancelMutation.isPending || !cancellable}
             className="inline-flex h-10 items-center gap-1.5 rounded-[6px] border border-[var(--danger)]/40 bg-[var(--canvas)] px-4 text-[13px] font-medium text-[var(--danger)] hover:bg-[var(--danger-faint)]/40 disabled:opacity-50"
           >
             {cancelMutation.isPending && (
@@ -881,6 +913,7 @@ function ChecklistRow({
             done ? 'text-[var(--ink)]' : 'text-[var(--ink-muted)]',
           )}
         >
+          <span className="sr-only">{done ? 'Confirmado: ' : 'Pendiente: '}</span>
           {label}
         </p>
         <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--ink-muted)]">{description}</p>

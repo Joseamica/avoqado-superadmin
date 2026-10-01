@@ -49,7 +49,7 @@ describe('humanizeTerminalStatus', () => {
 describe('humanizeCommand', () => {
   it.each<[TpvCommand, string]>([
     ['RESTART', 'Reiniciar app'],
-    ['SHUTDOWN', 'Apagar'],
+    ['SHUTDOWN', 'Cerrar app'],
     ['CLEAR_CACHE', 'Limpiar caché'],
     ['FACTORY_RESET', 'Restablecer de fábrica'],
     ['LOCK', 'Bloquear'],
@@ -85,6 +85,15 @@ describe('isTerminalOnline', () => {
   it('devuelve false si el heartbeat es de hace más de 5 minutos', () => {
     const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString()
     expect(isTerminalOnline({ lastHeartbeat: tenMinAgo })).toBe(false)
+  })
+
+  it('coincide con el umbral de dos minutos del servidor y rechaza fechas futuras', () => {
+    expect(isTerminalOnline({ lastHeartbeat: new Date(Date.now() - 180_000).toISOString() })).toBe(
+      false,
+    )
+    expect(isTerminalOnline({ lastHeartbeat: new Date(Date.now() + 60_000).toISOString() })).toBe(
+      false,
+    )
   })
 
   it('devuelve true para un heartbeat justo en el borde inferior (1ms atrás)', () => {

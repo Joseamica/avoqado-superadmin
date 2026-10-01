@@ -63,7 +63,10 @@ function makeTerminal(overrides: Partial<Terminal> = {}): Terminal {
 }
 
 const server = setupServer(
-  http.get(`${baseURL}/dashboard/superadmin/app-updates`, () =>
+  http.get(`${baseURL}/superadmin/terminals/:id/commands`, () =>
+    HttpResponse.json({ data: [], total: 0 }),
+  ),
+  http.get(`${baseURL}/superadmin/app-updates`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),
 )
@@ -153,7 +156,7 @@ describe('TerminalActionDrawer', () => {
 
     await waitFor(() => expect(screen.getByText('Acciones destructivas')).toBeInTheDocument())
     expect(screen.getByText('Restablecer caché y almacenamiento')).toBeInTheDocument()
-    expect(screen.getByText('Apagar terminal')).toBeInTheDocument()
+    expect(screen.getByText('Cerrar app')).toBeInTheDocument()
   })
 
   it('muestra banner offline cuando el heartbeat es muy viejo', async () => {
@@ -186,13 +189,13 @@ describe('TerminalActionDrawer', () => {
 
     await waitFor(() => expect(screen.getByText('Instalar versión específica')).toBeInTheDocument())
     // El installer ofrece el botón "Instalar"
-    expect(screen.getByRole('button', { name: /Instalar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Instalar$/i })).toBeInTheDocument()
   })
 
   it('hace POST al endpoint command cuando se click "Reiniciar app"', async () => {
     let calledWith: unknown = null
     server.use(
-      http.post(`${baseURL}/dashboard/tpv/t1/command`, async ({ request }) => {
+      http.post(`${baseURL}/superadmin/terminals/t1/command`, async ({ request }) => {
         calledWith = await request.json()
         return HttpResponse.json({ data: { commandId: 'cmd1', status: 'queued' } })
       }),
@@ -218,7 +221,7 @@ describe('TerminalActionDrawer', () => {
 
     // El bloque de confirmación debe aparecer
     await waitFor(() =>
-      expect(screen.getByText(/Confirmá: Restablecer terminal/)).toBeInTheDocument(),
+      expect(screen.getByText(/Confirma: Restablecer terminal/)).toBeInTheDocument(),
     )
 
     // Botón "Ejecutar" debería estar disabled mientras el input está vacío
@@ -230,14 +233,14 @@ describe('TerminalActionDrawer', () => {
     const terminal = makeTerminal()
     renderDrawer({ terminal, open: true, onOpenChange: () => {} })
 
-    fireEvent.click(screen.getByText('Apagar terminal'))
-    await waitFor(() => expect(screen.getByText(/Confirmá: Apagar/)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Cerrar app'))
+    await waitFor(() => expect(screen.getByText(/Confirma: Cerrar app/)).toBeInTheDocument())
 
     // Click cancelar
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
 
     // El bloque de confirmación debe desaparecer
-    await waitFor(() => expect(screen.queryByText(/Confirmá: Apagar/)).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/Confirma: Cerrar app/)).not.toBeInTheDocument())
   })
 
   it('genera código de activación al click "Generar código"', async () => {
@@ -288,10 +291,10 @@ describe('TerminalActionDrawer', () => {
     await waitFor(() => expect(called).toBe(true))
   })
 
-  it('dispara CLEAR_CACHE, SYNC_DATA, EXPORT_LOGS y MAINTENANCE_MODE al click', async () => {
+  it('dispara CLEAR_CACHE y MAINTENANCE_MODE y deshabilita comandos no implementados al click', async () => {
     const calls: string[] = []
     server.use(
-      http.post(`${baseURL}/dashboard/tpv/t1/command`, async ({ request }) => {
+      http.post(`${baseURL}/superadmin/terminals/t1/command`, async ({ request }) => {
         const body = (await request.json()) as { command: string }
         calls.push(body.command)
         return HttpResponse.json({ data: { commandId: 'cmd', status: 'queued' } })
@@ -304,7 +307,7 @@ describe('TerminalActionDrawer', () => {
     await waitFor(() => expect(screen.getByText('Limpiar caché')).toBeInTheDocument())
 
     fireEvent.click(screen.getByText('Limpiar caché'))
-    fireEvent.click(screen.getByText('Sincronizar datos'))
+    expect(screen.getByText('Sincronizar datos').closest('button')).toBeDisabled()
     fireEvent.click(screen.getByText('Exportar logs'))
     fireEvent.click(screen.getByText('Poner en mantenimiento'))
     fireEvent.click(screen.getByText('Bloquear terminal'))
@@ -318,7 +321,7 @@ describe('TerminalActionDrawer', () => {
   it('falla "Instalar" sin versión seleccionada y NO dispara el comando', async () => {
     let called = false
     server.use(
-      http.post(`${baseURL}/dashboard/tpv/t1/command`, () => {
+      http.post(`${baseURL}/superadmin/terminals/t1/command`, () => {
         called = true
         return HttpResponse.json({ data: { commandId: 'cmd', status: 'queued' } })
       }),
@@ -337,4 +340,106 @@ describe('TerminalActionDrawer', () => {
     fireEvent.click(installBtn)
     expect(called).toBe(false)
   })
+})
+
+it('instala usando el versionCode numérico publicado', async () => {
+  let body: unknown
+  server.use(
+    http.get(`${baseURL}/superadmin/app-updates`, () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: 'release-200',
+            versionCode: 200,
+            versionName: '2.12.0',
+            environment: 'SANDBOX',
+            isActive: true,
+          },
+          {
+            id: 'release-200-prod',
+            versionCode: 200,
+            versionName: '2.12.0',
+            environment: 'PRODUCTION',
+            isActive: true,
+          },
+        ],
+      }),
+    ),
+    http.post(`${baseURL}/superadmin/terminals/t1/command`, async ({ request }) => {
+      body = await request.json()
+      return HttpResponse.json({ data: { commandId: 'install-200', status: 'PENDING' } })
+    }),
+  )
+  renderDrawer({ terminal: makeTerminal(), open: true, onOpenChange: () => {} })
+  fireEvent.click(await screen.findByRole('button', { name: 'Versión a instalar' }))
+  fireEvent.click(await screen.findByRole('option', { name: /2.12.0/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Instalar' }))
+  await waitFor(() =>
+    expect(body).toEqual({ command: 'INSTALL_VERSION', payload: { versionCode: 200 } }),
+  )
+})
+
+it('no presenta un comando enviado como ejecutado y permite ver el motivo de error', async () => {
+  server.use(
+    http.get(`${baseURL}/superadmin/terminals/t1/commands`, () =>
+      HttpResponse.json({
+        total: 2,
+        data: [
+          {
+            id: 'cmd-sent',
+            commandType: 'RESTART',
+            status: 'SENT',
+            createdAt: new Date().toISOString(),
+            expiresAt: null,
+            resultMessage: null,
+          },
+          {
+            id: 'cmd-failed',
+            commandType: 'FACTORY_RESET',
+            status: 'FAILED',
+            createdAt: new Date().toISOString(),
+            expiresAt: null,
+            resultMessage: 'Pagos pendientes de sincronizar',
+          },
+        ],
+      }),
+    ),
+  )
+  renderDrawer({ terminal: makeTerminal(), open: true, onOpenChange: () => {} })
+  expect(await screen.findByText('Pagos pendientes de sincronizar')).toBeInTheDocument()
+  expect(screen.getByText('Enviado, sin acuse')).toBeInTheDocument()
+})
+
+it('reuses the idempotency key after an uncertain command response', async () => {
+  const keys: (string | null)[] = []
+  server.use(
+    http.post(`${baseURL}/superadmin/terminals/t1/command`, ({ request }) => {
+      keys.push(request.headers.get('Idempotency-Key'))
+      return keys.length === 1
+        ? HttpResponse.json({ message: 'Respuesta perdida' }, { status: 500 })
+        : HttpResponse.json({ data: { commandId: 'c1', status: 'QUEUED' } })
+    }),
+  )
+  renderDrawer({ terminal: makeTerminal(), open: true, onOpenChange: () => {} })
+  fireEvent.click(screen.getByText('Reiniciar app'))
+  await waitFor(() => expect(keys).toHaveLength(1))
+  await waitFor(() =>
+    expect(screen.getByText('Reiniciar app').closest('button')).not.toBeDisabled(),
+  )
+  fireEvent.click(screen.getByText('Reiniciar app'))
+  await waitFor(() => expect(keys).toHaveLength(2))
+  expect(keys[0]).toBeTruthy()
+  expect(keys[1]).toBe(keys[0])
+})
+
+it.each([undefined, 2])('explica el restablecimiento según el protocolo %s', (protocol) => {
+  renderDrawer({
+    terminal: makeTerminal({ commandProtocolVersion: protocol }),
+    open: true,
+    onOpenChange: () => {},
+  })
+  const button = screen.getByRole('button', { name: /Restablecer caché y almacenamiento/ })
+  expect(button).toHaveTextContent(
+    protocol === 2 ? 'Conserva la evidencia financiera' : 'Comprueba primero que todos los pagos',
+  )
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -25,6 +25,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/shared/ui/Button'
+import { QueryError } from '@/shared/components/QueryError'
 import { Badge } from '@/shared/ui/Badge'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
@@ -47,6 +49,7 @@ import {
   useGenerateActivationCode,
   useRemoteActivate,
   useTerminalCommand,
+  useTerminalCommands,
 } from './use-terminals'
 import {
   canBeActivated,
@@ -139,18 +142,27 @@ function TerminalActionDrawerBody({
   const [grantAccessOpen, setGrantAccessOpen] = useState(false)
 
   const commandMutation = useTerminalCommand()
+  const commandRequest = useRef<{ body: string; key: string } | null>(null)
   const generateCodeMutation = useGenerateActivationCode()
   const remoteActivateMutation = useRemoteActivate()
 
+  const isNexgo = terminal.brand?.toUpperCase().includes('NEXGO') ?? false
+  const commandsDisabled = commandMutation.isPending || terminal.type !== 'TPV_ANDROID'
+
   function run(command: TpvCommand, payload?: Record<string, unknown>) {
+    if (terminal.type !== 'TPV_ANDROID') return
+    const body = JSON.stringify({ terminalId: terminal.id, command, payload })
+    if (commandRequest.current?.body !== body)
+      commandRequest.current = { body, key: crypto.randomUUID() }
     commandMutation.mutate(
-      { terminalId: terminal.id, command, payload },
+      { terminalId: terminal.id, command, payload, idempotencyKey: commandRequest.current.key },
       {
         onSuccess: () => {
+          commandRequest.current = null
           toast.success(`Comando "${humanizeCommandShort(command)}" encolado`, {
             description: online
-              ? 'La terminal lo ejecutará en segundos.'
-              : 'Quedará en cola hasta que la terminal vuelva online.',
+              ? 'Solicitud registrada. Falta que la terminal confirme la ejecución.'
+              : 'Solicitud registrada. La terminal está desconectada; aún no se ha ejecutado.',
           })
           setDanger(null)
           setConfirmInput('')
@@ -251,7 +263,7 @@ function TerminalActionDrawerBody({
             icon={RotateCcw}
             label="Reiniciar app"
             description="Reinicio limpio de AvoqadoPOS sin tocar datos."
-            disabled={commandMutation.isPending}
+            disabled={commandsDisabled}
             queued={!online}
             onClick={() => run('RESTART')}
           />
@@ -259,7 +271,7 @@ function TerminalActionDrawerBody({
             icon={Eraser}
             label="Limpiar caché"
             description="Borra cachés en disco (menús, imágenes). No toca configuraciones."
-            disabled={commandMutation.isPending}
+            disabled={commandsDisabled}
             queued={!online}
             onClick={() => run('CLEAR_CACHE')}
           />
@@ -269,10 +281,10 @@ function TerminalActionDrawerBody({
             description={
               inMaintenance
                 ? 'Vuelve a operación normal — los empleados pueden tomar órdenes y cobrar.'
-                : 'Bloquea operación; muestra pantalla de mantenimiento. Útil para hardware fixes.'
+                : 'Bloquea operación; muestra pantalla de mantenimiento. Útil para revisar el equipo.'
             }
             severity="warn"
-            disabled={commandMutation.isPending}
+            disabled={commandsDisabled}
             queued={!online}
             onClick={() => run(inMaintenance ? 'EXIT_MAINTENANCE' : 'MAINTENANCE_MODE')}
           />
@@ -285,12 +297,16 @@ function TerminalActionDrawerBody({
                 : 'Pantalla de bloqueo con mensaje. El staff no puede operar hasta desbloquear.'
             }
             severity="warn"
-            disabled={commandMutation.isPending}
+            disabled={commandsDisabled}
             queued={!online}
             onClick={() => run(locked ? 'UNLOCK' : 'LOCK')}
           />
         </Section>
 
+        {terminal.type !== 'TPV_ANDROID' && (
+          <p className="text-sm text-[var(--warn)]">Esta TPV no admite comandos remotos.</p>
+        )}
+        <CommandHistory terminalId={terminal.id} />
         <Section title="Versión">
           <div className="rounded-[6px] border border-[var(--line)] bg-[var(--canvas-sunken)] p-3">
             <p className="label">Versión instalada</p>
@@ -302,13 +318,17 @@ function TerminalActionDrawerBody({
             currentVersion={terminal.version}
             run={run}
             queued={!online}
-            pending={commandMutation.isPending}
+            pending={commandsDisabled || isNexgo}
           />
           <ActionRow
             icon={Zap}
             label="Pedir actualización"
-            description="Muestra diálogo en la terminal; el usuario decide actualizar."
-            disabled={commandMutation.isPending}
+            description={
+              isNexgo
+                ? 'Esta TPV se actualiza mediante TMS.'
+                : 'Muestra diálogo en la terminal; el usuario decide actualizar.'
+            }
+            disabled={commandsDisabled || isNexgo}
             queued={!online}
             onClick={() => run('REQUEST_UPDATE')}
           />
@@ -318,16 +338,16 @@ function TerminalActionDrawerBody({
           <ActionRow
             icon={RefreshCw}
             label="Sincronizar datos"
-            description="Forzar pull de menú, staff, configs actuales."
-            disabled={commandMutation.isPending}
+            description="Aún no disponible como comando remoto. Los datos se actualizan al usarlos."
+            disabled
             queued={!online}
             onClick={() => run('SYNC_DATA')}
           />
           <ActionRow
             icon={FileDown}
             label="Exportar logs"
-            description="La terminal sube logs al backend para inspección."
-            disabled={commandMutation.isPending}
+            description="Aún no disponible en la app de la TPV."
+            disabled
             queued={!online}
             onClick={() => run('EXPORT_LOGS')}
           />
@@ -342,8 +362,7 @@ function TerminalActionDrawerBody({
                 Configurar terminal completa
               </p>
               <p className="mt-0.5 text-[11.5px] text-[var(--ink-muted)]">
-                Settings avanzados, merchant accounts, comportamiento de payments, modo de
-                impresión.
+                Ajustes avanzados, comercios de cobro, comportamiento de pagos y modo de impresión.
               </p>
             </div>
             <ExternalLink
@@ -383,7 +402,7 @@ function TerminalActionDrawerBody({
           setConfirmInput={setConfirmInput}
           onConfirm={handleDangerConfirm}
           terminal={terminal}
-          isPending={commandMutation.isPending}
+          isPending={commandsDisabled}
         />
       </DrawerBody>
 
@@ -444,15 +463,18 @@ function StatusSummary({ terminal, online }: { terminal: Terminal; online: boole
             <span
               className={cn(
                 'tabular cursor-help text-[12px] font-semibold',
-                terminal.latestHealthScore >= 80
-                  ? 'text-[var(--success)]'
-                  : terminal.latestHealthScore >= 50
-                    ? 'text-[var(--warn)]'
-                    : 'text-[var(--danger)]',
+                !online
+                  ? 'text-[var(--ink-faint)]'
+                  : terminal.latestHealthScore >= 80
+                    ? 'text-[var(--success)]'
+                    : terminal.latestHealthScore >= 50
+                      ? 'text-[var(--warn)]'
+                      : 'text-[var(--danger)]',
               )}
               tabIndex={0}
             >
               Salud {terminal.latestHealthScore}
+              {!online && ' · dato histórico'}
             </span>
           </Tooltip>
         )}
@@ -631,7 +653,7 @@ function ActionRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="text-[13px] font-semibold text-[var(--ink)]">{label}</p>
-          {queued && (
+          {queued && !disabled && (
             <Badge size="sm" tone="muted" className="shrink-0">
               Se encolará
             </Badge>
@@ -659,10 +681,8 @@ function OfflineBanner() {
           La terminal está offline — los comandos se encolan
         </p>
         <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--ink-muted)]">
-          Puedes mandar acciones igual. El backend las guarda como{' '}
-          <code className="font-mono text-[11px] text-[var(--ink)]">QUEUED</code> y las despacha en
-          cuanto la terminal vuelva a conectarse. El estado del comando se ve en el histórico del
-          terminal.
+          Las solicitudes quedan pendientes de entrega. Consulta abajo su estado y fecha de
+          vencimiento; encolar no confirma que la terminal las haya ejecutado.
         </p>
       </div>
     </div>
@@ -686,29 +706,22 @@ function VersionInstaller({
 
   const options: ComboboxOption[] = useMemo(() => {
     const list = versionsQuery.data ?? []
-    return (
-      list
-        // Sort por versionCode desc — las versiones más nuevas arriba.
-        .slice()
-        .sort((a, b) => b.versionCode - a.versionCode)
-        .map((v) => ({
-          value: v.versionName,
-          label: v.versionName,
-          description:
-            [
-              `vCode ${v.versionCode}`,
-              v.environment.toLowerCase(),
-              v.updateMode === 'FORCE'
-                ? 'force-update'
-                : v.updateMode === 'BANNER'
-                  ? 'banner'
-                  : null,
-            ]
-              .filter(Boolean)
-              .join(' · ') || undefined,
-          searchTokens: `${v.versionCode} ${v.environment}`,
-        }))
-    )
+    // The device resolves the code in its own environment. Do not offer two
+    // indistinguishable commands when sandbox and production share that code.
+    const byCode = new Map<number, typeof list>()
+    for (const release of list) {
+      const variants = byCode.get(release.versionCode) ?? []
+      variants.push(release)
+      byCode.set(release.versionCode, variants)
+    }
+    return [...byCode.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([code, variants]) => ({
+        value: String(code),
+        label: [...new Set(variants.map((v) => v.versionName))].join(' / '),
+        description: `Código ${code} · ${variants.map((v) => v.environment.toLowerCase()).join(', ')}`,
+        searchTokens: `${code} ${variants.map((v) => v.environment).join(' ')}`,
+      }))
   }, [versionsQuery.data])
 
   return (
@@ -722,11 +735,21 @@ function VersionInstaller({
         )}
       </div>
       <p className="mt-0.5 text-[11.5px] text-[var(--ink-muted)]">
-        Override silencioso a una versión exacta (rollback o upgrade). La terminal descarga e
-        instala sin pedir permiso al usuario.
+        Solicita este código para el entorno de la TPV (sandbox o producción). Confirma el resultado
+        en Comandos recientes. Instalar una versión anterior puede requerir intervención en el
+        aparato.
       </p>
+      {versionsQuery.isError && (
+        <QueryError
+          error={versionsQuery.error}
+          context="cargar versiones"
+          onRetry={() => versionsQuery.refetch()}
+          isRetrying={versionsQuery.isFetching}
+        />
+      )}
       <div className="mt-2.5 flex gap-2">
         <Combobox
+          ariaLabel="Versión a instalar"
           value={version}
           onChange={setVersion}
           options={options}
@@ -735,26 +758,32 @@ function VersionInstaller({
               ? 'Cargando versiones…'
               : currentVersion
                 ? `actual: ${currentVersion}`
-                : 'Selecciona o escribe versión'
+                : 'Selecciona una versión publicada'
           }
           searchPlaceholder="Buscar versión o versionCode…"
           emptyLabel="Sin versiones que coincidan"
-          allowCustomValue
           width={300}
           className="tabular h-8 flex-1 px-2 font-mono text-[12px]"
-          renderTriggerValue={(v) => <span className="tabular font-mono">{v}</span>}
+          renderTriggerValue={(v) => (
+            <span className="tabular font-mono">
+              {versionsQuery.data?.find((item) => String(item.versionCode) === v)?.versionName ?? v}
+            </span>
+          )}
         />
         <button
           type="button"
           onClick={() => {
-            if (!version.trim()) {
-              toast.error('Selecciona o escribe una versión')
+            const selected = versionsQuery.data?.find(
+              (item) => String(item.versionCode) === version && item.isActive,
+            )
+            if (!selected) {
+              toast.error('Selecciona una versión publicada')
               return
             }
-            run('INSTALL_VERSION', { version: version.trim() })
+            run('INSTALL_VERSION', { versionCode: selected.versionCode })
             setVersion('')
           }}
-          disabled={!version.trim() || pending}
+          disabled={!version || pending || versionsQuery.isError}
           className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[4px] border border-[var(--line-strong)] bg-[var(--canvas)] px-3 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--canvas-sunken)] disabled:opacity-50"
         >
           <Box className="h-3 w-3" aria-hidden />
@@ -799,7 +828,11 @@ function DangerZone({
         <DangerButton
           icon={Trash2}
           label="Restablecer caché y almacenamiento"
-          description="Factory reset — borra TODA la data local (caché, configs, credenciales). La terminal vuelve a estado de primera activación. Necesita re-activación con código."
+          description={
+            (terminal.commandProtocolVersion ?? 0) >= 2
+              ? 'Restablece caché, ajustes y sesión del personal. Conserva la evidencia financiera y los recibos de comandos. Espera a resolver pagos y devoluciones pendientes; después requiere reabrir y activar la app.'
+              : 'Borra datos locales, caché, ajustes y sesión. Comprueba primero que todos los pagos y devoluciones estén sincronizados. Después requiere reabrir y activar la app.'
+          }
           active={danger === 'FACTORY_RESET'}
           onActivate={() => {
             setDanger('FACTORY_RESET')
@@ -808,8 +841,8 @@ function DangerZone({
         />
         <DangerButton
           icon={PowerOff}
-          label="Apagar terminal"
-          description="Shutdown completo. El staff tendrá que prenderla físicamente para volverla a usar."
+          label="Cerrar app"
+          description="Cierra Avoqado. El personal tendrá que abrir la app de nuevo para usarla."
           active={danger === 'SHUTDOWN'}
           onActivate={() => {
             setDanger('SHUTDOWN')
@@ -821,10 +854,10 @@ function DangerZone({
       {danger && (
         <div className="mt-4 rounded-[4px] border border-[var(--danger)]/40 bg-[var(--canvas)] p-3">
           <p className="text-[12px] font-semibold text-[var(--danger)]">
-            Confirmá: {humanizeCommandShort(danger)}
+            Confirma: {humanizeCommandShort(danger)}
           </p>
           <p className="mt-1 text-[11.5px] text-[var(--ink-muted)]">
-            Escribí exactamente{' '}
+            Escribe exactamente{' '}
             <code className="font-mono text-[11px] text-[var(--ink)]">{expected}</code> para
             ejecutar.
           </p>
@@ -902,7 +935,7 @@ function humanizeCommandShort(cmd: TpvCommand): string {
     case 'FACTORY_RESET':
       return 'Restablecer terminal'
     case 'SHUTDOWN':
-      return 'Apagar'
+      return 'Cerrar app'
     case 'RESTART':
       return 'Reiniciar'
     case 'CLEAR_CACHE':
@@ -926,4 +959,101 @@ function humanizeCommandShort(cmd: TpvCommand): string {
     default:
       return cmd
   }
+}
+
+function CommandHistory({ terminalId }: { terminalId: string }) {
+  const [page, setPage] = useState(1)
+  const query = useTerminalCommands(terminalId, page)
+  const labels: Record<string, string> = {
+    PENDING: 'Esperando conexión',
+    QUEUED: 'Pendiente de entrega',
+    SENT: 'Enviado, sin acuse',
+    RECEIVED: 'Recibido',
+    EXECUTING: 'En ejecución',
+    COMPLETED: 'Completado',
+    FAILED: 'Falló',
+    EXPIRED: 'Venció',
+    CANCELLED: 'Cancelado',
+  }
+  return (
+    <Section title="Comandos recientes">
+      {query.isError ? (
+        <QueryError error={query.error} context="cargar comandos" onRetry={() => query.refetch()} />
+      ) : query.isPending ? (
+        <p className="text-sm">Cargando comandos…</p>
+      ) : query.data.data.length === 0 ? (
+        <p className="text-sm text-[var(--ink-muted)]">
+          No hay comandos para esta TPV en este venue.
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--line)]">
+          {query.data.data.map((command) => {
+            const expired =
+              ['PENDING', 'QUEUED'].includes(command.status) &&
+              command.expiresAt &&
+              Date.parse(command.expiresAt) <= Date.now()
+            const status = expired ? 'EXPIRED' : command.status
+            return (
+              <li key={command.id} className="py-3 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span>{humanizeCommandShort(command.commandType)}</span>
+                  <Badge
+                    tone={
+                      status === 'COMPLETED'
+                        ? 'success'
+                        : ['FAILED', 'EXPIRED'].includes(status)
+                          ? 'danger'
+                          : 'muted'
+                    }
+                  >
+                    {labels[status] ?? status}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                  {formatDateTime(command.createdAt)}
+                </p>
+                {command.resultMessage && <p className="mt-1 text-xs">{command.resultMessage}</p>}
+                {['PENDING', 'QUEUED'].includes(status) && (
+                  <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                    {command.expiresAt
+                      ? `Vence: ${formatDateTime(command.expiresAt)}`
+                      : 'Sin vencimiento mientras espera'}
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={page === 1 || query.isFetching}
+          onClick={() => setPage(page - 1)}
+        >
+          Anterior
+        </Button>
+        <span className="text-xs">
+          {query.data?.total ?? 0} comandos · página {page}
+        </span>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!query.data || page * 25 >= query.data.total || query.isFetching}
+          onClick={() => setPage(page + 1)}
+        >
+          Siguiente
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={query.isFetching}
+          onClick={() => query.refetch()}
+        >
+          Actualizar
+        </Button>
+      </div>
+    </Section>
+  )
 }

@@ -8,6 +8,8 @@ import {
   fetchMerchantAccounts,
   fetchTerminalDetail,
   fetchTerminals,
+  fetchTpvFleet,
+  exportTpvFleet,
   fetchTpvSettings,
   generateActivationCode,
   migrateCancel,
@@ -106,11 +108,10 @@ describe('fetchTerminals', () => {
     })
   })
 
-  it('devuelve [] cuando la response no tiene `data`', async () => {
+  it('reporta una respuesta inválida en lugar de fingir una lista vacía', async () => {
     server.use(http.get(`${baseURL}/superadmin/terminals`, () => HttpResponse.json({ count: 0 })))
 
-    const result = await fetchTerminals()
-    expect(result).toEqual([])
+    await expect(fetchTerminals()).rejects.toThrow('Respuesta inválida')
   })
 
   it('forwarda params como query string', async () => {
@@ -402,7 +403,7 @@ describe('sendCommand', () => {
   it('manda command + payload y devuelve commandId/status', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.post(`${baseURL}/dashboard/tpv/t1/command`, async ({ request }) => {
+      http.post(`${baseURL}/superadmin/terminals/t1/command`, async ({ request }) => {
         receivedBody = await request.json()
         return HttpResponse.json({ data: { commandId: 'cmd1', status: 'queued' } })
       }),
@@ -413,11 +414,10 @@ describe('sendCommand', () => {
     expect(result).toEqual({ commandId: 'cmd1', status: 'queued' })
   })
 
-  it('devuelve fallback queued cuando el server no manda data', async () => {
-    server.use(http.post(`${baseURL}/dashboard/tpv/t1/command`, () => HttpResponse.json({})))
+  it('rechaza una respuesta sin identidad de comando', async () => {
+    server.use(http.post(`${baseURL}/superadmin/terminals/t1/command`, () => HttpResponse.json({})))
 
-    const result = await sendCommand('t1', 'CLEAR_CACHE')
-    expect(result).toEqual({ commandId: '', status: 'queued' })
+    await expect(sendCommand('t1', 'CLEAR_CACHE')).rejects.toThrow('no confirmó el comando')
   })
 })
 
@@ -560,7 +560,7 @@ describe('fetchTpvSettings', () => {
 
   it('desenvuelve respuesta con `{ data: settings }` wrapper', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/tpv/t1/settings`, () =>
+      http.get(`${baseURL}/superadmin/terminals/t1/settings`, () =>
         HttpResponse.json({ data: sampleSettings }),
       ),
     )
@@ -572,7 +572,9 @@ describe('fetchTpvSettings', () => {
 
   it('acepta también response sin wrapper (objeto directo)', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/tpv/t1/settings`, () => HttpResponse.json(sampleSettings)),
+      http.get(`${baseURL}/superadmin/terminals/t1/settings`, () =>
+        HttpResponse.json(sampleSettings),
+      ),
     )
 
     const result = await fetchTpvSettings('t1')
@@ -584,7 +586,7 @@ describe('updateTpvSettings', () => {
   it('manda PUT con el patch y desenvuelve la response', async () => {
     let receivedBody: unknown = null
     server.use(
-      http.put(`${baseURL}/dashboard/tpv/t1/settings`, async ({ request }) => {
+      http.put(`${baseURL}/superadmin/terminals/t1/settings`, async ({ request }) => {
         receivedBody = await request.json()
         return HttpResponse.json({
           data: { showQuickPayment: false } as Record<string, unknown>,
@@ -599,9 +601,23 @@ describe('updateTpvSettings', () => {
 })
 
 describe('fetchAppVersions', () => {
+  it('excluye versiones retiradas y de otras plataformas', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/app-updates`, () =>
+        HttpResponse.json({
+          data: [
+            { id: 'android', platform: 'ANDROID_TPV', isActive: true, environment: 'SANDBOX' },
+            { id: 'retired', platform: 'ANDROID_TPV', isActive: false },
+            { id: 'windows', platform: 'WINDOWS_DESKTOP', isActive: true },
+          ],
+        }),
+      ),
+    )
+    expect((await fetchAppVersions()).map((v) => v.id)).toEqual(['android'])
+  })
   it('mapea la lista de versiones del backend', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/app-updates`, () =>
+      http.get(`${baseURL}/superadmin/app-updates`, () =>
         HttpResponse.json({
           success: true,
           data: [
@@ -636,12 +652,55 @@ describe('fetchAppVersions', () => {
 
   it('devuelve [] cuando la response no es un array', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/app-updates`, () =>
-        HttpResponse.json({ success: true }),
-      ),
+      http.get(`${baseURL}/superadmin/app-updates`, () => HttpResponse.json({ success: true })),
     )
 
     const result = await fetchAppVersions()
     expect(result).toEqual([])
+  })
+})
+
+describe('flota paginada de TPVs', () => {
+  const stats = { total: 101, online: 1, offline: 100, pending: 0, maintenance: 0 }
+  it('exporta todas las páginas sólo cuando se solicita, conservando los filtros', async () => {
+    const pages: number[] = []
+    server.use(
+      http.get(`${baseURL}/superadmin/terminals/fleet`, ({ request }) => {
+        const url = new URL(request.url)
+        const page = Number(url.searchParams.get('page'))
+        pages.push(page)
+        expect(url.searchParams.get('search')).toBe('PAX')
+        expect(url.searchParams.get('pageSize')).toBe('100')
+        return HttpResponse.json({
+          data:
+            page === 1
+              ? Array.from({ length: 100 }, (_, i) => ({ ...rawTerminal, id: `t${i}` }))
+              : [{ ...rawTerminal, id: 'last' }],
+          total: 101,
+          page,
+          pageSize: 100,
+          stats,
+        })
+      }),
+    )
+    const rows = await exportTpvFleet({ search: 'PAX' })
+    expect(rows).toHaveLength(101)
+    expect(pages).toEqual([1, 2])
+  })
+  it('no presenta una respuesta sin paginación como una flota válida', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+        HttpResponse.json({ data: [], total: 101, stats }),
+      ),
+    )
+    await expect(fetchTpvFleet()).rejects.toThrow(/Respuesta inválida/)
+  })
+  it('no descarga silenciosamente un archivo truncado cuando una página falta', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+        HttpResponse.json({ data: [], total: 101, page: 1, pageSize: 100, stats }),
+      ),
+    )
+    await expect(exportTpvFleet({})).rejects.toThrow(/cambió/)
   })
 })

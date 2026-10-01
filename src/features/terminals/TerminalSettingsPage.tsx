@@ -1,6 +1,7 @@
+import { compatibleMerchants } from './api'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, Landmark, Loader2 } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Landmark, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/shared/ui/Badge'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -73,7 +74,7 @@ export function TerminalSettingsPage() {
   const terminal = detailQuery.data
   const settings = settingsQuery.data
 
-  if (detailQuery.isLoading || !terminal) {
+  if (detailQuery.isLoading || terminal === undefined) {
     return (
       <div className="mx-auto max-w-[840px] px-4 py-10 sm:px-6">
         <BackToTerminals />
@@ -432,7 +433,7 @@ function MerchantSection({ terminal }: { terminal: Terminal }) {
     setDraft(new Set(terminal.assignedMerchantIds))
   }, [terminal.assignedMerchantIds])
 
-  const merchants = merchantsQuery.data ?? []
+  const merchants = compatibleMerchants(merchantsQuery.data ?? [], terminal.brand)
   const isDirty = useMemo(() => {
     if (draft.size !== terminal.assignedMerchantIds.length) return true
     return !terminal.assignedMerchantIds.every((id) => draft.has(id))
@@ -661,14 +662,15 @@ function SettingsBooleanSection({
 }) {
   const updateMutation = useUpdateTpvSettings()
   const initialFromSettings = useMemo(() => {
-    const obj: Record<string, boolean> = {}
+    const obj: Record<string, boolean | undefined> = {}
     for (const m of modules) {
-      obj[m.key as string] = !!settings[m.key as keyof TpvSettings]
+      const value = settings[m.key as keyof TpvSettings]
+      obj[m.key as string] = typeof value === 'boolean' ? value : undefined
     }
     return obj
   }, [settings, modules])
 
-  const [draft, setDraft] = useState<Record<string, boolean>>(initialFromSettings)
+  const [draft, setDraft] = useState<Record<string, boolean | undefined>>(initialFromSettings)
   useEffect(() => {
     setDraft(initialFromSettings)
   }, [initialFromSettings])
@@ -700,11 +702,12 @@ function SettingsBooleanSection({
   }
 
   const visibleCount = modules.filter((m) => draft[m.key as string]).length
+  const unknownCount = modules.filter((m) => draft[m.key as string] === undefined).length
 
   return (
     <Section
       title={title}
-      subtitle={`${visibleCount} de ${modules.length} activos · ${subtitle}`}
+      subtitle={`${visibleCount} de ${modules.length} activos${unknownCount ? ` · ${unknownCount} sin valor reportado` : ''} · ${subtitle}`}
       isDirty={isDirty}
       isSaving={updateMutation.isPending}
       onSave={handleSave}
@@ -713,6 +716,7 @@ function SettingsBooleanSection({
       <ul className="space-y-1.5">
         {modules.map((m) => {
           const isOn = !!draft[m.key as string]
+          const isUnknown = draft[m.key as string] === undefined
           return (
             <li key={m.key as string}>
               <label
@@ -723,35 +727,30 @@ function SettingsBooleanSection({
                     : 'border-[var(--line)] hover:bg-[var(--canvas-sunken)]',
                 )}
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border',
-                    isOn
-                      ? 'border-[var(--accent)] bg-[var(--accent)]'
-                      : 'border-[var(--line-strong)]',
-                  )}
-                >
-                  {isOn ? (
-                    <CheckCircle2 className="h-3 w-3 text-[var(--canvas)]" aria-hidden />
-                  ) : null}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isOn}
-                  onChange={() => toggle(m.key as string)}
-                  className="sr-only"
+                <Checkbox
+                  checked={isUnknown ? 'indeterminate' : isOn}
+                  onCheckedChange={() => toggle(m.key as string)}
+                  className="mt-0.5 shrink-0"
                   aria-label={m.label}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-semibold text-[var(--ink)]">{m.label}</p>
-                    {isOn ? (
+                    {isUnknown ? (
+                      <Badge size="sm" tone="muted">
+                        Valor no reportado
+                      </Badge>
+                    ) : isOn ? (
                       <Eye className="h-3 w-3 text-[var(--accent)]" aria-hidden />
                     ) : (
                       <EyeOff className="h-3 w-3 text-[var(--ink-faint)]" aria-hidden />
                     )}
                   </div>
+                  {isUnknown && (
+                    <p className="mt-1 text-[13px] text-[var(--ink-muted)]">
+                      No equivale a desactivado. Verifica el valor en la TPV antes de cambiarlo.
+                    </p>
+                  )}
                   <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--ink-muted)]">
                     {m.description}
                   </p>

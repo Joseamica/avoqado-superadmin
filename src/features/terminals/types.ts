@@ -48,6 +48,7 @@ export type TpvCommand =
   | 'UPDATE_MERCHANT'
 
 export interface Terminal {
+  commandProtocolVersion?: number | null
   id: string
   /** Hardware serial — `null` antes de la activación física. */
   serialNumber: string | null
@@ -103,16 +104,17 @@ export interface Terminal {
 /* --- Estado derivado --- */
 
 /**
- * "Online" = mandó heartbeat en los últimos 5 minutos. El TPV manda cada
- * 60 segundos, así que 5 min de tolerancia cubre saltos de red. Es una
+ * "Online" = mandó heartbeat en los últimos 2 minutos. El TPV manda cada
+ * 60 segundos, así que 2 min de tolerancia cubre saltos de red. Es una
  * heurística client-side; el backend tiene su propia `tpvHealthService`
  * con lógica más sofisticada pero no la expone en este endpoint.
  */
-const ONLINE_THRESHOLD_MS = 5 * 60_000
+const ONLINE_THRESHOLD_MS = 2 * 60_000
 
 export function isTerminalOnline(t: Pick<Terminal, 'lastHeartbeat'>): boolean {
   if (!t.lastHeartbeat) return false
-  return Date.now() - new Date(t.lastHeartbeat).getTime() < ONLINE_THRESHOLD_MS
+  const age = Date.now() - new Date(t.lastHeartbeat).getTime()
+  return age >= 0 && age < ONLINE_THRESHOLD_MS
 }
 
 /** "Activable" = puede recibir un comando de activación remota (status correcto + sin activar). */
@@ -157,7 +159,7 @@ export function humanizeCommand(cmd: TpvCommand): string {
     case 'RESTART':
       return 'Reiniciar app'
     case 'SHUTDOWN':
-      return 'Apagar'
+      return 'Cerrar app'
     case 'CLEAR_CACHE':
       return 'Limpiar caché'
     case 'FACTORY_RESET':

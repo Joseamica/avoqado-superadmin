@@ -1,7 +1,11 @@
+import { ExportDialog } from '@/shared/data-table/ExportDialog'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Cpu, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Button } from '@/shared/ui/Button'
+import { useDebounced } from '@/shared/hooks/useDebounced'
+import { exportTpvFleet, type FleetPage } from './api'
 import { Badge } from '@/shared/ui/Badge'
 import { IconButton } from '@/shared/ui/IconButton'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -23,7 +27,7 @@ import {
 import { cn } from '@/shared/lib/utils'
 import { TerminalActionDrawer } from './TerminalActionDrawer'
 import { TerminalsByVenueList } from './TerminalsByVenueList'
-import { useTerminals } from './use-terminals'
+import { useTerminals, useTerminalDetail } from './use-terminals'
 import {
   canBeActivated,
   humanizeTerminalStatus,
@@ -49,9 +53,6 @@ const STATUS_OPTIONS: MultiSelectOption<TerminalStatus>[] = [
 const TYPE_OPTIONS: MultiSelectOption<TerminalType>[] = [
   { value: 'TPV_ANDROID', label: 'TPV Android' },
   { value: 'TPV_IOS', label: 'TPV iOS' },
-  { value: 'PRINTER_RECEIPT', label: 'Impresora ticket' },
-  { value: 'PRINTER_KITCHEN', label: 'Impresora cocina' },
-  { value: 'KDS', label: 'KDS' },
 ]
 
 // "Conexión" = online/offline derivado de lastHeartbeat. Es una vista
@@ -60,7 +61,7 @@ type ConnectionOption = 'all' | 'online' | 'offline' | 'pending'
 
 const CONNECTION_OPTIONS: SingleSelectOption<ConnectionOption>[] = [
   { value: 'all', label: 'Cualquier conexión' },
-  { value: 'online', label: 'Solo online', description: 'Heartbeat en los últimos 5 minutos' },
+  { value: 'online', label: 'Solo online', description: 'Contacto en los últimos 2 minutos' },
   { value: 'offline', label: 'Solo offline', description: 'Sin heartbeat reciente' },
   { value: 'pending', label: 'Sin activar', description: 'PENDING_ACTIVATION + sin activatedAt' },
 ]
@@ -68,8 +69,8 @@ const CONNECTION_OPTIONS: SingleSelectOption<ConnectionOption>[] = [
 type GroupByOption = 'none' | 'venue'
 
 const GROUP_BY_OPTIONS: SingleSelectOption<GroupByOption>[] = [
-  { value: 'none', label: 'Sin agrupar', description: 'Lista plana con sort + search + export' },
-  { value: 'venue', label: 'Por venue', description: 'Agrupar terminals por su venue padre' },
+  { value: 'none', label: 'Sin agrupar', description: 'Lista con búsqueda y exportación' },
+  { value: 'venue', label: 'Por venue', description: 'Agrupar las TPVs de esta página por venue' },
 ]
 
 function formatActiveLabel<V extends string>(
@@ -95,12 +96,8 @@ interface KpiData {
   rest: KpiTile[]
 }
 
-function buildKpis(terminals: Terminal[]): KpiData {
-  const total = terminals.length
-  const online = terminals.filter((t) => isTerminalOnline(t)).length
-  const offline = terminals.filter((t) => !isTerminalOnline(t) && t.status === 'ACTIVE').length
-  const inMaint = terminals.filter((t) => t.status === 'MAINTENANCE').length
-  const pending = terminals.filter((t) => canBeActivated(t)).length
+function buildKpis(stats: FleetPage['stats']): KpiData {
+  const { total, online, offline, pending, maintenance: inMaint } = stats
 
   // Focus = lo accionable. Sin activar es priority 1, mantenimiento priority 2,
   // sino mostramos "Total" como referencia neutral.
@@ -151,144 +148,218 @@ export function TerminalsPage() {
   const [connection, setConnection] = useState<ConnectionOption>('all')
   const [groupBy, setGroupBy] = useState<GroupByOption>('none')
 
-  const [drawerTerminal, setDrawerTerminal] = useState<Terminal | null>(null)
-  const drawerOpen = drawerTerminal !== null
-
-  const query = useTerminals({})
-
-  const filtered = useMemo(() => {
-    let list = query.data ?? []
-    if (statuses.size > 0) list = list.filter((t) => statuses.has(t.status))
-    if (types.size > 0) list = list.filter((t) => types.has(t.type))
-    if (connection === 'online') list = list.filter((t) => isTerminalOnline(t))
-    if (connection === 'offline') {
-      list = list.filter((t) => !isTerminalOnline(t) && !canBeActivated(t))
-    }
-    if (connection === 'pending') list = list.filter((t) => canBeActivated(t))
-    return list
-  }, [query.data, statuses, types, connection])
-
-  const kpis = useMemo(() => (query.data ? buildKpis(query.data) : null), [query.data])
-  const totalCount = query.data?.length ?? 0
-  const filteredCount = filtered.length
-  const hasActiveFilters = statuses.size > 0 || types.size > 0 || connection !== 'all'
+  const [drawerId, setDrawerId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounced(search)
+  const params = {
+    page,
+    pageSize: 25,
+    search: debouncedSearch || undefined,
+    statuses: [...statuses].join(',') || undefined,
+    types: [...types].join(',') || undefined,
+    connection,
+  }
+  const query = useTerminals(params)
+  const detail = useTerminalDetail(drawerId ?? undefined)
+  const drawerTerminal = detail.data ?? query.data?.data.find((t) => t.id === drawerId) ?? null
+  const drawerOpen = drawerId !== null
+  const filtered = query.data?.data ?? []
+  const kpis = query.data ? buildKpis(query.data.stats) : null
+  const totalCount = query.data?.stats.total ?? 0
+  const filteredCount = query.data?.total ?? 0
+  const hasActiveFilters =
+    statuses.size > 0 || types.size > 0 || connection !== 'all' || search !== ''
   const resetAllFilters = () => {
     setStatuses(new Set())
     setTypes(new Set())
     setConnection('all')
+    setSearch('')
+    setPage(1)
+  }
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    setPage(1)
   }
 
-  const columns = useMemo<ColumnDef<Terminal, unknown>[]>(
-    () => [
+  const exportable = {
+    filename: 'tpvs',
+    total: filteredCount,
+    loadRows: () => exportTpvFleet(params),
+    columns: [
+      { key: 'id', header: 'ID', accessor: (t) => t.id, defaultEnabled: true },
       {
-        id: 'terminal',
-        header: 'Terminal',
-        accessorFn: (row) => `${row.name} ${row.serialNumber ?? ''} ${row.venue.name}`,
-        cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={() => setDrawerTerminal(row.original)}
-            className="group block min-w-0 -my-1 -mx-1 w-full rounded-[4px] px-1 py-1 text-left transition-colors hover:bg-[var(--canvas-sunken)]"
-          >
-            <div className="flex items-center gap-2">
-              <p className="truncate text-[13.5px] font-semibold text-[var(--ink)] group-hover:text-[var(--accent)]">
-                {row.original.name}
-              </p>
-              <ConnectionDot terminal={row.original} />
-            </div>
-            <p className="tabular mt-0.5 truncate font-mono text-[10.5px] text-[var(--ink-faint)]">
-              {row.original.serialNumber || 'Sin serial'}
-            </p>
-            <p className="mt-0.5 truncate text-[11.5px] text-[var(--ink-muted)]">
-              {row.original.venue.name}
-            </p>
-          </button>
-        ),
-        meta: { headerClassName: 'min-w-[220px]' },
+        key: 'name',
+        header: 'Nombre',
+        accessor: (t) => t.name,
+        defaultEnabled: true,
       },
       {
-        id: 'status',
-        header: 'Estado',
-        accessorFn: (row) => row.status,
-        cell: ({ row }) => (
-          <div className="flex flex-col items-start gap-1">
-            <Badge tone={TERMINAL_STATUS_TONE[row.original.status]}>
-              {humanizeTerminalStatus(row.original.status)}
-            </Badge>
-            {row.original.isLocked && <Badge tone="danger">Bloqueada</Badge>}
-            {row.original.migration?.inProgress && <Badge tone="warn">Migrando</Badge>}
-          </div>
-        ),
-        meta: { headerClassName: 'w-[150px]' },
+        key: 'serialNumber',
+        header: 'Serial',
+        accessor: (t) => t.serialNumber ?? '',
+        defaultEnabled: true,
       },
       {
-        id: 'type',
+        key: 'type',
         header: 'Tipo',
-        accessorFn: (row) => row.type,
-        cell: ({ row }) => (
-          <div>
-            <Badge tone={TERMINAL_TYPE_TONE[row.original.type]}>
-              {humanizeTerminalType(row.original.type)}
-            </Badge>
-            {(row.original.brand || row.original.model) && (
-              <p className="mt-1 text-[10.5px] text-[var(--ink-faint)]">
-                {[row.original.brand, row.original.model].filter(Boolean).join(' ')}
-              </p>
-            )}
-          </div>
-        ),
-        meta: { headerClassName: 'w-[150px]' },
+        accessor: (t) => humanizeTerminalType(t.type),
+        defaultEnabled: true,
       },
       {
-        id: 'lastHeartbeat',
-        header: 'Último heartbeat',
-        accessorFn: (row) => (row.lastHeartbeat ? new Date(row.lastHeartbeat).getTime() : 0),
-        cell: ({ row }) => {
-          const t = row.original
-          if (!t.lastHeartbeat) {
-            return <span className="text-[11.5px] italic text-[var(--ink-faint)]">Nunca</span>
-          }
-          return (
-            <div>
-              <p className="tabular text-[12.5px] text-[var(--ink)]">
-                {formatRelative(t.lastHeartbeat)}
-              </p>
-              <p className="tabular mt-0.5 text-[10.5px] text-[var(--ink-faint)]">
-                {formatDateTime(t.lastHeartbeat)}
-              </p>
-            </div>
-          )
-        },
-        sortingFn: 'basic',
-        meta: { headerClassName: 'w-[160px]' },
+        key: 'status',
+        header: 'Estado',
+        accessor: (t) => humanizeTerminalStatus(t.status),
+        defaultEnabled: true,
       },
       {
-        id: 'version',
+        key: 'venue',
+        header: 'Venue',
+        accessor: (t) => t.venue.name,
+        defaultEnabled: true,
+      },
+      { key: 'brand', header: 'Marca', accessor: (t) => t.brand ?? '' },
+      { key: 'model', header: 'Modelo', accessor: (t) => t.model ?? '' },
+      {
+        key: 'version',
         header: 'Versión',
-        accessorFn: (row) => row.version ?? '',
-        cell: ({ row }) => (
-          <span className="tabular font-mono text-[12px] text-[var(--ink-muted)]">
-            {row.original.version || '—'}
-          </span>
-        ),
-        meta: { headerClassName: 'w-[110px]' },
+        accessor: (t) => t.version ?? '',
+        defaultEnabled: true,
       },
       {
-        id: '__open',
-        header: () => <span className="sr-only">Abrir</span>,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <IconButton
-            size="sm"
-            onClick={() => setDrawerTerminal(row.original)}
-            aria-label={`Abrir acciones de ${row.original.name}`}
-          >
-            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-          </IconButton>
-        ),
-        meta: { headerClassName: 'w-[48px]' },
+        key: 'lastHeartbeat',
+        header: 'Último contacto',
+        accessor: (t) => t.lastHeartbeat ?? '',
+        defaultEnabled: true,
+      },
+      {
+        key: 'activatedAt',
+        header: 'Activada',
+        accessor: (t) => t.activatedAt ?? '',
+      },
+      { key: 'ipAddress', header: 'IP', accessor: (t) => t.ipAddress ?? '' },
+      {
+        key: 'isLocked',
+        header: 'Bloqueada',
+        accessor: (t) => (t.isLocked ? 'Sí' : 'No'),
       },
     ],
+  } satisfies NonNullable<Parameters<typeof DataTable<Terminal>>[0]['exportable']>
+
+  const columns = useMemo<ColumnDef<Terminal, unknown>[]>(
+    () =>
+      (
+        [
+          {
+            id: 'terminal',
+            header: 'Terminal',
+            accessorFn: (row) => `${row.name} ${row.serialNumber ?? ''} ${row.venue.name}`,
+            cell: ({ row }) => (
+              <button
+                type="button"
+                onClick={() => setDrawerId(row.original.id)}
+                className="group block min-w-0 -my-1 -mx-1 w-full rounded-[4px] px-1 py-1 text-left transition-colors hover:bg-[var(--canvas-sunken)]"
+              >
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-[13.5px] font-semibold text-[var(--ink)] group-hover:text-[var(--accent)]">
+                    {row.original.name}
+                  </p>
+                  <ConnectionDot terminal={row.original} />
+                </div>
+                <p className="tabular mt-0.5 truncate font-mono text-[12px] text-[var(--ink-faint)]">
+                  {row.original.serialNumber || 'Sin serial'}
+                </p>
+                <p className="mt-0.5 truncate text-[11.5px] text-[var(--ink-muted)]">
+                  {row.original.venue.name}
+                </p>
+              </button>
+            ),
+            meta: { headerClassName: 'min-w-[220px]' },
+          },
+          {
+            id: 'status',
+            header: 'Estado',
+            accessorFn: (row) => row.status,
+            cell: ({ row }) => (
+              <div className="flex flex-col items-start gap-1">
+                <Badge tone={TERMINAL_STATUS_TONE[row.original.status]}>
+                  {humanizeTerminalStatus(row.original.status)}
+                </Badge>
+                {row.original.isLocked && <Badge tone="danger">Bloqueada</Badge>}
+                {row.original.migration?.inProgress && <Badge tone="warn">Migrando</Badge>}
+              </div>
+            ),
+            meta: { headerClassName: 'w-[150px]' },
+          },
+          {
+            id: 'type',
+            header: 'Tipo',
+            accessorFn: (row) => row.type,
+            cell: ({ row }) => (
+              <div>
+                <Badge tone={TERMINAL_TYPE_TONE[row.original.type]}>
+                  {humanizeTerminalType(row.original.type)}
+                </Badge>
+                {(row.original.brand || row.original.model) && (
+                  <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
+                    {[row.original.brand, row.original.model].filter(Boolean).join(' ')}
+                  </p>
+                )}
+              </div>
+            ),
+            meta: { headerClassName: 'w-[150px]' },
+          },
+          {
+            id: 'lastHeartbeat',
+            header: 'Último contacto',
+            accessorFn: (row) => (row.lastHeartbeat ? new Date(row.lastHeartbeat).getTime() : 0),
+            cell: ({ row }) => {
+              const t = row.original
+              if (!t.lastHeartbeat) {
+                return <span className="text-[11.5px] italic text-[var(--ink-faint)]">Nunca</span>
+              }
+              return (
+                <div>
+                  <p className="tabular text-[12.5px] text-[var(--ink)]">
+                    {formatRelative(t.lastHeartbeat)}
+                  </p>
+                  <p className="tabular mt-0.5 text-[12px] text-[var(--ink-faint)]">
+                    {formatDateTime(t.lastHeartbeat)}
+                  </p>
+                </div>
+              )
+            },
+            sortingFn: 'basic',
+            meta: { headerClassName: 'w-[160px]' },
+          },
+          {
+            id: 'version',
+            header: 'Versión',
+            accessorFn: (row) => row.version ?? '',
+            cell: ({ row }) => (
+              <span className="tabular font-mono text-[12px] text-[var(--ink-muted)]">
+                {row.original.version || '—'}
+              </span>
+            ),
+            meta: { headerClassName: 'w-[110px]' },
+          },
+          {
+            id: '__open',
+            header: () => <span className="sr-only">Abrir</span>,
+            enableSorting: false,
+            cell: ({ row }) => (
+              <IconButton
+                size="sm"
+                onClick={() => setDrawerId(row.original.id)}
+                aria-label={`Abrir acciones de ${row.original.name}`}
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+              </IconButton>
+            ),
+            meta: { headerClassName: 'w-[48px]' },
+          },
+        ] satisfies ColumnDef<Terminal, unknown>[]
+      ).map((column) => ({ ...column, enableSorting: false })),
     [],
   )
 
@@ -298,16 +369,23 @@ export function TerminalsPage() {
         <div className="min-w-0">
           <p className="eyebrow">Catálogo</p>
           <h1 className="mt-1.5 font-display text-[28px] font-semibold leading-none tracking-[-0.025em] text-[var(--ink)] sm:text-[34px]">
-            Terminals
+            TPVs
           </h1>
           <p className="mt-2 text-[14px] text-[var(--ink-muted)]">
-            La flota de TPVs, impresoras y KDS de la plataforma. Click en una terminal para abrir
-            sus acciones — reiniciar, mantenimiento, actualizar versión, etc.
+            Terminales de pago de la plataforma. Selecciona una TPV para consultar su estado y sus
+            acciones.
             <span className="tabular ml-2 text-[var(--ink-faint)]">
               · zona base {timezoneShort(DEFAULT_TIMEZONE)} ·{' '}
-              {query.dataUpdatedAt > 0 ? `${totalCount} terminals cargados` : 'cargando…'}
+              {query.dataUpdatedAt > 0 ? `${totalCount} TPVs registradas` : 'cargando…'}
             </span>
           </p>
+          {query.dataUpdatedAt > 0 && (
+            <p className="mt-1 text-[13px] text-[var(--ink-faint)]">
+              Conexión a la última consulta:{' '}
+              {formatDateTime(new Date(query.dataUpdatedAt).toISOString())}. Usa Actualizar para
+              comprobarla de nuevo.
+            </p>
+          )}
         </div>
         <Link to="/terminals/new" className={buttonVariants({ size: 'lg', className: 'shrink-0' })}>
           <Plus className="h-3.5 w-3.5" aria-hidden />
@@ -319,7 +397,7 @@ export function TerminalsPage() {
         <QueryError
           className="mb-5"
           error={query.error}
-          context="cargar terminals"
+          context="cargar TPVs"
           onRetry={() => query.refetch()}
           isRetrying={query.isFetching}
         />
@@ -334,38 +412,60 @@ export function TerminalsPage() {
               label="Estado"
               activeLabel={formatActiveLabel(statuses, STATUS_OPTIONS)}
               activeCount={statuses.size}
-              onClear={() => setStatuses(new Set())}
+              onClear={() => {
+                setStatuses(new Set())
+                setPage(1)
+              }}
             >
               <MultiSelectFilterContent
                 title="Estado del terminal"
                 options={STATUS_OPTIONS}
                 selected={statuses}
-                onApply={setStatuses}
+                onApply={(value) => {
+                  setStatuses(value)
+                  setPage(1)
+                }}
               />
             </FilterPill>
             <FilterPill
               label="Tipo"
               activeLabel={formatActiveLabel(types, TYPE_OPTIONS)}
               activeCount={types.size}
-              onClear={() => setTypes(new Set())}
+              onClear={() => {
+                setTypes(new Set())
+                setPage(1)
+              }}
             >
               <MultiSelectFilterContent
                 title="Tipo de terminal"
                 options={TYPE_OPTIONS}
                 selected={types}
-                onApply={setTypes}
+                onApply={(value) => {
+                  setTypes(value)
+                  setPage(1)
+                }}
               />
             </FilterPill>
             <FilterPill
               label="Conexión"
               activeLabel={connection === 'all' ? null : labelForConnection(connection)}
-              onClear={connection !== 'all' ? () => setConnection('all') : undefined}
+              onClear={
+                connection !== 'all'
+                  ? () => {
+                      setConnection('all')
+                      setPage(1)
+                    }
+                  : undefined
+              }
             >
               <SingleSelectFilterContent
                 title="Estado de conexión"
                 options={CONNECTION_OPTIONS}
                 selected={connection}
-                onChange={setConnection}
+                onChange={(value) => {
+                  setConnection(value)
+                  setPage(1)
+                }}
               />
             </FilterPill>
             <span aria-hidden className="mx-1 hidden h-5 w-px bg-[var(--line)] sm:inline-block" />
@@ -375,7 +475,7 @@ export function TerminalsPage() {
               onClear={groupBy !== 'none' ? () => setGroupBy('none') : undefined}
             >
               <SingleSelectFilterContent
-                title="Agrupar terminals por"
+                title="Agrupar TPVs por"
                 options={GROUP_BY_OPTIONS}
                 selected={groupBy}
                 onChange={setGroupBy}
@@ -397,14 +497,22 @@ export function TerminalsPage() {
           return (
             <div>
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <input
+                  aria-label="Buscar TPVs"
+                  value={search}
+                  onChange={(e) => changeSearch(e.target.value)}
+                  placeholder="Buscar por nombre, serial o venue…"
+                  className="h-10 rounded-md border border-[var(--line)] bg-[var(--canvas)] px-3 text-sm"
+                />
                 {toolbar}
+                <ExportDialog data={filtered} {...exportable} />
                 <p className="tabular text-[11.5px] text-[var(--ink-faint)]">
-                  {filteredCount} terminals · agrupados por venue
+                  {filteredCount} TPVs · agrupadas por venue en esta página
                 </p>
               </div>
               <TerminalsByVenueList
                 terminals={filtered}
-                onSelectTerminal={(t) => setDrawerTerminal(t)}
+                onSelectTerminal={(t) => setDrawerId(t.id)}
               />
             </div>
           )
@@ -415,93 +523,58 @@ export function TerminalsPage() {
             data={filtered}
             columns={columns}
             searchPlaceholder="Buscar por nombre, serial o venue…"
-            caption={`Tabla de ${filteredCount} terminals${hasActiveFilters ? ' filtrados' : ''}.`}
-            initialSorting={[{ id: 'lastHeartbeat', desc: true }]}
-            pageSize={25}
+            serverSearch={{ value: search, onChange: changeSearch }}
+            caption={`Tabla de ${filteredCount} TPVs${hasActiveFilters ? ' filtradas' : ''}.`}
             toolbar={toolbar}
             emptyState={{
               title: hasActiveFilters
                 ? 'Ningún terminal coincide con los filtros'
                 : totalCount === 0 && !query.isLoading
-                  ? 'Sin terminals registradas'
-                  : 'Cargando terminals…',
+                  ? 'Sin TPVs registradas'
+                  : 'Cargando TPVs…',
               description: hasActiveFilters
                 ? 'Ajusta los filtros arriba o limpia la selección.'
                 : totalCount === 0 && !query.isLoading
                   ? 'Cuando registres tu primera terminal aparecerá aquí.'
                   : 'Esto debería tardar menos de un segundo.',
             }}
-            exportable={{
-              filename: 'terminals',
-              columns: [
-                { key: 'id', header: 'ID', accessor: (t) => t.id, defaultEnabled: true },
-                {
-                  key: 'name',
-                  header: 'Nombre',
-                  accessor: (t) => t.name,
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'serialNumber',
-                  header: 'Serial',
-                  accessor: (t) => t.serialNumber ?? '',
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'type',
-                  header: 'Tipo',
-                  accessor: (t) => humanizeTerminalType(t.type),
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'status',
-                  header: 'Estado',
-                  accessor: (t) => humanizeTerminalStatus(t.status),
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'venue',
-                  header: 'Venue',
-                  accessor: (t) => t.venue.name,
-                  defaultEnabled: true,
-                },
-                { key: 'brand', header: 'Marca', accessor: (t) => t.brand ?? '' },
-                { key: 'model', header: 'Modelo', accessor: (t) => t.model ?? '' },
-                {
-                  key: 'version',
-                  header: 'Versión',
-                  accessor: (t) => t.version ?? '',
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'lastHeartbeat',
-                  header: 'Último heartbeat',
-                  accessor: (t) => t.lastHeartbeat ?? '',
-                  defaultEnabled: true,
-                },
-                {
-                  key: 'activatedAt',
-                  header: 'Activada',
-                  accessor: (t) => t.activatedAt ?? '',
-                },
-                { key: 'ipAddress', header: 'IP', accessor: (t) => t.ipAddress ?? '' },
-                {
-                  key: 'isLocked',
-                  header: 'Bloqueada',
-                  accessor: (t) => (t.isLocked ? 'Sí' : 'No'),
-                },
-              ],
-              dateAccessor: (t) => t.lastHeartbeat ?? t.createdAt,
-            }}
+            exportable={exportable}
           />
         )
       })()}
+
+      {query.data && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="tabular text-sm text-[var(--ink-muted)]">
+            {filteredCount} TPVs · Página {page} de {Math.max(1, Math.ceil(filteredCount / 25))}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              disabled={page === 1 || query.isFetching}
+              onClick={() => setPage(page - 1)}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={page * 25 >= filteredCount || query.isFetching}
+              onClick={() => setPage(page + 1)}
+            >
+              Siguiente
+            </Button>
+            <Button variant="ghost" disabled={query.isFetching} onClick={() => query.refetch()}>
+              Actualizar
+            </Button>
+          </div>
+        </div>
+      )}
 
       <TerminalActionDrawer
         terminal={drawerTerminal}
         open={drawerOpen}
         onOpenChange={(open) => {
-          if (!open) setDrawerTerminal(null)
+          if (!open) setDrawerId(null)
         }}
       />
     </div>
@@ -550,7 +623,7 @@ function KpiStrip({ data }: { data: KpiData }) {
   const focusActionable = data.focus.tone === 'actionable'
   return (
     <section
-      aria-label="Indicadores de terminals"
+      aria-label="Indicadores de TPVs"
       className="mb-8 flex flex-col gap-px overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--line)] sm:flex-row"
     >
       <article

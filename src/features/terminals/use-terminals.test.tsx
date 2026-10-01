@@ -60,16 +60,23 @@ afterAll(() => server.close())
 describe('useTerminals', () => {
   it('devuelve la lista de terminals mapeada', async () => {
     server.use(
-      http.get(`${baseURL}/superadmin/terminals`, () =>
-        HttpResponse.json({ data: [rawTerminal], count: 1 }),
+      http.get(`${baseURL}/superadmin/terminals/fleet`, () =>
+        HttpResponse.json({
+          data: [rawTerminal],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          stats: { total: 1, online: 1, offline: 0, pending: 0, maintenance: 0 },
+          count: 1,
+        }),
       ),
     )
 
     const { result } = renderHook(() => useTerminals(), { wrapper: AllProviders })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 4000 })
-    expect(result.current.data).toHaveLength(1)
-    expect(result.current.data?.[0].id).toBe('t1')
+    expect(result.current.data?.data).toHaveLength(1)
+    expect(result.current.data?.data[0].id).toBe('t1')
   })
 })
 
@@ -96,7 +103,7 @@ describe('useTerminalDetail', () => {
 describe('useTerminalCommand', () => {
   it('manda comando y resuelve con commandId', async () => {
     server.use(
-      http.post(`${baseURL}/dashboard/tpv/t1/command`, () =>
+      http.post(`${baseURL}/superadmin/terminals/t1/command`, () =>
         HttpResponse.json({ data: { commandId: 'cmd1', status: 'queued' } }),
       ),
     )
@@ -196,7 +203,7 @@ describe('useDeleteTerminal', () => {
 describe('useAppVersions', () => {
   it('devuelve la lista de versiones publicadas', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/superadmin/app-updates`, () =>
+      http.get(`${baseURL}/superadmin/app-updates`, () =>
         HttpResponse.json({
           success: true,
           data: [
@@ -256,7 +263,7 @@ describe('useTpvSettings', () => {
 
   it('fetches settings con terminalId', async () => {
     server.use(
-      http.get(`${baseURL}/dashboard/tpv/t1/settings`, () =>
+      http.get(`${baseURL}/superadmin/terminals/t1/settings`, () =>
         HttpResponse.json({
           data: {
             showReviewScreen: true,
@@ -301,7 +308,7 @@ describe('useTpvSettings', () => {
 describe('useUpdateTpvSettings', () => {
   it('actualiza un patch de settings y resuelve', async () => {
     server.use(
-      http.put(`${baseURL}/dashboard/tpv/t1/settings`, () =>
+      http.put(`${baseURL}/superadmin/terminals/t1/settings`, () =>
         HttpResponse.json({ data: { showQuickPayment: false } as Record<string, unknown> }),
       ),
     )

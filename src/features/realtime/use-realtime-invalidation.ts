@@ -48,9 +48,26 @@ export function useRealtimeInvalidation(): void {
     if (!isAuthenticated || !isSuperadmin) return
 
     const socket = connectSocket()
+    let terminalRefresh: ReturnType<typeof setTimeout> | undefined
+
+    const reconnect = () => {
+      void queryClient.invalidateQueries({ queryKey: ['superadmin', 'terminals'] })
+    }
+    socket.on('connect', reconnect)
 
     const cleanup = EVENT_INVALIDATIONS.map(([event, keys]) => {
       const handler = () => {
+        // Group command acknowledgements from the same burst into one REST refresh.
+        // This timer exists only after an event; it is not periodic polling.
+        if (event === 'superadmin:terminal:status') {
+          if (terminalRefresh === undefined) {
+            terminalRefresh = setTimeout(() => {
+              terminalRefresh = undefined
+              reconnect()
+            }, 500)
+          }
+          return
+        }
         for (const key of keys) {
           void queryClient.invalidateQueries({ queryKey: [...key] })
         }
@@ -60,6 +77,8 @@ export function useRealtimeInvalidation(): void {
     })
 
     return () => {
+      clearTimeout(terminalRefresh)
+      socket.off('connect', reconnect)
       for (const off of cleanup) off()
     }
   }, [isAuthenticated, isSuperadmin, queryClient])

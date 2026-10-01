@@ -9,6 +9,17 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ## [Unreleased]
 
+### Fixed
+
+- Los reintentos de comandos reutilizan su clave de idempotencia. Sincronización remota no implementada se muestra deshabilitada; Nexgo explica actualización mediante TMS.
+
+- TPVs muestra sólo terminales de pago, con búsqueda y paginación en servidor. Agrupar por venue conserva la búsqueda y la exportación completa por páginas; una exportación incompleta falla explícitamente.
+- Migración valida los merchants seleccionados antes del traslado, permite actualizar el estado sin sondeo periódico y muestra fallos/cancelación/vencimiento. El detalle de la terminal se refresca al cambiar.
+- Comandos y ajustes consumen el namespace canónico de superadmin. El historial distingue pendiente, enviado, recibido y completado; instalar versión envía el código numérico publicado. Exportar logs se muestra deshabilitado porque la TPV aún no lo implementa; «Cerrar app» describe el efecto real del comando SHUTDOWN.
+- Un detalle inexistente muestra el error correspondiente en lugar de quedarse cargando; los selectores de merchants filtran compatibilidad con la marca. Los ajustes no reportados se distinguen de los apagados y pueden configurarse explícitamente.
+- Las ráfagas de eventos de TPVs se agrupan en una sola actualización tras 500 ms; no se añade sondeo periódico.
+- El selector de versiones excluye builds de escritorio y versiones retiradas, agrupa sandbox/producción por código y explica que la TPV resuelve su propio entorno.
+
 ### Added
 
 - Editor de campañas de planes, funciones y paquetes a elección con cantidad, precio total, duración y renovación configurables; catálogo paginado, vista previa, duplicación y publicación separada de la activación.

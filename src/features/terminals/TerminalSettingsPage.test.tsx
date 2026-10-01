@@ -85,7 +85,7 @@ const sampleSettings = {
 
 const server = setupServer(
   http.get(`${baseURL}/superadmin/terminals/t1`, () => HttpResponse.json({ data: rawTerminal })),
-  http.get(`${baseURL}/dashboard/tpv/t1/settings`, () =>
+  http.get(`${baseURL}/superadmin/terminals/t1/settings`, () =>
     HttpResponse.json({ data: sampleSettings }),
   ),
   http.get(`${baseURL}/superadmin/onboarding/merchant-accounts`, () =>
@@ -98,6 +98,24 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 describe('TerminalSettingsPage', () => {
+  it('un ajuste no reportado no se presenta como desactivado', async () => {
+    server.use(
+      http.get(`${baseURL}/superadmin/terminals/t1/settings`, () =>
+        HttpResponse.json({ data: { ...sampleSettings, enableCardPayments: undefined } }),
+      ),
+    )
+    renderWithProviders(
+      <Routes>
+        <Route path="/terminals/:terminalId/settings" element={<TerminalSettingsPage />} />
+      </Routes>,
+      { initialEntries: ['/terminals/t1/settings'] },
+    )
+    const card = await screen.findByRole('checkbox', { name: 'Pagos con tarjeta' })
+    expect(card).toBePartiallyChecked()
+    expect(screen.getByText('Valor no reportado')).toBeInTheDocument()
+    fireEvent.click(card)
+    expect(card).toBeChecked()
+  })
   it('renderiza header con el nombre y las secciones', async () => {
     renderWithProviders(
       <Routes>
@@ -141,10 +159,7 @@ describe('TerminalSettingsPage', () => {
     expect(screen.getByText('Pagos y captura')).toBeInTheDocument()
   })
 
-  // TODO: el componente tiene un bug — la rama `if (detailQuery.isLoading || !terminal)`
-  // gana sobre `if (terminal === null)` así que "Terminal no encontrada" es unreachable
-  // en la práctica. Skip hasta que se arregle el orden de las condiciones.
-  it.skip('muestra mensaje de "Terminal no encontrada" cuando el detail devuelve null (404)', async () => {
+  it('muestra mensaje de "Terminal no encontrada" cuando el detail devuelve null (404)', async () => {
     server.use(
       http.get(`${baseURL}/superadmin/terminals/missing`, () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),

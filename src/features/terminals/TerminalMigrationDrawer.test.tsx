@@ -136,28 +136,43 @@ describe('TerminalMigrationDrawer — step order', () => {
     expect(preflightCalled).toBe(false)
   }, 15000)
 
-  it('al omitir el paso de staff corre el preflight y avanza a la verificación', async () => {
-    const user = userEvent.setup({ delay: null })
-    renderWithProviders(
-      <TerminalMigrationDrawer terminal={makeTerminal()} open onOpenChange={() => {}} />,
-    )
+  it.each([undefined, 2])(
+    'al omitir staff verifica y explica el restablecimiento del protocolo %s',
+    async (commandProtocolVersion) => {
+      const user = userEvent.setup({ delay: null })
+      renderWithProviders(
+        <TerminalMigrationDrawer
+          terminal={makeTerminal({ commandProtocolVersion })}
+          open
+          onOpenChange={() => {}}
+        />,
+      )
 
-    const venueCombo = await screen.findByRole('button', { name: /selecciona venue destino/i })
-    await user.click(venueCombo)
-    await waitFor(() => expect(screen.getByText('Sucursal Norte')).toBeInTheDocument())
-    await user.click(screen.getByText('Sucursal Norte'))
-    await user.click(screen.getByRole('button', { name: /verificar destino/i }))
+      const venueCombo = await screen.findByRole('button', { name: /selecciona venue destino/i })
+      await user.click(venueCombo)
+      await waitFor(() => expect(screen.getByText('Sucursal Norte')).toBeInTheDocument())
+      await user.click(screen.getByText('Sucursal Norte'))
+      await user.click(screen.getByRole('button', { name: /verificar destino/i }))
 
-    await waitFor(() => expect(screen.getByText('Dar acceso en el destino')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Dar acceso en el destino')).toBeInTheDocument())
 
-    // Omitir → corre preflight → muestra el resultado de la verificación.
-    await user.click(screen.getByRole('button', { name: /^omitir$/i }))
+      // Omitir → corre preflight → muestra el resultado de la verificación.
+      await user.click(screen.getByRole('button', { name: /^omitir$/i }))
 
-    await waitFor(() => expect(preflightCalled).toBe(true))
-    await waitFor(() =>
-      expect(screen.getByText('Resultado de la verificación')).toBeInTheDocument(),
-    )
-  }, 15000)
+      await waitFor(() => expect(preflightCalled).toBe(true))
+      await waitFor(() =>
+        expect(screen.getByText('Resultado de la verificación')).toBeInTheDocument(),
+      )
+      expect(
+        screen.getByText(
+          commandProtocolVersion === 2
+            ? /conservará la evidencia de pagos/
+            : /borrará sus datos locales/,
+        ),
+      ).toBeInTheDocument()
+    },
+    15000,
+  )
 })
 
 // Asana 1218069201250971 (2026-09-01): un blocker MIGRATION_IN_PROGRESS ya no es un

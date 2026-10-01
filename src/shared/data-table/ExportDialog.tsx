@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Download } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Checkbox } from '@/shared/ui/Checkbox'
@@ -24,6 +25,8 @@ type ExportFormat = 'csv' | 'xlsx'
 
 interface ExportDialogProps<T> {
   data: T[]
+  loadRows?: () => Promise<T[]>
+  total?: number
   columns: ExportableColumn<T>[]
   filename: string
   /**
@@ -36,6 +39,8 @@ interface ExportDialogProps<T> {
 
 export function ExportDialog<T>({
   data,
+  loadRows,
+  total,
   columns,
   filename,
   dateAccessor,
@@ -83,15 +88,16 @@ export function ExportDialog<T>({
   const handleExport = async () => {
     const datedFilename =
       fromDate || toDate ? `${filename}-${fromDate || 'inicio'}-${toDate || 'fin'}` : filename
-    if (format === 'xlsx') {
-      setExporting(true)
-      try {
-        await downloadXlsx(filteredRows, enabledColumns, datedFilename)
-      } finally {
-        setExporting(false)
-      }
-    } else {
-      downloadCsv(rowsToCsv(filteredRows, enabledColumns), datedFilename)
+    setExporting(true)
+    try {
+      const rows = loadRows ? await loadRows() : filteredRows
+      if (format === 'xlsx') await downloadXlsx(rows, enabledColumns, datedFilename)
+      else downloadCsv(rowsToCsv(rows, enabledColumns), datedFilename)
+    } catch {
+      toast.error('No se pudo completar la exportación. Intenta de nuevo.')
+      return
+    } finally {
+      setExporting(false)
     }
     setOpen(false)
   }
@@ -112,7 +118,9 @@ export function ExportDialog<T>({
           <DialogDescription>
             Escoge el formato y las columnas
             {dateAccessor ? ' y, si quieres, un rango de fechas' : ''}. Se exportan únicamente las
-            filas ya visibles después de filtrar y buscar.
+            {loadRows
+              ? `${total ?? 0} filas que coinciden con los filtros, de todas las páginas.`
+              : 'filas ya visibles después de filtrar y buscar.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -203,7 +211,8 @@ export function ExportDialog<T>({
         </div>
 
         <p className="mt-3 text-[11.5px] text-[var(--ink-faint)]">
-          {filteredRows.length} fila{filteredRows.length === 1 ? '' : 's'} serán exportadas
+          {total ?? filteredRows.length} fila{(total ?? filteredRows.length) === 1 ? '' : 's'} serán
+          exportadas
           {' · '}
           {enabledColumns.length} columna{enabledColumns.length === 1 ? '' : 's'}.
         </p>
@@ -212,7 +221,9 @@ export function ExportDialog<T>({
           <Button
             type="button"
             onClick={handleExport}
-            disabled={exporting || enabledColumns.length === 0 || filteredRows.length === 0}
+            disabled={
+              exporting || enabledColumns.length === 0 || (total ?? filteredRows.length) === 0
+            }
           >
             {exporting ? 'Generando…' : 'Descargar'}
           </Button>

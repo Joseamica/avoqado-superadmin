@@ -1,13 +1,4 @@
-/**
- * API client del feature Terminals.
- *
- * Namespaces que usamos:
- *   - Listado / CRUD / activación: `/api/v1/superadmin/terminals*`
- *     (namespace canónico — response shape `{ data, count }`).
- *   - Comandos genéricos (RESTART, CLEAR_CACHE, etc.): `/api/v1/dashboard/tpv/:id/command`
- *     (sin wrapper, devuelve objeto directo). Es el endpoint que el dashboard
- *     legacy y el mobile dashboard usan — battle-tested.
- */
+/** API de TPVs en el namespace canónico de superadmin. */
 
 import { api } from '@/shared/lib/api'
 import type { Terminal, TerminalStatus, TerminalType, TpvCommand } from './types'
@@ -22,6 +13,7 @@ interface TerminalsListResponse {
 }
 
 interface TerminalRawResponse {
+  commandProtocolVersion?: number | null
   id: string
   serialNumber: string | null
   name: string
@@ -74,6 +66,7 @@ function mapTerminal(raw: TerminalRawResponse): Terminal {
     activationCode: raw.activationCode,
     activationCodeExpiry: raw.activationCodeExpiry,
     activatedAt: raw.activatedAt,
+    commandProtocolVersion: raw.commandProtocolVersion,
     venueId: raw.venueId,
     venue: raw.venue,
     migration: raw.migration ?? null,
@@ -92,8 +85,64 @@ export async function fetchTerminals(params: FetchTerminalsParams = {}): Promise
   const { data } = await api.get<TerminalsListResponse>(SUPERADMIN_TERMINALS_PATH, {
     params,
   })
-  if (!Array.isArray(data?.data)) return []
+  if (!Array.isArray(data?.data)) throw new Error('Respuesta inválida al cargar las TPVs')
   return data.data.map(mapTerminal)
+}
+
+export interface FleetParams {
+  page?: number
+  pageSize?: number
+  search?: string
+  statuses?: string
+  types?: string
+  connection?: 'all' | 'online' | 'offline' | 'pending'
+}
+export interface FleetPage {
+  data: Terminal[]
+  total: number
+  page: number
+  pageSize: number
+  stats: { total: number; online: number; offline: number; pending: number; maintenance: number }
+}
+export async function fetchTpvFleet(params: FleetParams = {}): Promise<FleetPage> {
+  const { data } = await api.get<FleetPage>(`${SUPERADMIN_TERMINALS_PATH}/fleet`, { params })
+  if (
+    !Array.isArray(data?.data) ||
+    !Number.isSafeInteger(data.total) ||
+    data.total < 0 ||
+    !data.stats ||
+    !Number.isSafeInteger(data.page) ||
+    data.page < 1 ||
+    !Number.isSafeInteger(data.pageSize) ||
+    data.pageSize < 1 ||
+    data.pageSize > 100
+  ) {
+    throw new Error('Respuesta inválida al cargar las TPVs')
+  }
+  return { ...data, data: data.data.map(mapTerminal) }
+}
+
+/** Only invoked by the explicit export action, one bounded page at a time. */
+export async function exportTpvFleet(params: FleetParams): Promise<Terminal[]> {
+  const rows = new Map<string, Terminal>()
+  let expectedTotal: number | undefined
+  for (let page = 1; ; page++) {
+    const result = await fetchTpvFleet({ ...params, page, pageSize: 100 })
+    expectedTotal ??= result.total
+    if (
+      result.total !== expectedTotal ||
+      result.page !== page ||
+      (result.data.length === 0 && rows.size < expectedTotal)
+    ) {
+      throw new Error('La flota cambió durante la exportación. Actualiza y vuelve a exportar.')
+    }
+    for (const terminal of result.data) {
+      if (rows.has(terminal.id))
+        throw new Error('La flota cambió durante la exportación. Actualiza y vuelve a exportar.')
+      rows.set(terminal.id, terminal)
+    }
+    if (rows.size >= expectedTotal) return [...rows.values()]
+  }
 }
 
 export async function fetchTerminalDetail(terminalId: string): Promise<Terminal | null> {
@@ -102,6 +151,7 @@ export async function fetchTerminalDetail(terminalId: string): Promise<Terminal 
       `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}`,
     )
     if (!data?.data) return null
+    if (!['TPV_ANDROID', 'TPV_IOS'].includes(data.data.type)) return null
     return mapTerminal(data.data)
   } catch (error) {
     if ((error as { response?: { status?: number } })?.response?.status === 404) {
@@ -206,10 +256,11 @@ export interface PendingWipe {
 export async function migratePreflight(
   terminalId: string,
   toVenueId: string,
+  assignedMerchantIds?: string[],
 ): Promise<MigratePreflightResult> {
   const { data } = await api.post<{ data: MigratePreflightResult }>(
     `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/migrate-preflight`,
-    { toVenueId },
+    { toVenueId, assignedMerchantIds },
   )
   if (!data?.data) throw new Error('Server returned empty response for migratePreflight')
   return data.data
@@ -242,11 +293,13 @@ export async function migrateExecute(
 }
 
 /**
- * Estado en vivo de una migración. El polling se detiene cuando `confirmed`
- * es `true` (la terminal reapareció online bajo el venue destino).
+ * Estado de una migración, consultado al abrir, actualizar o recibir un evento.
+ * `confirmed` requiere que la terminal reaparezca bajo el venue destino.
  */
 export interface MigrateStatusResult {
+  cancellable?: boolean
   commandStatus: string
+  resultMessage?: string | null
   commandDelivered: boolean
   reboundAfterWipe: boolean
   currentlyOnline: boolean
@@ -416,12 +469,18 @@ export async function sendCommand(
   terminalId: string,
   command: TpvCommand,
   payload?: Record<string, unknown>,
+  idempotencyKey?: string,
 ): Promise<{ commandId: string; status: string }> {
   const { data } = await api.post<{ data: { commandId: string; status: string } }>(
-    `/dashboard/tpv/${encodeURIComponent(terminalId)}/command`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/command`,
     { command, payload },
+    { headers: { 'Idempotency-Key': idempotencyKey ?? crypto.randomUUID() } },
   )
-  return data?.data ?? { commandId: '', status: 'queued' }
+  if (!data?.data?.commandId)
+    throw new Error(
+      'El servidor no confirmó el comando. Consulta su historial antes de reintentar.',
+    )
+  return data.data
 }
 
 export async function deleteTerminal(terminalId: string): Promise<void> {
@@ -471,6 +530,23 @@ export interface MerchantAccountOption {
   alias: string | null
   externalMerchantId: string | null
   providerName: string
+  providerCode?: string
+}
+
+/** UI hint; the backend validates the same hardware/provider contract before writing. */
+export function compatibleMerchants(
+  accounts: MerchantAccountOption[],
+  brand: string | null,
+): MerchantAccountOption[] {
+  if (!brand) return accounts
+  return accounts.filter((account) => {
+    const code = account.providerCode
+    return code === 'BLUMON'
+      ? brand.toUpperCase() === 'PAX'
+      : code === 'ANGELPAY'
+        ? brand.toUpperCase() === 'NEXGO'
+        : true
+  })
 }
 
 interface MerchantAccountsResponse {
@@ -479,7 +555,7 @@ interface MerchantAccountsResponse {
     displayName: string
     alias: string | null
     externalMerchantId: string | null
-    provider: { name: string } | null
+    provider: { name: string; code?: string } | null
   }>
 }
 
@@ -541,7 +617,7 @@ export interface TpvSettings {
 
 export async function fetchTpvSettings(terminalId: string): Promise<TpvSettings> {
   const { data } = await api.get<{ data: TpvSettings } | TpvSettings>(
-    `/dashboard/tpv/${encodeURIComponent(terminalId)}/settings`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/settings`,
   )
   // El endpoint a veces devuelve `{ data: settings }` y a veces el objeto
   // directo dependiendo de la versión del controller — soportamos ambos.
@@ -554,7 +630,7 @@ export async function updateTpvSettings(
   patch: Partial<TpvSettings>,
 ): Promise<TpvSettings> {
   const { data } = await api.put<{ data: TpvSettings } | TpvSettings>(
-    `/dashboard/tpv/${encodeURIComponent(terminalId)}/settings`,
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/settings`,
     patch,
   )
   const obj = (data as { data?: TpvSettings })?.data ?? (data as TpvSettings)
@@ -572,6 +648,7 @@ export async function fetchMerchantAccounts(): Promise<MerchantAccountOption[]> 
     alias: a.alias,
     externalMerchantId: a.externalMerchantId,
     providerName: a.provider?.name ?? '—',
+    providerCode: a.provider?.code,
   }))
 }
 
@@ -579,14 +656,13 @@ export async function fetchMerchantAccounts(): Promise<MerchantAccountOption[]> 
 
 /**
  * Una versión publicada del AvoqadoPOS — alimenta el dropdown de
- * `INSTALL_VERSION`. El backend solo retorna versiones `isActive=true` por
- * default; las retiradas no aparecen.
+ * `INSTALL_VERSION`. Se omiten las retiradas y las de otras plataformas.
  */
 export interface AppVersion {
   id: string
   versionName: string
   versionCode: number
-  environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT'
+  environment: 'PRODUCTION' | 'SANDBOX'
   releaseNotes: string | null
   updateMode: 'NONE' | 'BANNER' | 'FORCE'
   /** Cuándo se subió a Firebase Storage. */
@@ -600,7 +676,8 @@ interface AppUpdatesResponse {
     id: string
     versionName: string
     versionCode: number
-    environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT'
+    environment: 'PRODUCTION' | 'SANDBOX'
+    platform?: string
     releaseNotes: string | null
     updateMode: 'NONE' | 'BANNER' | 'FORCE'
     createdAt: string
@@ -609,16 +686,35 @@ interface AppUpdatesResponse {
 }
 
 export async function fetchAppVersions(): Promise<AppVersion[]> {
-  const { data } = await api.get<AppUpdatesResponse>('/dashboard/superadmin/app-updates')
+  const { data } = await api.get<AppUpdatesResponse>('/superadmin/app-updates')
   if (!Array.isArray(data?.data)) return []
-  return data.data.map((u) => ({
-    id: u.id,
-    versionName: u.versionName,
-    versionCode: u.versionCode,
-    environment: u.environment,
-    releaseNotes: u.releaseNotes,
-    updateMode: u.updateMode,
-    createdAt: u.createdAt,
-    isActive: u.isActive,
-  }))
+  return data.data
+    .filter((u) => u.isActive && (!u.platform || u.platform === 'ANDROID_TPV'))
+    .map((u) => ({
+      id: u.id,
+      versionName: u.versionName,
+      versionCode: u.versionCode,
+      environment: u.environment,
+      releaseNotes: u.releaseNotes,
+      updateMode: u.updateMode,
+      createdAt: u.createdAt,
+      isActive: u.isActive,
+    }))
+}
+
+export interface TerminalCommandRecord {
+  id: string
+  commandType: TpvCommand
+  status: string
+  createdAt: string
+  expiresAt: string | null
+  resultMessage: string | null
+}
+export async function fetchTerminalCommands(terminalId: string, page: number) {
+  const { data } = await api.get<{ data: TerminalCommandRecord[]; total: number; page: number }>(
+    `${SUPERADMIN_TERMINALS_PATH}/${encodeURIComponent(terminalId)}/commands`,
+    { params: { page } },
+  )
+  if (!Array.isArray(data?.data)) throw new Error('No se pudo leer el historial de comandos')
+  return data
 }

@@ -32,6 +32,8 @@ export interface DataTableProps<TData> {
   /** Si se pasa, muestra botón "Exportar" con dialog (CSV o Excel). */
   exportable?: {
     filename: string
+    loadRows?: () => Promise<TData[]>
+    total?: number
     columns: (CSVColumn<TData> & { defaultEnabled?: boolean })[]
     dateAccessor?: (row: TData) => Date | string | null
   }
@@ -154,6 +156,8 @@ export function DataTable<TData>({
             data={table.getFilteredRowModel().rows.map((r) => r.original)}
             columns={exportable.columns}
             filename={exportable.filename}
+            loadRows={exportable.loadRows}
+            total={exportable.total}
             dateAccessor={exportable.dateAccessor}
           />
         )}

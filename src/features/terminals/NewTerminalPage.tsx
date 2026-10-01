@@ -1,3 +1,4 @@
+import { compatibleMerchants } from './api'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, Copy, KeyRound, Loader2, Smartphone } from 'lucide-react'
@@ -43,24 +44,6 @@ const TYPE_OPTIONS: ComboboxOption[] = [
     label: 'TPV iOS',
     description: 'iPad / iPhone con AvoqadoPOS',
     searchTokens: 'tpv ios ipad iphone',
-  },
-  {
-    value: 'PRINTER_RECEIPT',
-    label: 'Impresora de tickets',
-    description: 'Star Micronics, Epson, etc.',
-    searchTokens: 'impresora ticket recibo',
-  },
-  {
-    value: 'PRINTER_KITCHEN',
-    label: 'Impresora de cocina',
-    description: 'Impresora térmica para órdenes',
-    searchTokens: 'impresora cocina kitchen',
-  },
-  {
-    value: 'KDS',
-    label: 'KDS',
-    description: 'Kitchen Display System',
-    searchTokens: 'kds kitchen display',
   },
 ]
 
@@ -116,8 +99,6 @@ const BRAND_OPTIONS: ComboboxOption[] = [
   { value: 'NEXGO', label: 'NEXGO', description: 'N3, N5, N86' },
   { value: 'VERIFONE', label: 'Verifone', description: 'V200c, V240m' },
   { value: 'INGENICO', label: 'Ingenico', description: 'Lane series, Move series' },
-  { value: 'Star Micronics', label: 'Star Micronics', description: 'Impresoras' },
-  { value: 'Epson', label: 'Epson', description: 'Impresoras térmicas' },
   { value: 'Apple', label: 'Apple', description: 'iPad / iPhone' },
 ]
 
@@ -159,7 +140,10 @@ export function NewTerminalPage() {
       }))
   }, [venuesQuery.data])
 
-  const merchantOptions = useMemo(() => merchantsQuery.data ?? [], [merchantsQuery.data])
+  const merchantOptions = useMemo(
+    () => compatibleMerchants(merchantsQuery.data ?? [], form.brand),
+    [merchantsQuery.data, form.brand],
+  )
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -291,8 +275,8 @@ export function NewTerminalPage() {
           Registrar terminal
         </h1>
         <p className="mt-3 max-w-[540px] text-[14px] text-[var(--ink-muted)]">
-          Alta de TPV, impresora o KDS. Elige si el técnico usará un código, si quedará pendiente o
-          si debe reconocerse como activada en cuanto se encienda y tenga internet.
+          Alta de terminal de pago. Elige si el técnico usará un código, si quedará pendiente o si
+          debe reconocerse como activada en cuanto se encienda y tenga internet.
         </p>
       </header>
 
@@ -382,7 +366,16 @@ export function NewTerminalPage() {
               <FormField id="brand" label="Marca">
                 <Combobox
                   value={form.brand}
-                  onChange={(v) => update('brand', v)}
+                  onChange={(brand) => {
+                    const allowed = new Set(
+                      compatibleMerchants(merchantsQuery.data ?? [], brand).map((m) => m.id),
+                    )
+                    setForm((prev) => ({
+                      ...prev,
+                      brand,
+                      merchantIds: new Set([...prev.merchantIds].filter((id) => allowed.has(id))),
+                    }))
+                  }}
                   options={BRAND_OPTIONS}
                   placeholder="PAX, NEXGO, Apple…"
                   searchPlaceholder="Buscar marca…"
