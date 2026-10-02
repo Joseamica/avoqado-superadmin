@@ -204,6 +204,29 @@ describe('PercentPromotionForm', () => {
     expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeDisabled()
   })
 
+  it('warns per function of another active promotion whose window meets this one, without blocking it (spec §4.4)', async () => {
+    previewAnswers([
+      {
+        ...previewRows[0],
+        overlaps: [{ campaignId: 'c9', name: 'Septiembre 20 % · Facturación CFDI', price: 159.2 }],
+      },
+      { ...previewRows[1], overlaps: [] },
+    ])
+    const { user } = show()
+    await fill(user)
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+    const table = await screen.findByRole('table', { name: 'Vista previa del descuento' })
+    const cfdi = within(table).getByText('Facturación CFDI').closest('tr') as HTMLElement
+    expect(
+      within(cfdi).getByText(
+        'Ya hay otra promoción activa: Septiembre 20 % · Facturación CFDI $159.20',
+      ),
+    ).toBeInTheDocument()
+    const reorder = within(table).getByText('Reorden automático').closest('tr') as HTMLElement
+    expect(within(reorder).queryByText(/Ya hay otra promoción activa/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Crear descuento' })).toBeEnabled()
+  })
+
   it('creates the reviewed group once nothing is under $10, and hands back its id', async () => {
     previewAnswers(previewRows)
     const created: unknown[] = []

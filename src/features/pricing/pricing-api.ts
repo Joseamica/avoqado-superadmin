@@ -91,8 +91,13 @@ export const saveListPrice = async (row: ListPriceRow, price: number) =>
     })
   ).data.data
 
-export const retryListPrice = async (productKey: string) =>
-  (await api.post<{ data: ListPriceRow }>(`${path(productKey)}/retry`)).data.data
+/** Finishes the pending price of the row revision the admin saw; a newer save makes it `HYBRID_LIST_SUPERSEDED`. */
+export const retryListPrice = async (productKey: string, expectedRevision: number | null) =>
+  (
+    await api.post<{ data: ListPriceRow }>(`${path(productKey)}/retry`, {
+      expectedRevision: expectedRevision ?? undefined,
+    })
+  ).data.data
 
 export const setListStatus = async (row: ListPriceRow, status: 'ACTIVE' | 'PAUSED') =>
   (

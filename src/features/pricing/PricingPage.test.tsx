@@ -257,6 +257,7 @@ describe('PricingPage', () => {
 
   it('shows a price Stripe could not prepare as pending, with «Reintentar», instead of an error', async () => {
     let retries = 0
+    let retryBody: unknown = null
     server.use(
       http.put(`${BASE}/hybrid-pricing/lists/:productKey`, () =>
         HttpResponse.json(
@@ -269,8 +270,9 @@ describe('PricingPage', () => {
           { status: 409 },
         ),
       ),
-      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, () => {
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, async ({ request }) => {
         retries += 1
+        retryBody = await request.json()
         return HttpResponse.json({ success: true, data: { ...cfdi, revision: 5, price: 249 } })
       }),
     )
@@ -281,6 +283,8 @@ describe('PricingPage', () => {
     expect(await within(dialog).findByText('Precio nuevo pendiente: $249.00')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Reintentar' }))
     await waitFor(() => expect(retries).toBe(1))
+    // The pending price this 409 reported (revision 4), even if the board still shows the row from before the save.
+    expect(retryBody).toEqual({ expectedRevision: 4 })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
@@ -306,9 +310,11 @@ describe('PricingPage', () => {
 
   it('keeps a price that Stripe has not confirmed visible and retries it', async () => {
     let retried = ''
+    let body: unknown = null
     server.use(
-      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, ({ request }) => {
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, async ({ request }) => {
         retried = new URL(request.url).pathname
+        body = JSON.parse((await request.text()) || 'null')
         const row = pricingBoard.find((r) => r.productKey === 'FEATURE:INVENTORY_TRACKING')!
         return HttpResponse.json({
           success: true,
@@ -327,6 +333,8 @@ describe('PricingPage', () => {
         '/api/v1/superadmin/hybrid-pricing/lists/FEATURE%3AINVENTORY_TRACKING/retry',
       ),
     )
+    // The pending price on screen is the one retried: the server refuses it if a newer save replaced it.
+    expect(body).toEqual({ expectedRevision: 1 })
   })
 
   it('shows who pays a previous rate, with the reason in Spanish and server pagination', async () => {
@@ -421,6 +429,17 @@ describe('PricingPage', () => {
       ),
     ).toBeInTheDocument()
     expect(within(drawer).getByText(/60 contratos de 3 negocios/)).toBeInTheDocument()
+
+    // «Buscar en esta página» filters the page by business or by organization.
+    const search = within(drawer).getByPlaceholderText('Buscar en esta página')
+    await user.type(search, 'Mindform')
+    await waitFor(() => expect(within(drawer).queryByText('Testarudo')).toBeNull())
+    expect(within(drawer).getAllByText('Mindform')).not.toHaveLength(0)
+    await user.clear(search)
+    await user.type(search, 'SA')
+    await waitFor(() => expect(within(drawer).queryByText('Mindform')).toBeNull())
+    expect(within(drawer).getByText('Testarudo SA')).toBeInTheDocument()
+    await user.clear(search)
 
     await user.click(within(drawer).getByRole('button', { name: 'Siguiente' }))
     await waitFor(() => expect(pages).toEqual(['1', '2']))

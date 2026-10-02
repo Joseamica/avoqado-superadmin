@@ -195,6 +195,8 @@ export interface PercentPreviewRow {
   renewalPrice: number | null
   status: 'OK' | 'NO_LIST' | 'BELOW_MINIMUM'
   requires: string[]
+  /** Other ACTIVE promotions of the function whose window meets this one: a warning, never a block (older servers omit it). */
+  overlaps?: { campaignId: string; name: string; price: number }[]
 }
 export type PercentGroupStatus = 'ACTIVE' | 'PAUSED' | 'ENDED'
 export interface PercentGroup {

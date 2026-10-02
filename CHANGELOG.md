@@ -91,6 +91,12 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
   - **Los botones de un descuento % se apagan mientras la lista se recarga** tras una acción: un segundo clic ya no choca con la revisión vieja.
   - **«Descuento %» rechaza una vigencia que ya terminó** en el propio campo, antes de «Revisar».
 
+- **Precios y Descuentos %, auditoría de Codex.**
+  - **«Reintentar» termina el precio pendiente que estás viendo**: manda la revisión de la fila (o la que trajo el rechazo de Stripe en el diálogo); si alguien guardó otro precio mientras tanto, el servidor lo rechaza (`HYBRID_LIST_SUPERSEDED`), la pantalla recarga y lo dice, en vez de publicar el precio del otro. Requiere el servidor con `expectedRevision` en `/retry` (uno anterior lo ignora).
+  - **La vista previa de «Descuento %» avisa del traslape** (spec §4.4): en cada función con otra promoción activa cuya vigencia coincide, «Ya hay otra promoción activa: <nombre> $X». Es un aviso: no impide crear el descuento. Con un servidor anterior no aparece.
+  - **Activar un descuento cuya lista bajó** ya no dice «Error HTTP 409»: «El precio de lista bajó: recalcula antes de activar», con el mensaje del servidor.
+  - **El buscador de «Ver quiénes» filtra** por negocio y organización (antes no encontraba ninguna columna que buscar).
+
 - **El selector de funciones del editor de campañas ya no guarda el borrador solo.** Sus botones «Anterior»/«Siguiente» eran de envío (un `<Button>` sin `type` dentro del formulario): con la oferta revisada, paginar el catálogo —o dar Enter en su buscador— guardaba el borrador. Ahora son `type="button"` y Enter en el buscador no envía el formulario.
 
 - **Dos tablas en la misma página ya no comparten el buscador.** `DataTable` usaba `id="dt-search"` fijo: con dos tablas (Precios; Planes y funciones con Descuentos % y Campañas) la etiqueta de la segunda apuntaba al buscador de la primera. Ahora cada tabla tiene su propio id (`useId`).

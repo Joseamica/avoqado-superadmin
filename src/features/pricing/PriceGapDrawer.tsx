@@ -34,6 +34,8 @@ const money = (value: string) => (
 const baseColumns: ColumnDef<PriceGapVenueRow, unknown>[] = [
   {
     id: 'venue',
+    // What «Buscar en esta página» matches: the business and its organization.
+    accessorFn: (row) => `${row.venueName} ${row.organizationName}`,
     header: 'Negocio',
     cell: ({ row }) => (
       <div>

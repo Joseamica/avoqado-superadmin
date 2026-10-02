@@ -49,7 +49,8 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
   const invalidate = useInvalidatePricing()
   const [value, setValue] = useState(row.price === null ? '' : String(row.price))
   const [violations, setViolations] = useState<RuleViolation[] | null>(null)
-  const [pendingPrice, setPendingPrice] = useState<number | null>(null)
+  // The pending price a save left behind, with the list revision that holds it (the one «Reintentar» finishes).
+  const [pending, setPending] = useState<{ price: number; revision: number | null } | null>(null)
   const price = Number(value)
   const groups = row.activeGroups ?? []
   const valid = PESOS.test(value) && price >= MIN_PRICE && price <= MAX_PRICE
@@ -72,7 +73,8 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
     void invalidate()
     if (code === 'HYBRID_LIST_PREPARING') {
       setViolations(null)
-      setPendingPrice((details as ListPriceRow | undefined)?.pendingPrice ?? price)
+      const left = details as ListPriceRow | undefined
+      setPending({ price: left?.pendingPrice ?? price, revision: left?.revision ?? row.revision })
       return
     }
     if (isStale(code)) {
@@ -89,13 +91,13 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
     // This very price already pending (e.g. refused after it was created) is finished, not published again.
     mutationFn: () =>
       row.pendingPrice !== null && row.pendingPrice === price
-        ? retryListPrice(row.productKey)
+        ? retryListPrice(row.productKey, row.revision)
         : saveListPrice(row, price),
     onSuccess: finish,
     onError: fail,
   })
   const retry = useMutation({
-    mutationFn: () => retryListPrice(row.productKey),
+    mutationFn: () => retryListPrice(row.productKey, pending?.revision ?? row.revision),
     onSuccess: finish,
     onError: fail,
   })
@@ -142,7 +144,7 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
           onChange={(event) => {
             setValue(event.target.value)
             setViolations(null)
-            setPendingPrice(null)
+            setPending(null)
           }}
           error={
             value !== '' && !valid
@@ -199,13 +201,13 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
           </section>
         )}
 
-        {pendingPrice !== null && (
+        {pending !== null && (
           <section
             aria-label="Precio pendiente"
             className="space-y-3 rounded-[8px] bg-[var(--warn-faint)] p-3"
           >
             <p className="tabular text-[13px] text-[var(--ink)]">
-              {`Precio nuevo pendiente: ${formatMoney(pendingPrice)}`}
+              {`Precio nuevo pendiente: ${formatMoney(pending.price)}`}
             </p>
             <p className="text-[12.5px] text-[var(--ink-muted)]">
               Stripe no terminó de prepararlo. El precio anterior se sigue vendiendo mientras tanto.

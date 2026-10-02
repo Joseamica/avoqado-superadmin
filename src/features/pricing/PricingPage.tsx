@@ -90,7 +90,7 @@ export default function PricingPage() {
     toast.error(issue.title, { description: issue.serverMessage ?? issue.description })
   }
   const retry = useMutation({
-    mutationFn: (row: ListPriceRow) => retryListPrice(row.productKey),
+    mutationFn: (row: ListPriceRow) => retryListPrice(row.productKey, row.revision),
     onSuccess: (updated, row) => {
       void invalidate()
       // With nothing pending the server returns the row as it was: nothing new went on sale.

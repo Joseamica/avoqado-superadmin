@@ -144,6 +144,12 @@ export function PercentPromotionForm({ onCreated }: { onCreated: (groupId: strin
               {`Requiere ${names.data?.get(code) ?? code}`}
             </p>
           ))}
+          {/* Spec §4.4: two promotions of one function may coexist; the creator is told, never blocked. */}
+          {(row.original.overlaps ?? []).map((overlap) => (
+            <p key={overlap.campaignId} className="tabular text-[12px] text-[var(--warn)]">
+              {`Ya hay otra promoción activa: ${overlap.name} ${formatMoney(overlap.price)}`}
+            </p>
+          ))}
         </div>
       ),
     },

@@ -311,6 +311,27 @@ describe('HybridCampaignsPage · «Descuentos %»', () => {
     await waitFor(() => expect(activate()).toBeEnabled())
   })
 
+  it('activating a group whose list dropped since it was priced says to recalculate first', async () => {
+    serve([group({})])
+    const message =
+      'Una promoción debe costar menos que su precio de lista (129) y renovar a lo más a ese precio.'
+    server.use(
+      http.post(`${BASE}/hybrid-pricing/percent/:id/status`, () =>
+        HttpResponse.json({ message, code: 'HYBRID_PRICE_ABOVE_LIST' }, { status: 409 }),
+      ),
+    )
+    const user = await renderPage()
+    await user.click(
+      await within(groupsSection()).findByRole('button', { name: 'Activar Septiembre 20 %' }),
+    )
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'El precio de lista bajó: recalcula antes de activar',
+        { description: message },
+      ),
+    )
+  })
+
   it('explains that sales are closed when activating is refused for it', async () => {
     serve([group({})])
     server.use(

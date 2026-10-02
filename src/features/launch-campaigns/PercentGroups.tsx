@@ -74,6 +74,7 @@ const REFUSALS: Record<string, { title: string; description?: string }> = {
   HYBRID_PUBLICATION_REQUIRED: { title: 'Hay una promoción sin publicar' },
   HYBRID_PROMOTION_NO_LIST: { title: 'Una función ya no tiene precio de lista' },
   HYBRID_OFFER_UNAVAILABLE: { title: 'La vigencia del descuento ya terminó' },
+  HYBRID_PRICE_ABOVE_LIST: { title: 'El precio de lista bajó: recalcula antes de activar' },
 }
 const CONTEXT: Record<Action, string> = {
   ACTIVE: 'activar el descuento',
