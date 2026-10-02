@@ -96,6 +96,8 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
   - **La vista previa de «Descuento %» avisa del traslape** (spec §4.4): en cada función con otra promoción activa cuya vigencia coincide, «Ya hay otra promoción activa: <nombre> $X». Es un aviso: no impide crear el descuento. Con un servidor anterior no aparece.
   - **Activar un descuento cuya lista bajó** ya no dice «Error HTTP 409»: «El precio de lista bajó: recalcula antes de activar», con el mensaje del servidor.
   - **El buscador de «Ver quiénes» filtra** por negocio y organización (antes no encontraba ninguna columna que buscar).
+  - **«Otro cambio de precio está en curso»** en vez de «Error HTTP 409» cuando el servidor responde `HYBRID_PRICE_BUSY` (un cambio de precio esperó a otro más de lo previsto): lo traduce el traductor compartido de errores, así Precios, Descuentos % y el editor de campañas lo dicen igual, con la explicación del servidor.
+  - **El editor de campañas avisa del traslape** (spec §4.4): «Revisar oferta» manda la vigencia y la campaña en la consulta (un servidor anterior las ignora) y, si la oferta es de un solo producto, enseña «Ya hay otra promoción activa: <nombre> $X» por cada promoción activa de ese producto cuya vigencia coincide, sin contarse a sí misma. Es un aviso: no impide guardar. La revisión incluye la vigencia: cambiar las fechas pide revisar otra vez.
 
 - **El selector de funciones del editor de campañas ya no guarda el borrador solo.** Sus botones «Anterior»/«Siguiente» eran de envío (un `<Button>` sin `type` dentro del formulario): con la oferta revisada, paginar el catálogo —o dar Enter en su buscador— guardaba el borrador. Ahora son `type="button"` y Enter en el buscador no envía el formulario.
 

@@ -5,7 +5,7 @@ import { renderWithProviders, screen, waitFor, within } from '@/test/render'
 import { installGlobalServer, server } from '@/test/mocks/server'
 import { toast } from 'sonner'
 import { HybridCampaignsPage } from './HybridCampaignsPage'
-import { fetchHybridCampaigns } from './hybrid-api'
+import { fetchHybridCampaigns, previewHybridCampaign } from './hybrid-api'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -330,6 +330,46 @@ describe('HybridCampaignsPage · «Descuentos %»', () => {
         { description: message },
       ),
     )
+  })
+
+  it('a group action waiting on another price change says so instead of «Error HTTP 409»', async () => {
+    serve([group({})])
+    const message =
+      'Otra operación está cambiando el precio de este producto; reintenta en unos segundos.'
+    server.use(
+      http.post(`${BASE}/hybrid-pricing/percent/:id/status`, () =>
+        HttpResponse.json({ message, code: 'HYBRID_PRICE_BUSY' }, { status: 409 }),
+      ),
+    )
+    const user = await renderPage()
+    await user.click(
+      await within(groupsSection()).findByRole('button', { name: 'Activar Septiembre 20 %' }),
+    )
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Otro cambio de precio está en curso', {
+        description: message,
+      }),
+    )
+  })
+
+  it('the offer review sends the window and the campaign in the query, so an older server ignores them', async () => {
+    let query: URLSearchParams | null = null
+    server.use(
+      http.post(`${BASE}/launch-campaigns/hybrid-preview`, ({ request }) => {
+        query = new URL(request.url).searchParams
+        return HttpResponse.json({ success: true, data: { overlaps: [] } })
+      }),
+    )
+    await previewHybridCampaign(definition(['CFDI'], 129) as never, [], {
+      campaignId: 'manual',
+      startsAt: '2026-10-01T06:00:00.000Z',
+      endsAt: '2026-12-01T06:00:00.000Z',
+    })
+    expect(Object.fromEntries(query!)).toEqual({
+      campaignId: 'manual',
+      startsAt: '2026-10-01T06:00:00.000Z',
+      endsAt: '2026-12-01T06:00:00.000Z',
+    })
   })
 
   it('explains that sales are closed when activating is refused for it', async () => {

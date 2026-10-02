@@ -161,6 +161,41 @@ describe('hybrid campaign authoring', () => {
     expect(save).not.toHaveBeenCalled()
   })
 
+  // Codex round 2, spec §4.4: the editor warns (never blocks) of another ACTIVE promotion of the same product.
+  it('the review warns of another active promotion of the same function in its window, and still saves', async () => {
+    const user = userEvent.setup()
+    const single: HybridCampaign = {
+      ...campaign,
+      draftDefinition: {
+        schemaVersion: 1,
+        kind: 'FEATURES',
+        featureCodes: ['CFDI'],
+        terms: { ...campaign.draftDefinition.terms },
+      },
+    }
+    preview.mockResolvedValue({
+      definitionHash: 'frozen',
+      terms: single.draftDefinition.terms,
+      selection: { valid: true, featureCodes: ['CFDI'], requiredCount: null, issues: [] },
+      requirements: [],
+      overlaps: [{ campaignId: 'other', name: 'Otoño · Facturación', price: 129 }],
+    })
+    save.mockResolvedValue(single)
+    show(false, single)
+    await user.click(screen.getByRole('button', { name: 'Revisar oferta' }))
+    expect(
+      await screen.findByText('Ya hay otra promoción activa: Otoño · Facturación $129.00'),
+    ).toBeInTheDocument()
+    // The window and the campaign under review go with the preview, so it is left out of its own warning.
+    expect(preview).toHaveBeenLastCalledWith(single.draftDefinition, [], {
+      campaignId: 'campaign',
+      startsAt: campaign.startsAt,
+      endsAt: campaign.endsAt,
+    })
+    await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+    await waitFor(() => expect(save).toHaveBeenCalled())
+  })
+
   it('saves the exact authored pesos and revision after a server preview, without activating sales', async () => {
     const user = userEvent.setup()
     preview.mockResolvedValue({

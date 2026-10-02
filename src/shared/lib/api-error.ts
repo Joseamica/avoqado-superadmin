@@ -31,6 +31,7 @@ export interface ApiErrorInfo {
 interface ServerErrorPayload {
   message?: string
   error?: string
+  code?: string
 }
 
 /**
@@ -101,6 +102,16 @@ export function inspectApiError(error: unknown, context?: string): ApiErrorInfo 
         status,
         title: 'Demasiadas peticiones',
         description: 'Espera unos segundos y reintenta.',
+        serverMessage,
+      }
+    }
+    // A catalog price change queued behind another one ran out of its wait: retryable, not a failure (Precios, Descuentos %).
+    if (status === 409 && data?.code === 'HYBRID_PRICE_BUSY') {
+      return {
+        kind: 'unknown',
+        status,
+        title: 'Otro cambio de precio está en curso',
+        description: serverMessage ?? 'Reintenta en unos segundos.',
         serverMessage,
       }
     }

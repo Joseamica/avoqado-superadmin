@@ -74,6 +74,8 @@ export interface HybridPreview {
     requiredCount: number | null
   }
   requirements: { featureCode: string; message: string }[]
+  /** Other ACTIVE promotions of the product in the reviewed window: a warning, never a block (older servers omit it). */
+  overlaps?: { campaignId: string; name: string; price: number }[]
 }
 const BASE = '/superadmin/hybrid-campaigns'
 export async function fetchHybridCampaigns(query: {
@@ -134,15 +136,18 @@ export async function fetchHybridCatalog(query: { page: number; pageSize: number
   return (await api.get<{ data: HybridPage<HybridFeature> }>(`${BASE}/catalog`, { params: query }))
     .data.data
 }
+/** The window (and the campaign under review) go in the query: an older server ignores them instead of refusing the body. */
 export async function previewHybridCampaign(
   offer: HybridDefinition,
   selectedFeatureCodes: string[],
+  window?: { campaignId?: string; startsAt: string; endsAt: string },
 ) {
   return (
-    await api.post<{ data: HybridPreview }>('/superadmin/launch-campaigns/hybrid-preview', {
-      offer,
-      selectedFeatureCodes,
-    })
+    await api.post<{ data: HybridPreview }>(
+      '/superadmin/launch-campaigns/hybrid-preview',
+      { offer, selectedFeatureCodes },
+      { params: window },
+    )
   ).data.data
 }
 export const hybridPesos = (amount: number) =>
