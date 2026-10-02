@@ -80,24 +80,38 @@ export default function PricingPage() {
       return
     }
     const issue = inspectApiError(error, context)
+    if (code === 'HYBRID_LIST_BREAKS_PROMOTIONS') {
+      // Resuming a list under active promotions: the price dialog is where they are listed and paused.
+      toast.error('Hay promociones activas que chocan con este precio', {
+        description: `${issue.serverMessage ?? ''} Edita el precio para verlas y pausarlas.`.trim(),
+      })
+      return
+    }
     toast.error(issue.title, { description: issue.serverMessage ?? issue.description })
   }
   const retry = useMutation({
     mutationFn: (row: ListPriceRow) => retryListPrice(row.productKey),
-    onSuccess: (row) => {
+    onSuccess: (updated, row) => {
       void invalidate()
-      toast.success(`Precio de ${row.name} en venta`)
+      // With nothing pending the server returns the row as it was: nothing new went on sale.
+      if (updated.pendingPrice === null && updated.price === row.price)
+        toast.success('Precio al día', {
+          description: 'No había un precio pendiente: el que ves ya está en venta.',
+        })
+      else toast.success(`Precio de ${updated.name} en venta`)
     },
     onError: fail('reintentar el precio'),
   })
   const status = useMutation({
     mutationFn: ({ row, next }: { row: ListPriceRow; next: 'ACTIVE' | 'PAUSED' }) =>
       setListStatus(row, next),
-    onSuccess: (row) => {
+    onSuccess: (row, { row: before }) => {
       void invalidate()
+      // A paused list takes the «% de descuento» promotions over it off sale too (their parent is not on sale).
+      const groups = (before.activeGroups ?? []).length > 0
       toast.success(
         row.status === 'PAUSED'
-          ? `${row.name} ya no se vende suelta`
+          ? `${row.name} ya no se vende suelta${groups ? ' y sus descuentos % dejan de venderse mientras tanto' : ''}`
           : `${row.name} vuelve a la venta suelta`,
         { description: 'Quien ya la paga conserva su precio.' },
       )

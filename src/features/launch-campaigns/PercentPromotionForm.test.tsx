@@ -116,6 +116,27 @@ function previewAnswers(rows: unknown[]) {
 }
 
 describe('PercentPromotionForm', () => {
+  it('a window that already ended is refused on the field, before any preview', async () => {
+    const bodies = previewAnswers(previewRows)
+    const { user } = show()
+    const previous = DateTime.now().setZone('America/Mexico_City').minus({ months: 1 })
+    await user.type(screen.getByLabelText('Nombre del descuento'), 'Octubre 20 %')
+    await user.type(screen.getByLabelText('Porcentaje de descuento'), '20')
+    await user.click(screen.getByRole('button', { name: /Vigencia · Ciudad de México/ }))
+    // The left calendar opens on last month.
+    for (const day of [previous.set({ day: 1 }), previous.set({ day: 2 })])
+      await user.click(
+        screen.getAllByRole('button', { name: day.toFormat('d MMMM yyyy', { locale: 'es' }) })[0],
+      )
+    await user.click(screen.getByRole('button', { name: 'Aplicar' }))
+    await user.type(screen.getByLabelText('Cupo por función'), '10')
+    expect(
+      screen.getByText('La vigencia ya terminó: elige una fecha final futura.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Revisar' })).toBeDisabled()
+    expect(bodies).toEqual([])
+  })
+
   it('asks for the name, the % (1–90), what it applies to, the dates, how long it lasts and the capacity per function', async () => {
     const { user } = show()
     expect(screen.getByLabelText('Porcentaje de descuento')).toHaveAttribute('min', '1')

@@ -1,4 +1,5 @@
 import { api } from '@/shared/lib/api'
+import { inspectApiError } from '@/shared/lib/api-error'
 export type HybridTerms = {
   currency: 'MXN'
   interval: 'MONTHLY'
@@ -83,7 +84,22 @@ export async function fetchHybridCampaigns(query: {
   /** Leaves out the campaigns a «% de descuento» group owns (they show once, as their group). */
   excludeGrouped?: true
 }) {
-  return (await api.get<{ data: HybridPage<HybridCampaign> }>(BASE, { params: query })).data.data
+  const get = async (params: typeof query) =>
+    (await api.get<{ data: HybridPage<HybridCampaign> }>(BASE, { params })).data.data
+  try {
+    return await get(query)
+  } catch (error) {
+    // A server from before the «% de descuento» groups refuses the filter (its list query is strict): list as before
+    // the groups, which then also show here until that server is updated. Any other refusal is the caller's.
+    const issue = inspectApiError(error)
+    if (
+      query.excludeGrouped &&
+      issue.status === 400 &&
+      issue.serverMessage?.includes('Filtro no admitido')
+    )
+      return get({ ...query, excludeGrouped: undefined })
+    throw error
+  }
 }
 export async function fetchHybridCampaign(id: string) {
   return (await api.get<{ data: HybridCampaign }>(`${BASE}/${id}`)).data.data

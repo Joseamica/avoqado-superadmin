@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { renderWithProviders, screen, waitFor, within } from '@/test/render'
 import { installGlobalServer, server } from '@/test/mocks/server'
 import { pricingBoard } from '@/test/mocks/handlers'
 import { formatDate } from '@/shared/lib/datetime'
+import { toast } from 'sonner'
 import PricingPage from './PricingPage'
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
+beforeEach(() => vi.clearAllMocks())
 
 installGlobalServer()
 
@@ -31,6 +35,24 @@ async function openCfdiDialog(user: ReturnType<typeof userEvent.setup>, price: s
   await user.type(input, price)
   return dialog
 }
+
+const boardWith = (patch: (row: (typeof pricingBoard)[number]) => Record<string, unknown>) =>
+  http.get(`${BASE}/hybrid-pricing`, () =>
+    HttpResponse.json({
+      success: true,
+      data: pricingBoard.map((row) => (row.productKey === 'FEATURE:CFDI' ? patch(row) : row)),
+    }),
+  )
+const breaks = (details: unknown[]) =>
+  HttpResponse.json(
+    {
+      message:
+        'Hay promociones activas que costarían lo mismo o más que este precio de lista, o que renovarían por encima de él. Páusalas antes de guardarlo.',
+      code: 'HYBRID_LIST_BREAKS_PROMOTIONS',
+      details,
+    },
+    { status: 409 },
+  )
 
 describe('PricingPage', () => {
   it('shows plans and functions with their price, status and why a row is not editable', async () => {
@@ -402,5 +424,124 @@ describe('PricingPage', () => {
 
     await user.click(within(drawer).getByRole('button', { name: 'Siguiente' }))
     await waitFor(() => expect(pages).toEqual(['1', '2']))
+  })
+
+  it('resuming a list that active promotions would break says so, and how to see and pause them', async () => {
+    server.use(
+      boardWith((row) => ({ ...row, status: 'PAUSED' })),
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/status`, () => breaks([])),
+    )
+    const user = await renderPage()
+    await user.click(
+      screen.getByRole('button', { name: 'Reanudar venta suelta de Facturación CFDI' }),
+    )
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Hay promociones activas que chocan con este precio',
+        {
+          description: expect.stringMatching(
+            /^Hay promociones activas que costarían .* Edita el precio para verlas y pausarlas\.$/,
+          ),
+        },
+      ),
+    )
+  })
+
+  it('pausing a list a % discount covers says its discounts stop selling too', async () => {
+    const activeGroups = [{ id: 'group-1', name: 'Septiembre 20 %', revision: 3 }]
+    server.use(
+      boardWith((row) => ({ ...row, activeGroups })),
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/status`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { ...cfdi, status: 'PAUSED', revision: 4, activeGroups },
+        }),
+      ),
+    )
+    const user = await renderPage()
+    await user.click(
+      screen.getByRole('button', { name: 'Pausar venta suelta de Facturación CFDI' }),
+    )
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Facturación CFDI ya no se vende suelta y sus descuentos % dejan de venderse mientras tanto',
+        { description: 'Quien ya la paga conserva su precio.' },
+      ),
+    )
+  })
+
+  it('a retry that finds nothing pending says the price is up to date, not that a new one went on sale', async () => {
+    const pendingRow = pricingBoard.find((r) => r.productKey === 'FEATURE:INVENTORY_TRACKING')!
+    server.use(
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, () =>
+        HttpResponse.json({
+          success: true,
+          data: { ...pendingRow, revision: 9, pendingPrice: null },
+        }),
+      ),
+    )
+    const user = await renderPage()
+    await user.click(within(rowOf('Inventario FIFO')).getByRole('button', { name: /Reintentar/ }))
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Precio al día', {
+        description: 'No había un precio pendiente: el que ves ya está en venta.',
+      }),
+    )
+    expect(toast.success).not.toHaveBeenCalledWith(
+      expect.stringMatching(/en venta$/),
+      expect.anything(),
+    )
+  })
+
+  it('a save refused for breaking promotions reloads the board; after pausing, a price left pending is finished', async () => {
+    let boardReads = 0
+    let puts = 0
+    let retries = 0
+    server.use(
+      http.get(`${BASE}/hybrid-pricing`, () => {
+        boardReads += 1
+        return HttpResponse.json({
+          success: true,
+          data: pricingBoard.map((row) =>
+            row.productKey === 'FEATURE:CFDI' && boardReads > 1
+              ? { ...row, revision: 4, pendingPrice: 249 }
+              : row,
+          ),
+        })
+      }),
+      http.put(`${BASE}/hybrid-pricing/lists/:productKey`, () => {
+        puts += 1
+        return breaks([
+          {
+            campaignId: 'manual-1',
+            campaignName: 'CFDI de otoño',
+            price: 260,
+            renewalPrice: null,
+            listPrice: 249,
+            revision: 9,
+            promotionGroupId: null,
+            groupRevision: null,
+          },
+        ])
+      }),
+      http.post(`${BASE}/hybrid-campaigns/:id/status`, () =>
+        HttpResponse.json({ success: true, data: {} }),
+      ),
+      http.post(`${BASE}/hybrid-pricing/lists/:productKey/retry`, () => {
+        retries += 1
+        return HttpResponse.json({
+          success: true,
+          data: { ...cfdi, revision: 5, price: 249, pendingPrice: null },
+        })
+      }),
+    )
+    const user = await renderPage()
+    const dialog = await openCfdiDialog(user, '249')
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar precio' }))
+    expect(await within(dialog).findByText('CFDI de otoño · $260.00')).toBeInTheDocument()
+    await waitFor(() => expect(boardReads).toBe(2))
+    await user.click(within(dialog).getByRole('button', { name: 'Pausar estas promociones' }))
+    await waitFor(() => expect(retries).toBe(1))
+    expect(puts).toBe(1)
   })
 })

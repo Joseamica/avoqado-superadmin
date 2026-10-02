@@ -65,6 +65,8 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
     const { code, details } = pricingError(error)
     if (code === 'HYBRID_LIST_BREAKS_PROMOTIONS' && Array.isArray(details)) {
       setViolations(details as RuleViolation[])
+      // The refusal may come after the save left this price pending (revision moved): the re-save needs the fresh row.
+      void invalidate()
       return
     }
     void invalidate()
@@ -84,7 +86,11 @@ function ListPriceForm({ row, onClose }: { row: ListPriceRow; onClose: () => voi
   }
 
   const save = useMutation({
-    mutationFn: () => saveListPrice(row, price),
+    // This very price already pending (e.g. refused after it was created) is finished, not published again.
+    mutationFn: () =>
+      row.pendingPrice !== null && row.pendingPrice === price
+        ? retryListPrice(row.productKey)
+        : saveListPrice(row, price),
     onSuccess: finish,
     onError: fail,
   })

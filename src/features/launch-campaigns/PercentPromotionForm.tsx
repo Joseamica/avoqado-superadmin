@@ -86,7 +86,10 @@ export function PercentPromotionForm({ onCreated }: { onCreated: (groupId: strin
     capacityPerFeature: Number(capacity),
   }
   const fingerprint = JSON.stringify(input)
+  // A window that already ended can never sell: said on the field, not by the server after «Revisar».
+  const ended = Boolean(range.endTime) && Date.parse(range.endTime!) <= Date.now()
   const ready =
+    !ended &&
     input.name.length >= 3 &&
     wholeIn(percent, 1, 90) &&
     wholeIn(capacity, 1, 100_000) &&
@@ -244,6 +247,11 @@ export function PercentPromotionForm({ onCreated }: { onCreated: (groupId: strin
         >
           <DateRangePicker value={range} onApply={setRange} showTime allowFuture />
         </FilterPill>
+        {ended && (
+          <p role="alert" className="text-[11.5px] text-[var(--danger)]">
+            La vigencia ya terminó: elige una fecha final futura.
+          </p>
+        )}
         <Combobox
           ariaLabel="Cuánto dura el descuento"
           value={forever ? 'FOREVER' : 'MONTHS'}

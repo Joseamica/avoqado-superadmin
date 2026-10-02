@@ -5,6 +5,7 @@ import { renderWithProviders, screen, waitFor, within } from '@/test/render'
 import { installGlobalServer, server } from '@/test/mocks/server'
 import { toast } from 'sonner'
 import { HybridCampaignsPage } from './HybridCampaignsPage'
+import { fetchHybridCampaigns } from './hybrid-api'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -235,6 +236,79 @@ describe('HybridCampaignsPage · «Descuentos %»', () => {
         expect.objectContaining({ description: expect.stringMatching(/crea otro/) }),
       ),
     )
+  })
+
+  it('a server from before the groups refuses the filter: the list asks again without it', async () => {
+    const { campaignQueries } = serve([group({})])
+    server.use(
+      http.get(`${BASE}/hybrid-campaigns`, ({ request }) => {
+        const query = new URL(request.url).searchParams
+        campaignQueries.push(query)
+        // The deployed list query is strict: an unknown filter is a 400 with this message.
+        if (query.has('excludeGrouped'))
+          return HttpResponse.json(
+            { message: ': Filtro no admitido', code: 'HYBRID_CAMPAIGN_INVALID' },
+            { status: 400 },
+          )
+        return HttpResponse.json({
+          success: true,
+          data: { items: [manual], total: 1, page: 1, pageSize: 25 },
+        })
+      }),
+    )
+    await renderPage()
+    expect(campaignQueries.map((query) => query.get('excludeGrouped'))).toEqual(['true', null])
+    expect(screen.getByText(/1 campaña/)).toBeInTheDocument()
+  })
+
+  it('any other refusal of the list is not retried without the filter', async () => {
+    const queries: URLSearchParams[] = []
+    server.use(
+      http.get(`${BASE}/hybrid-campaigns`, ({ request }) => {
+        queries.push(new URL(request.url).searchParams)
+        return HttpResponse.json(
+          { message: 'q: Máximo 120 caracteres', code: 'HYBRID_CAMPAIGN_INVALID' },
+          { status: 400 },
+        )
+      }),
+    )
+    await expect(
+      fetchHybridCampaigns({ page: 1, pageSize: 25, excludeGrouped: true }),
+    ).rejects.toMatchObject({ response: { status: 400 } })
+    expect(queries).toHaveLength(1)
+  })
+
+  it('while the list reloads after an action its buttons stay off: a second click would be stale', async () => {
+    const { writes } = serve([group({})])
+    let reads = 0
+    let release = () => {}
+    server.use(
+      http.get(`${BASE}/hybrid-pricing/percent`, async () => {
+        reads += 1
+        if (reads > 1) await new Promise<void>((resolve) => (release = resolve))
+        return HttpResponse.json({
+          success: true,
+          data: {
+            items: [group(reads > 1 ? { revision: 5 } : {})],
+            total: 1,
+            page: 1,
+            pageSize: 25,
+            totalPages: 1,
+          },
+        })
+      }),
+    )
+    const user = await renderPage()
+    await user.click(
+      await within(groupsSection()).findByRole('button', { name: 'Recalcular Septiembre 20 %' }),
+    )
+    await waitFor(() => expect(writes).toHaveLength(1))
+    await waitFor(() => expect(reads).toBe(2))
+    const activate = () =>
+      within(groupsSection()).getByRole('button', { name: 'Activar Septiembre 20 %' })
+    expect(activate()).toBeDisabled()
+    release()
+    await waitFor(() => expect(activate()).toBeEnabled())
   })
 
   it('explains that sales are closed when activating is refused for it', async () => {

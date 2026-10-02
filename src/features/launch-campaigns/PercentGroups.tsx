@@ -173,7 +173,8 @@ export function PercentGroups() {
       cell: ({ row }) => {
         const group = row.original
         if (group.status === 'ENDED') return null
-        const busy = action.isPending
+        // Until the list shows the revision an action produced, a second click would only come back stale.
+        const busy = action.isPending || list.isFetching
         return (
           <div className="flex flex-wrap justify-end gap-2">
             {group.status === 'PAUSED' ? (
@@ -291,7 +292,7 @@ export function PercentGroups() {
               <DialogFooter>
                 <Button
                   variant="danger"
-                  disabled={action.isPending}
+                  disabled={action.isPending || list.isFetching}
                   onClick={() => run(ending, 'ENDED')}
                 >
                   Terminar descuento

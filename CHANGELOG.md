@@ -82,6 +82,15 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Fixed
 
+- **Precios y Descuentos %, revisión final.**
+  - **«Campañas» funciona con un servidor anterior**: si el servidor rechaza `excludeGrouped` («Filtro no admitido»), la lista se pide otra vez sin el filtro (las promociones de un descuento salen también ahí hasta que el servidor se actualice). Cualquier otro rechazo se muestra igual que antes.
+  - **«Reanudar» una función cuyo precio chocaría con promociones activas** ya no termina en «Error HTTP 409»: dice «Hay promociones activas que chocan con este precio», con el mensaje del servidor y «Edita el precio para verlas y pausarlas».
+  - **Pausar una función que abarca un descuento %** avisa que sus descuentos también dejan de venderse mientras tanto.
+  - **«Reintentar» sin nada pendiente** dice «Precio al día» en vez de «Precio de X en venta».
+  - **El diálogo de precio recarga la fila al rechazar por promociones**, así el guardado después de pausarlas usa la revisión vigente; si ese mismo precio quedó pendiente, lo termina en vez de publicarlo otra vez.
+  - **Los botones de un descuento % se apagan mientras la lista se recarga** tras una acción: un segundo clic ya no choca con la revisión vieja.
+  - **«Descuento %» rechaza una vigencia que ya terminó** en el propio campo, antes de «Revisar».
+
 - **El selector de funciones del editor de campañas ya no guarda el borrador solo.** Sus botones «Anterior»/«Siguiente» eran de envío (un `<Button>` sin `type` dentro del formulario): con la oferta revisada, paginar el catálogo —o dar Enter en su buscador— guardaba el borrador. Ahora son `type="button"` y Enter en el buscador no envía el formulario.
 
 - **Dos tablas en la misma página ya no comparten el buscador.** `DataTable` usaba `id="dt-search"` fijo: con dos tablas (Precios; Planes y funciones con Descuentos % y Campañas) la etiqueta de la segunda apuntaba al buscador de la primera. Ahora cada tabla tiene su propio id (`useId`).
