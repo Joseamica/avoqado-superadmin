@@ -21,7 +21,7 @@ vi.mock('./hybrid-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./hybrid-api')>()),
   saveHybridCampaign: (...args: unknown[]) => save(...args),
   previewHybridCampaign: (...args: unknown[]) => preview(...args),
-  fetchHybridCatalog: async () => ({
+  fetchHybridCatalog: async (query: { page: number }) => ({
     items: [
       { id: 'CFDI', featureCode: 'CFDI', name: 'Facturación', offering: 'CONFIGURABLE' },
       {
@@ -31,8 +31,9 @@ vi.mock('./hybrid-api', async (importOriginal) => ({
         offering: 'CONFIGURABLE',
       },
     ],
-    total: 2,
-    page: 1,
+    // 30 in the catalog: the picker can page (only two are drawn per page here).
+    total: 30,
+    page: query.page,
     pageSize: 25,
   }),
 }))
@@ -137,6 +138,64 @@ describe('hybrid campaign authoring', () => {
       expect(regex.test(bad)).toBe(false)
     }
   })
+  it('paging the function picker or Enter in its search never saves the draft', async () => {
+    const user = userEvent.setup()
+    preview.mockResolvedValue({
+      definitionHash: 'frozen',
+      terms: campaign.draftDefinition.terms,
+      selection: { valid: true, featureCodes: [], requiredCount: 2, issues: [] },
+      requirements: [],
+    })
+    show()
+    await user.click(screen.getByRole('button', { name: 'Revisar oferta' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Guardar borrador' })).toBeEnabled(),
+    )
+    const [next] = await screen.findAllByRole('button', { name: 'Siguiente' })
+    await user.click(next)
+    await user.type(
+      screen.getAllByLabelText('Buscar en todas las funcionalidades')[0],
+      'fac{Enter}',
+    )
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  // Codex round 2, spec §4.4: the editor warns (never blocks) of another ACTIVE promotion of the same product.
+  it('the review warns of another active promotion of the same function in its window, and still saves', async () => {
+    const user = userEvent.setup()
+    const single: HybridCampaign = {
+      ...campaign,
+      draftDefinition: {
+        schemaVersion: 1,
+        kind: 'FEATURES',
+        featureCodes: ['CFDI'],
+        terms: { ...campaign.draftDefinition.terms },
+      },
+    }
+    preview.mockResolvedValue({
+      definitionHash: 'frozen',
+      terms: single.draftDefinition.terms,
+      selection: { valid: true, featureCodes: ['CFDI'], requiredCount: null, issues: [] },
+      requirements: [],
+      overlaps: [{ campaignId: 'other', name: 'Otoño · Facturación', price: 129 }],
+    })
+    save.mockResolvedValue(single)
+    show(false, single)
+    await user.click(screen.getByRole('button', { name: 'Revisar oferta' }))
+    expect(
+      await screen.findByText('Ya hay otra promoción activa: Otoño · Facturación $129.00'),
+    ).toBeInTheDocument()
+    // The window and the campaign under review go with the preview, so it is left out of its own warning.
+    expect(preview).toHaveBeenLastCalledWith(single.draftDefinition, [], {
+      campaignId: 'campaign',
+      startsAt: campaign.startsAt,
+      endsAt: campaign.endsAt,
+    })
+    await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+    await waitFor(() => expect(save).toHaveBeenCalled())
+  })
+
   it('saves the exact authored pesos and revision after a server preview, without activating sales', async () => {
     const user = userEvent.setup()
     preview.mockResolvedValue({

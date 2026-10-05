@@ -50,6 +50,7 @@ const LaunchCampaignsPage = lazy(() =>
     default: m.LaunchCampaignsPage,
   })),
 )
+const PricingPage = lazy(() => import('@/features/pricing/PricingPage'))
 const SubscriptionsPage = lazy(() =>
   import('@/features/subscriptions/SubscriptionsPage').then((m) => ({
     default: m.SubscriptionsPage,
@@ -206,6 +207,7 @@ export function AppRoutes() {
           <Route path="/hybrid-campaigns" element={<HybridCampaignsPage />} />
           <Route path="/launch-campaigns" element={<LaunchCampaignsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/master-catalog" element={<MasterCatalogAccessPage />} />
           <Route path="/billing/emisor" element={<EmisorSetupPage />} />
           <Route path="/billing" element={<BillingPage />} />

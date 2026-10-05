@@ -26,7 +26,8 @@ import {
   type HybridTerms,
 } from './hybrid-api'
 
-function FeaturePicker({
+/** Configurable functions of the catalog, paged by the server; the selection is kept across pages. */
+export function FeaturePicker({
   codes,
   onChange,
   label,
@@ -63,6 +64,10 @@ function FeaturePicker({
         label="Buscar en todas las funcionalidades"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        // The search runs as you type; Enter here must not submit the form around the picker.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.preventDefault()
+        }}
       />
       {catalog.isPending ? (
         <p role="status">Cargando catálogo…</p>
@@ -89,6 +94,7 @@ function FeaturePicker({
               {Math.max(1, Math.ceil(catalog.data.total / 25))}
             </span>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={page === 1}
@@ -97,6 +103,7 @@ function FeaturePicker({
               Anterior
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={page * 25 >= catalog.data.total}
@@ -183,9 +190,19 @@ export function HybridCampaignEditor({
       : kind === 'FEATURES'
         ? { ...common, kind, featureCodes: codes }
         : { ...common, kind, choiceCount: Number(choiceCount), eligibleFeatureCodes: codes }
+  // The window is reviewed too: the overlap warning depends on it.
+  const window =
+    range.startTime && range.endTime
+      ? {
+          campaignId: duplicate ? undefined : campaign?.id,
+          startsAt: range.startTime,
+          endsAt: range.endTime,
+        }
+      : undefined
   const currentDefinition = JSON.stringify({
     definition,
     simulation: kind === 'CHOICE_BUNDLE' ? simulation : [],
+    window,
   })
   const error = (e: unknown) => {
     const issue = inspectApiError(e, 'guardar la campaña')
@@ -196,7 +213,7 @@ export function HybridCampaignEditor({
       definition: HybridDefinition
       selection: string[]
       fingerprint: string
-    }) => previewHybridCampaign(input.definition, input.selection),
+    }) => previewHybridCampaign(input.definition, input.selection, window),
     onSuccess: (result, input) => setReviewed({ definition: input.fingerprint, result }),
     onError: error,
   })
@@ -452,6 +469,12 @@ export function HybridCampaignEditor({
             ))}
             {reviewed.result.requirements.map((requirement) => (
               <p key={requirement.featureCode}>{requirement.message}</p>
+            ))}
+            {/* Spec §4.4: two promotions of one product may coexist; the author is told, never blocked. */}
+            {(reviewed.result.overlaps ?? []).map((overlap) => (
+              <p key={overlap.campaignId} className="tabular text-[var(--warn)]">
+                {`Ya hay otra promoción activa: ${overlap.name} ${hybridPesos(overlap.price)}`}
+              </p>
             ))}
           </div>
         )}

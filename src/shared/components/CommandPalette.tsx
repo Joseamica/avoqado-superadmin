@@ -10,6 +10,7 @@ import {
   Search,
   Store,
   ShieldCheck,
+  Tags,
   Terminal,
 } from 'lucide-react'
 import { Kbd } from '@/shared/ui/Kbd'
@@ -93,6 +94,16 @@ export function CommandPalette() {
       group: 'Navegación',
       run: () => {
         navigate('/hybrid-campaigns')
+        close()
+      },
+    },
+    {
+      id: 'nav-pricing',
+      label: 'Ir a Precios',
+      icon: Tags,
+      group: 'Navegación',
+      run: () => {
+        navigate('/pricing')
         close()
       },
     },

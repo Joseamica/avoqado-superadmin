@@ -31,6 +31,7 @@ export interface ApiErrorInfo {
 interface ServerErrorPayload {
   message?: string
   error?: string
+  code?: string
 }
 
 /**
@@ -104,6 +105,16 @@ export function inspectApiError(error: unknown, context?: string): ApiErrorInfo 
         serverMessage,
       }
     }
+    // A catalog price change queued behind another one ran out of its wait: retryable, not a failure (Precios, Descuentos %).
+    if (status === 409 && data?.code === 'HYBRID_PRICE_BUSY') {
+      return {
+        kind: 'unknown',
+        status,
+        title: 'Otro cambio de precio está en curso',
+        description: serverMessage ?? 'Reintenta en unos segundos.',
+        serverMessage,
+      }
+    }
     if (status >= 500) {
       return {
         kind: 'server',
@@ -137,4 +148,10 @@ export function inspectApiError(error: unknown, context?: string): ApiErrorInfo 
     title: 'Error inesperado',
     description: 'Ocurrió un error que no pudimos categorizar.',
   }
+}
+
+/** The server's machine-readable error (`{ code, details }` next to the message), to branch on a specific refusal. */
+export function apiErrorPayload(error: unknown): { code?: string; details?: unknown } {
+  if (!axios.isAxiosError(error)) return {}
+  return (error.response?.data as { code?: string; details?: unknown } | undefined) ?? {}
 }
