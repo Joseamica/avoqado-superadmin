@@ -48,8 +48,10 @@ lo que ves:
 - 🔴 **Nunca** `git reset --hard`, `git checkout .`, `git clean`, `git stash` ni cambies de rama "para
   dejar limpio": el árbol de trabajo es compartido y eso sí destruye trabajo ajeno irrecuperable.
   Es la única regla dura de esta sección.
-- **Commitea por rutas explícitas** (`git add <ruta>`), nunca `git add -A` / `git add .`. Si aun así
-  se cuela WIP ajeno en tu commit, **no es grave**: no lo reviertas ni lo reescribas — dilo en el reporte.
+- 🔴 **Commitea con `git commit -m "<mensaje>" -- <ruta>` (el mensaje ANTES del `--`: después git lo toma como archivo), NO con `git add <ruta>` + `git commit`**: el índice es
+  COMPARTIDO y un `git commit` pelón graba el índice entero de todas las sesiones. Antes, revisa con
+  `git diff --cached --name-only`; después, comprueba con `git show --stat`. Nunca `git add -A` / `git add .`.
+  Si aun así se cuela WIP ajeno, **no es grave**: no lo reviertas ni lo reescribas — dilo en el reporte.
 - **Ruido que no viene de tu cambio**: el dev server hace hot-reload o se reinicia solo, un test/build
   truena en un archivo que no tocaste, un puerto ocupado. Verifica con `git diff <archivo>`: si ese
   cambio no es tuyo, **no lo debuggees ni lo corrijas** — reintenta una vez y, si sigue, anótalo en el

@@ -23,8 +23,8 @@ deliberate here.)
 - **Dashboard display/CTA map:** `avoqado-web-dashboard/src/config/plan-catalog.ts`
   (`TierId`, `PLAN_TIERS`, `getTierForFeature()` → FeatureGate upsell).
 - **Enforcement status:** ✅ only **avoqado-web-dashboard** enforces tiers today.
-  ⚠️ **avoqado-ios** and **avoqado-android** have NO tier gating yet — they will mirror the backend
-  feature codes by exact name. Treat tier codes like permissions: a name mismatch fails silently.
+  ⚠️ **avoqado-android** and **avoqado-ios** ALREADY have partial plan gating (`PlanManager`/`PlanGate`; verified 9-oct-2026)
+  — reuse it, never build a second system; they mirror the backend feature codes by exact name. Treat tier codes like permissions: a name mismatch fails silently.
 - **Activación (regla completa en `../CLAUDE.md`):** aquí se prende lo que prende **Avoqado** (tier y módulo). Los
   ajustes que prende el CLIENTE (`VenueSettings`) son del dashboard, no de este repo — no los dupliques aquí.
 
@@ -424,41 +424,5 @@ Sólo se exenta de esto: cambios puramente de comentarios o renames internos sin
 | E2E specs           | `e2e/*.spec.ts`                                      |
 | CI workflow         | `.github/workflows/ci.yml`                           |
 
-## 🔴 CRITICAL — Keep the Avoqado MCP in sync
-
-The Avoqado MCP (`avoqado-server/scripts/mcp/`) is a **first-class interface**: it exposes
-the platform's data and actions to AI agents (internal ops today, customer-facing tomorrow).
-It must never fall behind the platform.
-
-**Whenever you add or change a feature, Prisma model, service, endpoint, permission, or any
-capability the MCP should expose, you MUST add or update the matching MCP tool in
-`avoqado-server/scripts/mcp/` as part of the SAME change — never "later".** A capability that
-exists but isn't reachable through the MCP is unfinished. Treat the MCP like permissions: kept
-in lockstep, never an afterthought.
-
-## 🔴 CRITICAL — Keep the sales presentation in sync
-
-The partner sales presentation (`~/Documents/Programming/Avoqado-HQ/operations/marketing/platform-presentation/`)
-is the canonical "what Avoqado does" document — third parties sell from it. It must never fall
-behind the platform.
-
-**Whenever you add, change, or remove a customer-visible capability (feature, module, product,
-payment method, supported sector, tier packaging), you MUST update BOTH deliverables as part of
-the SAME change — never "later":** the full deck (`avoqado-presentacion.html`) AND the one-pager
-(`avoqado-one-pager.html`), then regenerate both PDFs following that folder's `README.md`.
-Updating only one of the two is an incomplete change. Internal refactors and bugfixes with no
-customer-visible impact are exempt.
-
----
-
-## Fetching Asana task attachments / screenshots
-
-When given an Asana task URL, you **can** see its screenshots and attachments — don't claim you can't.
-
-- `mcp__asana__*` reads task text/comments but **not** files; the `mcp__claude_ai_Asana__` connector is often unauthorized. Don't stop there — use the Asana Personal Access Token directly (it's what powers the `asana` MCP server):
-  1. Read the token (use it, **never print or commit the value**): key `ASANA_ACCESS_TOKEN` under `mcpServers.asana.env` in `~/.claude.json`. Example:
-     `TOKEN=$(python3 -c "import json,os; print(json.load(open(os.path.expanduser('~/.claude.json')))['mcpServers']['asana']['env']['ASANA_ACCESS_TOKEN'])")`
-  2. List attachments + signed URLs (task GID = the long number after `/task/` in the URL):
-     `curl -s -H "Authorization: Bearer $TOKEN" "https://app.asana.com/api/1.0/tasks/<GID>/attachments?opt_fields=name,download_url,created_at"`
-  3. `curl` each `download_url` (pre-signed, needs no auth) to a temp file in the scratchpad, then Read the image. Inline description images are attachments too, so this returns all of them — not just the ones embedded in the text.
-- If slide/screenshot text is unreadable after Read downscales a large image, crop it into regions with PIL and upscale (LANCZOS) before re-reading.
+> Reglas del workspace que aplican aquí también (MCP en sync, presentación de ventas, adjuntos de Asana, tier, sin red…):
+> `../AGENTS.md` y `../CLAUDE.md`, que cargan siempre al abrir desde `Avoqado/`. Copias quitadas el 9-oct-2026 (fase 2b).
