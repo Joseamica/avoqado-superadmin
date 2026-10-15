@@ -26,6 +26,8 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- El calendario de depósitos permite copiar el neto del negocio o de cada afiliación con dos decimales, sin comas ni símbolo de moneda. Una T amarilla junto al negocio identifica afiliaciones con una «T» sola en el nombre.
+
 - **«Descuento %» en Planes y funciones (`/hybrid-campaigns`): un % sobre el precio de lista de cada función, con vista previa, y su sección «Descuentos %».**
   - **El formulario** (cajón «Descuento %») pide nombre, % (1–90), a qué aplica (todas las funciones con precio, categorías o funciones elegidas), vigencia con el calendario, cuánto dura el descuento (para siempre o N meses, 1–24; después renueva a la lista) y **cupo por función** (un cupo de 10 con dos funciones vende hasta 10 de cada una).
   - **«Revisar»** (`POST /superadmin/hybrid-pricing/percent/preview`) muestra cada función con su lista y su precio con descuento, y marca «Sin precio de lista activo (se omite)», «Queda bajo $10» (bloquea: nunca se sube a $10) y «Requiere <función>». **«Crear descuento»** sólo se habilita con la vista previa vigente y sin funciones bajo $10; si una lista cambió desde la vista previa (`HYBRID_PROMOTION_CHANGED`) o una función quedó bajo $10, vuelve a revisar y lo dice. El descuento nace pausado. **Sólo ese botón lo crea**: paginar el selector de funciones o dar Enter en un campo no envían nada.

@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Copy } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { DataTable } from '@/shared/data-table/DataTable'
 import { formatMoney } from '@/shared/lib/money'
 import { Badge } from '@/shared/ui/Badge'
+import { IconButton } from '@/shared/ui/IconButton'
 import { formatDayLabel } from './month-grid'
 import type { CalendarDay, CalendarMerchant, CalendarVenue } from './types'
 
@@ -27,6 +30,13 @@ export function DayDetail({ day }: { day: CalendarDay }) {
             <span className="text-[13.5px] font-semibold text-[var(--ink)]">
               {row.original.venueName}
             </span>
+            {row.original.merchants.some((merchant) =>
+              /(?:^|\s)T(?:\s|$)/.test(merchant.label),
+            ) && (
+              <Badge tone="warn" size="sm" title="Una afiliación tiene una T sola en su nombre">
+                T
+              </Badge>
+            )}
             {row.original.hasAggregator && (
               <Badge
                 tone="muted"
@@ -76,12 +86,8 @@ export function DayDetail({ day }: { day: CalendarDay }) {
         id: 'net',
         header: 'Neto a depositar',
         accessorFn: (row) => row.net,
-        cell: ({ row }) => (
-          <span className="tabular font-semibold text-[var(--ink)]">
-            {formatMoney(row.original.net)}
-          </span>
-        ),
-        meta: { headerClassName: 'w-[150px] text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => <NetAmount amount={row.original.net} name={row.original.venueName} />,
+        meta: { headerClassName: 'w-[180px] text-right', cellClassName: 'text-right' },
       },
       {
         id: 'count',
@@ -170,6 +176,36 @@ export function DayDetail({ day }: { day: CalendarDay }) {
   )
 }
 
+function NetAmount({ amount, name }: { amount: number; name: string }) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(amount.toFixed(2))
+      toast.success('Neto copiado')
+    } catch {
+      toast.error('No se pudo copiar el neto', {
+        description: 'Revisa los permisos del portapapeles de tu navegador e inténtalo de nuevo.',
+      })
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+      <span className="tabular font-semibold text-[var(--ink)]">{formatMoney(amount)}</span>
+      <IconButton
+        className="min-h-9 min-w-9"
+        aria-label={`Copiar neto de ${name}`}
+        title="Copiar neto sin comas ni símbolo de moneda"
+        onClick={(event) => {
+          event.stopPropagation()
+          void copy()
+        }}
+      >
+        <Copy className="h-3.5 w-3.5" aria-hidden />
+      </IconButton>
+    </span>
+  )
+}
+
 /** Tasa efectiva que se le cobró a esta afiliación, para explicar netos distintos. */
 function effectiveRate(m: CalendarMerchant): string | null {
   if (m.gross <= 0) return null
@@ -255,7 +291,7 @@ function MerchantBreakdown({ venue }: { venue: CalendarVenue }) {
                   {effectiveRate(m) ?? '—'}
                 </td>
                 <td className="tabular py-1.5 pr-3 text-right font-semibold text-[var(--ink)]">
-                  {formatMoney(m.net)}
+                  <NetAmount amount={m.net} name={m.label} />
                 </td>
                 <td className="tabular py-1.5 text-right text-[var(--ink-muted)]">{m.count}</td>
               </tr>

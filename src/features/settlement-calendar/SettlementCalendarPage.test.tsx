@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 
 import { renderWithProviders } from '@/test/render'
 import { installGlobalServer, server } from '@/test/mocks/server'
@@ -94,7 +95,92 @@ describe('SettlementCalendarPage', () => {
     // y el día auto-seleccionado sea determinístico.
     vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(new Date('2026-07-14T18:00:00Z'))
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('copia el neto del negocio sin moneda ni comas y conserva los centavos', async () => {
+    mockCalendar({ days: [day('2026-07-14', 'today', [venue('v3', 'IQ', 18447.27)])] })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const copy = vi.spyOn(navigator.clipboard, 'writeText')
+    const success = vi.spyOn(toast, 'success')
+    renderWithProviders(<SettlementCalendarPage />)
+
+    const row = (await screen.findByText('IQ')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: 'Copiar neto de IQ' }))
+
+    expect(copy).toHaveBeenCalledWith('18447.27')
+    expect(success).toHaveBeenCalledWith('Neto copiado')
+    expect(within(row).getByLabelText('Expandir fila')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('copia también el neto de cada afiliación con dos decimales', async () => {
+    mockCalendar()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const copy = vi.spyOn(navigator.clipboard, 'writeText')
+    renderWithProviders(<SettlementCalendarPage />)
+
+    const row = (await screen.findByText('Doña Simona')).closest('tr')!
+    await user.click(within(row).getByLabelText('Expandir fila'))
+    await user.click(screen.getByRole('button', { name: 'Copiar neto de SALON AMAENA' }))
+
+    expect(copy).toHaveBeenCalledWith('700.00')
+  })
+
+  it.each(['denegado', 'no disponible'])('avisa si el portapapeles está %s', async (failure) => {
+    mockCalendar()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    if (failure === 'denegado') {
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('Permiso denegado'))
+    } else {
+      vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(undefined as unknown as Clipboard)
+    }
+    const error = vi.spyOn(toast, 'error')
+    const success = vi.spyOn(toast, 'success')
+    renderWithProviders(<SettlementCalendarPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Copiar neto de IQ' }))
+
+    expect(error).toHaveBeenCalledWith('No se pudo copiar el neto', {
+      description: 'Revisa los permisos del portapapeles de tu navegador e inténtalo de nuevo.',
+    })
+    expect(success).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['FLAUTAS T', true],
+    ['T FLAUTAS', true],
+    ['FLAUTAS T NORTE', true],
+    ['FLAUTAS\tT ', true],
+    ['TESTARUDO', false],
+    ['TORTAS', false],
+    ['FLAUTAS T1', false],
+    ['FLAUTAS T+1', false],
+  ])('marca T sólo cuando es una palabra sola en el merchant: %s', async (label, marked) => {
+    mockCalendar({
+      days: [
+        day('2026-07-14', 'today', [
+          venue(
+            'v3',
+            'IQ',
+            2000,
+            false,
+            [],
+            [merchant('IQ', '551122', 1000, 10), merchant(label, '7494104', 1020, 10)],
+          ),
+        ]),
+      ],
+    })
+    renderWithProviders(<SettlementCalendarPage />)
+
+    const row = (await screen.findByText('IQ')).closest('tr')!
+    if (marked) {
+      expect(within(row).getByText('T')).toHaveClass('text-[var(--warn)]')
+    } else {
+      expect(within(row).queryByText('T')).not.toBeInTheDocument()
+    }
+  })
 
   it('muestra el total del mes y el desglose del día de hoy por default', async () => {
     mockCalendar()
