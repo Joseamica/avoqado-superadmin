@@ -72,11 +72,20 @@ export function LiquidationCalculatorDialog({ open, onOpenChange, venueName, eco
       amount: v(e.venueChargeAmount),
       rate: rateOf(e.venueChargeAmount),
     })
+  if ((e.intermediaryFeeAmount ?? 0) > 0) {
+    rows.push({ label: 'Recibe el intermediario', amount: v(e.intermediaryReceivedAmount ?? 0) })
+    rows.push({
+      label: 'Manejo del intermediario',
+      amount: v(e.intermediaryFeeAmount ?? 0),
+      tone: 'cost',
+    })
+  }
   if (isAggregator && e.venueChargeAmount != null && e.aggregatorPriceAmount != null)
     rows.push({
-      label: 'Cobra el agregador',
-      amount: v(e.venueChargeAmount - e.aggregatorPriceAmount),
-      rate: rateOf(e.venueChargeAmount - e.aggregatorPriceAmount),
+      label:
+        (e.intermediaryFeeAmount ?? 0) > 0 ? 'Margen después del manejo' : 'Cobra el agregador',
+      amount: v(e.venueChargeAmount - e.aggregatorPriceAmount - (e.intermediaryFeeAmount ?? 0)),
+      rate: rateOf(e.venueChargeAmount - e.aggregatorPriceAmount - (e.intermediaryFeeAmount ?? 0)),
     })
   if (e.avoqadoMarginAggregator != null) {
     rows.push({
@@ -122,7 +131,8 @@ export function LiquidationCalculatorDialog({ open, onOpenChange, venueName, eco
           <DialogTitle>Calculadora de liquidación · {venueName}</DialogTitle>
           <DialogDescription>
             Captura el monto transaccionado y calculamos el reparto según lo configurado para este
-            venue.
+            venue. Flujo con IVA según las tasas; los reportes de ganancias muestran el margen antes
+            de IVA.
           </DialogDescription>
         </DialogHeader>
 

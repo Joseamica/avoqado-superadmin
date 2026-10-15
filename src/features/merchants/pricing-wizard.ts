@@ -36,6 +36,7 @@ export interface WizardState {
   aggMarkup: number // tu markup encima del precio base (tramo 2), decimal
   aggMarkupIncludesTax: boolean // ¿el markup ya es final (true) o se le suma IVA (false)?
   aggShareAggregator: number // tramo 2 (el markup), 0..1
+  intermediaryFeeRate?: number // cargo final sobre lo recibido tras el procesador
   // destino del pricing
   venueId: string
 }
@@ -58,6 +59,7 @@ export const EMPTY_WIZARD_STATE: WizardState = {
   aggMarkup: 0,
   aggMarkupIncludesTax: true,
   aggShareAggregator: 1,
+  intermediaryFeeRate: 0,
   venueId: '',
 }
 
@@ -116,6 +118,7 @@ export function buildWizardResult(s: WizardState): WizardResult {
         aggregatorPriceIncludesTax: s.aggIncludesTax,
         avoqadoShareOfProviderMargin: s.aggShareProvider,
         avoqadoShareOfAggregatorMargin: s.aggShareAggregator,
+        intermediaryFeeRate: s.intermediaryFeeRate ?? 0,
         taxRate: s.taxRate,
       },
       venuePricingInput: {
@@ -133,6 +136,7 @@ export function buildWizardResult(s: WizardState): WizardResult {
     aggregatorPriceIncludesTax: false,
     avoqadoShareOfProviderMargin: effectiveShare(s),
     avoqadoShareOfAggregatorMargin: null,
+    intermediaryFeeRate: 0,
     taxRate: s.taxRate,
   }
 
@@ -171,6 +175,7 @@ export function wizardEconomics(s: WizardState): MerchantEconomics {
         aggregatorPrice: mapRates((c) => eff(s.aggregatorPrice[c], s.aggIncludesTax, s.taxRate)),
         avoqadoShareOfProviderMargin: s.aggShareProvider,
         avoqadoShareOfAggregatorMargin: s.aggShareAggregator,
+        intermediaryFeeRate: s.intermediaryFeeRate ?? 0,
         taxRate: s.taxRate,
       },
     })

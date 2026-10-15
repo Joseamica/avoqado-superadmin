@@ -46,6 +46,38 @@ afterEach(() => {
 afterAll(() => server.close())
 
 describe('EditVenuePricingDrawer', () => {
+  it('la ganancia del editor considera el manejo y ambos repartos', async () => {
+    const rates = (n: number) => ({ DEBIT: n, CREDIT: n, AMEX: n, INTERNATIONAL: n })
+    renderWithProviders(
+      <EditVenuePricingDrawer
+        open
+        venueId="v1"
+        venueName="Negocio"
+        slot="PRIMARY"
+        cost={{
+          ...cost,
+          debitRate: 0.0064,
+          creditRate: 0.0064,
+          amexRate: 0.0064,
+          internationalRate: 0.0064,
+          includesTax: false,
+        }}
+        revenueShare={{
+          aggregatorPrice: rates(0.007),
+          aggregatorPriceIncludesTax: false,
+          avoqadoShareOfProviderMargin: 0.5,
+          avoqadoShareOfAggregatorMargin: 1,
+          intermediaryFeeRate: 0.01,
+          taxRate: 0.16,
+        }}
+        initialValues={{ rates: rates(0.055), includesTax: true }}
+        onOpenChange={() => {}}
+      />,
+    )
+    await waitFor(() => expect(screen.getAllByText('$3.73')).toHaveLength(4))
+    expect(screen.queryByText('$4.76')).not.toBeInTheDocument()
+  })
+
   it('envía el body correcto al guardar pricing nuevo (POST)', async () => {
     const onSaved = vi.fn()
     const onOpenChange = vi.fn()

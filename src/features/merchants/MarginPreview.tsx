@@ -21,6 +21,9 @@ export function MarginPreview({ economics }: { economics: MerchantEconomics }) {
           ? 'Margen Avoqado · proveedor→agregador (por $100)'
           : 'Margen Avoqado (por $100)'}
       </p>
+      <p className="mb-2 text-sm text-[var(--ink-muted)]">
+        Proyección de efectivo con IVA según las tasas.
+      </p>
       {economics.mode === 'no-pricing' ? (
         <p className="text-[12px] text-[var(--ink-faint)]">
           Sin pricing — define el pricing por venue para ver el margen directo.
@@ -30,7 +33,15 @@ export function MarginPreview({ economics }: { economics: MerchantEconomics }) {
           {CARD_TYPES.map((c) => (
             <div key={c} className="flex items-baseline justify-between">
               <dt className="text-[12px] text-[var(--ink-muted)]">{humanizeCardType(c)}</dt>
-              <dd className="text-[13px] font-semibold tabular-nums text-[var(--success)]">
+              <dd
+                className={`text-[13px] font-semibold tabular-nums ${
+                  economics.byCard[c].avoqadoMargin == null
+                    ? 'text-[var(--ink-muted)]'
+                    : economics.byCard[c].avoqadoMargin! < 0
+                      ? 'text-[var(--danger)]'
+                      : 'text-[var(--success)]'
+                }`}
+              >
                 {money(economics.byCard[c].avoqadoMargin)}
               </dd>
             </div>

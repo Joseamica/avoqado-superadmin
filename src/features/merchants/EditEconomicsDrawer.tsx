@@ -17,7 +17,7 @@ import { MoneyFlowDiagram } from './MoneyFlowDiagram'
 import { RevenueShareFields } from './RevenueShareFields'
 import { computeMerchantEconomics } from './economics'
 import { initRevenueShareDraft, revenueShareToInput, type RevenueShareDraft } from './revenue-share'
-import { useSaveCost, useSaveRevenueShare } from './use-merchants'
+import { useSaveMerchantEconomics } from './use-merchants'
 import type { CardRates, MerchantRevenueShare, ProviderCostStructure } from './types'
 import { effectiveCardRates, rawCardRates } from './types'
 
@@ -63,8 +63,7 @@ function EconomicsForm({
   onSaved,
   initialValues,
 }: Omit<Props, 'open'>) {
-  const saveCost = useSaveCost()
-  const saveRS = useSaveRevenueShare()
+  const save = useSaveMerchantEconomics()
 
   // El campo edita la tasa CRUDA (lo que se persiste); el checkbox decide el IVA.
   const [rates, setRates] = useState<CardRates>(
@@ -79,7 +78,7 @@ function EconomicsForm({
   const [error, setError] = useState<string | null>(null)
 
   const taxRate = revenueShare?.taxRate ?? 0.16
-  const saving = saveCost.isPending || saveRS.isPending
+  const saving = save.isPending
 
   const economics = computeMerchantEconomics({
     // La preview necesita la tasa EFECTIVA (con IVA); el estado guarda la cruda.
@@ -92,6 +91,7 @@ function EconomicsForm({
             aggregatorPrice: effectiveCardRates(rs.aggregatorPrice, rs.aggIncludesTax, taxRate),
             avoqadoShareOfProviderMargin: rs.shareProvider,
             avoqadoShareOfAggregatorMargin: rs.shareAgg,
+            intermediaryFeeRate: rs.intermediaryFeeRate ?? 0,
             taxRate,
           }
         : {
@@ -105,21 +105,25 @@ function EconomicsForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    const fee = rs.intermediaryFeeRate ?? 0
+    if (rs.mode === 'aggregator' && (!Number.isFinite(fee) || fee < 0 || fee > 1)) {
+      setError('El manejo debe estar entre 0 y 100 %.')
+      return
+    }
     try {
-      await saveCost.mutateAsync({
+      await save.mutateAsync({
         merchantAccountId: merchantId,
-        activeId: cost?.id ?? null,
         input: {
-          rates,
-          includesTax,
-          taxRate: cost?.taxRate ?? 0.16,
-          fixedCostPerTransaction: cost?.fixedCostPerTransaction ?? null,
+          costId: cost?.id ?? null,
+          revenueShareId: revenueShare?.id ?? null,
+          cost: {
+            rates,
+            includesTax,
+            taxRate: cost?.taxRate ?? 0.16,
+            fixedCostPerTransaction: cost?.fixedCostPerTransaction ?? null,
+          },
+          revenueShare: revenueShareToInput(rs, taxRate),
         },
-      })
-      await saveRS.mutateAsync({
-        merchantAccountId: merchantId,
-        existingId: revenueShare?.id ?? null,
-        input: revenueShareToInput(rs, taxRate),
       })
       toast.success('Economía actualizada')
       onSaved?.()

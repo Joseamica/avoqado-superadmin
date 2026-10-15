@@ -19,6 +19,8 @@ export const REFERENCE_AMOUNT = 100
 export type EconomicsMode = 'no-pricing' | 'all-avoqado' | 'direct-split' | 'aggregator'
 
 export interface CardEconomics {
+  intermediaryReceivedAmount?: number | null
+  intermediaryFeeAmount?: number
   amount: number
   providerCostAmount: number
   venueChargeAmount: number | null
@@ -38,6 +40,7 @@ export interface MerchantEconomics {
 }
 
 interface RevenueShareInput {
+  intermediaryFeeRate?: number
   aggregatorPrice: CardRates | null
   avoqadoShareOfProviderMargin: number
   avoqadoShareOfAggregatorMargin: number | null
@@ -66,6 +69,8 @@ export function computeMerchantEconomics(input: EconomicsInput): MerchantEconomi
     const providerCostAmount = input.cost[card] * A
     let venueChargeAmount: number | null = null
     let aggregatorPriceAmount: number | null = null
+    let intermediaryReceivedAmount: number | null = null
+    let intermediaryFeeAmount = 0
     let avoqadoMargin: number | null = null
     let avoqadoMarginProvider: number | null = null
     let avoqadoMarginAggregator: number | null = null
@@ -81,19 +86,24 @@ export function computeMerchantEconomics(input: EconomicsInput): MerchantEconomi
       avoqadoMarginProvider = avoqadoMargin
     } else if (mode === 'aggregator' && input.revenueShare?.aggregatorPrice) {
       aggregatorPriceAmount = input.revenueShare.aggregatorPrice[card] * A
+      intermediaryReceivedAmount = Math.max(0, A - aggregatorPriceAmount)
+      intermediaryFeeAmount =
+        intermediaryReceivedAmount * (input.revenueShare.intermediaryFeeRate ?? 0)
       // Tramo 1 — proveedor→agregador: Avoqado se queda su share del margen.
       const m1 = aggregatorPriceAmount - providerCostAmount
       avoqadoMarginProvider = m1 * input.revenueShare.avoqadoShareOfProviderMargin
       // Tramo 2 — agregador→venue: sólo si conocemos el pricing del venue (per-venue).
       if (input.venuePrice) {
         venueChargeAmount = input.venuePrice[card] * A
-        const m2 = venueChargeAmount - aggregatorPriceAmount
+        const m2 = venueChargeAmount - aggregatorPriceAmount - intermediaryFeeAmount
         avoqadoMarginAggregator = m2 * (input.revenueShare.avoqadoShareOfAggregatorMargin ?? 0)
       }
       avoqadoMargin = avoqadoMarginProvider + (avoqadoMarginAggregator ?? 0)
     }
 
     byCard[card] = {
+      intermediaryReceivedAmount,
+      intermediaryFeeAmount,
       amount: A,
       providerCostAmount,
       venueChargeAmount,

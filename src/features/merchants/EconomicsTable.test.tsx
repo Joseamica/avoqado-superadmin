@@ -4,6 +4,26 @@ import { EconomicsTable } from './EconomicsTable'
 import { computeMerchantEconomics } from './economics'
 
 describe('EconomicsTable', () => {
+  it('muestra el manejo separado y descuenta antes de repartir el margen', () => {
+    const rates = (n: number) => ({ DEBIT: n, CREDIT: n, AMEX: n, INTERNATIONAL: n })
+    const economics = computeMerchantEconomics({
+      cost: rates(0.007424),
+      venuePrice: rates(0.055),
+      revenueShare: {
+        aggregatorPrice: rates(0.00812),
+        intermediaryFeeRate: 0.01,
+        avoqadoShareOfProviderMargin: 0.5,
+        avoqadoShareOfAggregatorMargin: 1,
+        taxRate: 0.16,
+      },
+    })
+    render(<EconomicsTable economics={economics} />)
+    expect(screen.getByText('Manejo del intermediario')).toBeInTheDocument()
+    expect(screen.getAllByText('-$0.99')).toHaveLength(4)
+    expect(screen.getAllByText('$3.70')).toHaveLength(8)
+    expect(screen.getAllByText('$3.73')).toHaveLength(4)
+  })
+
   it('renderiza fila de margen para el modo all-avoqado', () => {
     const eco = computeMerchantEconomics({
       cost: { DEBIT: 0.015, CREDIT: 0.025, AMEX: 0.035, INTERNATIONAL: 0.04 },

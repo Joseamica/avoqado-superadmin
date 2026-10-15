@@ -11,6 +11,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Fixed
 
+- Guardar la economía confirma costo y reparto juntos; los porcentajes aceptan coma decimal y rechazan letras y valores fuera de rango. Las pérdidas usan el tono de alerta y las operaciones conservan el actor en el historial.
+
+- La economía de merchants separa el manejo del banco intermediario de la tarifa al agregador: calcula el cargo final sobre lo recibido tras procesador e IVA, lo descuenta del segundo margen y conserva repartos configurables de 50 % o 100 %. Alta, edición, asistente, flujo y calculadora usan el mismo cargo; requiere la migración del servidor.
+
 - La autorización de migración etiqueta el campo del serial y usa el botón destructivo del sistema para conservar contraste y foco accesibles.
 - Nexgo explica su actualización por TMS sin mostrar el selector de versiones que no puede instalar.
 - La migración conserva su confirmación cuando los eventos actualizan la terminal; completar el traslado ya no reinicia el wizard en la selección de destino.

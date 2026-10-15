@@ -11,6 +11,7 @@ const ZERO_RATES: CardRates = { DEBIT: 0, CREDIT: 0, AMEX: 0, INTERNATIONAL: 0 }
 export const DEFAULT_TAX_RATE = 0.16
 
 export interface RevenueShareDraft {
+  intermediaryFeeRate?: number
   mode: 'direct' | 'aggregator'
   /** Precio al agregador (CRUDO; el checkbox decide el IVA). Sólo aplica en modo agregador. */
   aggregatorPrice: CardRates
@@ -29,6 +30,7 @@ export function initRevenueShareDraft(rs: MerchantRevenueShare | null): RevenueS
     aggIncludesTax: rs?.aggregatorPriceIncludesTax ?? true,
     shareProvider: rs?.avoqadoShareOfProviderMargin ?? 0.5,
     shareAgg: rs?.avoqadoShareOfAggregatorMargin ?? 0.7,
+    intermediaryFeeRate: rs?.intermediaryFeeRate ?? 0,
   }
 }
 
@@ -46,6 +48,7 @@ export function revenueShareToInput(
     avoqadoShareOfProviderMargin: d.shareProvider,
     avoqadoShareOfAggregatorMargin: d.mode === 'aggregator' ? d.shareAgg : null,
     taxRate,
+    intermediaryFeeRate: d.mode === 'aggregator' ? (d.intermediaryFeeRate ?? 0) : 0,
   }
 }
 
@@ -57,5 +60,6 @@ export function draftFromInput(input: SaveRevenueShareInput): RevenueShareDraft 
     aggIncludesTax: input.aggregatorPriceIncludesTax,
     shareProvider: input.avoqadoShareOfProviderMargin,
     shareAgg: input.avoqadoShareOfAggregatorMargin ?? 0.7,
+    intermediaryFeeRate: input.intermediaryFeeRate ?? 0,
   }
 }

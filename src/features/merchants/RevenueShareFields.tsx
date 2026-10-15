@@ -1,5 +1,6 @@
 import { CardRatesInput } from './CardRatesInput'
 import { PercentInput } from './PercentInput'
+import { IntermediaryFeeField } from './IntermediaryFeeField'
 import type { CardRates } from './types'
 import type { RevenueShareDraft } from './revenue-share'
 
@@ -59,12 +60,19 @@ export function RevenueShareFields({ value, onChange }: Props) {
             />
             El precio al agregador ya incluye IVA
           </label>
-          <p className="mt-1.5 text-[12px] text-[var(--ink-faint)]">
+          <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">
             Tu precio directo: costo + tu primer margen, hasta donde llega antes del markup del
             agregador. No es lo que el agregador le cobra al venue — eso es el pricing de cada venue
             menos este precio, y se desglosa por venue.
           </p>
         </div>
+      )}
+
+      {value.mode === 'aggregator' && (
+        <IntermediaryFeeField
+          value={value.intermediaryFeeRate ?? 0}
+          onChange={(intermediaryFeeRate) => patch({ intermediaryFeeRate })}
+        />
       )}
 
       <div className="flex flex-wrap gap-4">
@@ -90,7 +98,7 @@ export function RevenueShareFields({ value, onChange }: Props) {
             />
             <p className="mt-1.5 max-w-[16rem] text-[12px] text-[var(--ink-faint)]">
               % que se queda Avoqado del markup del agregador (pricing del venue − precio a
-              agregador).
+              agregador − manejo del intermediario).
             </p>
           </div>
         )}

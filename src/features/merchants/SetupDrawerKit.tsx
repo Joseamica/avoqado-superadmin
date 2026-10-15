@@ -32,23 +32,24 @@ export function CardDrawer({
         <DrawerHeader onClose={() => onOpenChange(false)}>
           <DrawerTitle>{title}</DrawerTitle>
         </DrawerHeader>
-        <DrawerBody>
-          <div className="flex flex-col gap-4">{children}</div>
-        </DrawerBody>
-        <DrawerFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              onSave()
-              onOpenChange(false)
-            }}
-          >
-            Guardar
-          </Button>
-        </DrawerFooter>
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSave()
+            onOpenChange(false)
+          }}
+        >
+          <DrawerBody>
+            <div className="flex flex-col gap-4">{children}</div>
+          </DrawerBody>
+          <DrawerFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
+          </DrawerFooter>
+        </form>
       </DrawerContent>
     </Drawer>
   )

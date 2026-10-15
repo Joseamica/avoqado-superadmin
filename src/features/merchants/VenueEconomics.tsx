@@ -96,6 +96,7 @@ function VenueEconomicsCard({
                   : null,
                 avoqadoShareOfProviderMargin: revenueShare.avoqadoShareOfProviderMargin,
                 avoqadoShareOfAggregatorMargin: revenueShare.avoqadoShareOfAggregatorMargin,
+                intermediaryFeeRate: revenueShare.intermediaryFeeRate ?? 0,
                 taxRate: revenueShare.taxRate,
               }
             : null,

@@ -351,6 +351,7 @@ export function MerchantDetailPage() {
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         cost={eco.cost}
+        intermediaryFeeRate={eco.revenueShare?.intermediaryFeeRate ?? 0}
         venues={eco.venueConfigs.map((c) => ({
           venueId: c.venueId,
           venueName: c.venue.name,
@@ -405,6 +406,7 @@ export function MerchantDetailPage() {
           venueName={pricingTarget?.venueName ?? prefill!.venueName}
           slot={pricingTarget?.slot ?? prefill!.slot}
           cost={eco.cost}
+          revenueShare={eco.revenueShare}
           initialValues={
             pricingPrefillOpen && prefill
               ? {

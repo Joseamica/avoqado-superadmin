@@ -42,3 +42,17 @@ describe('MarginPreview', () => {
     expect(screen.getByText(/Falta el tramo agregador→venue/)).toBeInTheDocument()
   })
 })
+
+it('distingue una pérdida de una ganancia por tarjeta', () => {
+  render(
+    <MarginPreview
+      economics={computeMerchantEconomics({
+        cost: { DEBIT: 0.008, CREDIT: 0.006, AMEX: 0, INTERNATIONAL: 0 },
+        venuePrice: { DEBIT: 0.0068, CREDIT: 0.007, AMEX: 0, INTERNATIONAL: 0 },
+        revenueShare: null,
+      })}
+    />,
+  )
+  expect(screen.getByText('-$0.12')).toHaveClass('text-[var(--danger)]')
+  expect(screen.getByText('$0.10')).toHaveClass('text-[var(--success)]')
+})

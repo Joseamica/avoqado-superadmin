@@ -99,6 +99,7 @@ export interface ProviderCostStructure {
 }
 
 export interface MerchantRevenueShare {
+  intermediaryFeeRate?: number
   id: string
   merchantAccountId: string
   aggregatorPrice: CardRates | null // null = venta directa

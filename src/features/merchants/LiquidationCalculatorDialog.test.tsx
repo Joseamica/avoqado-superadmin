@@ -25,6 +25,32 @@ const eco = computeMerchantEconomics({
 })
 
 describe('LiquidationCalculatorDialog', () => {
+  it('escala el manejo sobre lo recibido y conserva la dispersión al negocio', () => {
+    const economics = computeMerchantEconomics({
+      cost,
+      venuePrice,
+      revenueShare: {
+        aggregatorPrice,
+        intermediaryFeeRate: 0.01,
+        avoqadoShareOfProviderMargin: 0.5,
+        avoqadoShareOfAggregatorMargin: 1,
+        taxRate: 0.16,
+      },
+    })
+    render(
+      <LiquidationCalculatorDialog
+        open
+        onOpenChange={() => {}}
+        venueName="Negocio"
+        economics={economics}
+      />,
+    )
+    expect(screen.getByText('Manejo del intermediario')).toBeInTheDocument()
+    expect(screen.getByText('−$9.65')).toBeInTheDocument()
+    expect(screen.getByText('+$67.15')).toBeInTheDocument()
+    expect(screen.getByText('$900.00')).toBeInTheDocument()
+  })
+
   it('escala el margen total al monto capturado', () => {
     render(
       <LiquidationCalculatorDialog
