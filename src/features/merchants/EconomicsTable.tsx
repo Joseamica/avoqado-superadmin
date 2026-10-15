@@ -14,10 +14,16 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
   // El tramo agregador→venue sólo existe cuando conocemos el pricing del venue.
   const hasAggregatorSplit = economics.byCard.DEBIT.avoqadoMarginAggregator != null
   const hasVenueCharge = economics.byCard.DEBIT.venueChargeAmount != null
+  const hasHandlingFee = CARD_TYPES.some(
+    (c) => (economics.byCard[c].intermediaryFeeAmount ?? 0) > 0,
+  )
 
   return (
     <div className="overflow-x-auto rounded-[8px] border border-[var(--line-strong)]">
       <table className="w-full border-collapse text-[13px]" style={{ minWidth: 480 }}>
+        <caption className="px-4 py-2 text-left text-sm text-[var(--ink-muted)]">
+          Efectivo por $100, con IVA según las tasas. Ganancias reporta antes de IVA.
+        </caption>
         <thead>
           <tr className="border-b border-[var(--line-strong)] bg-[var(--canvas-sunken)]">
             <th className="eyebrow px-4 py-2.5 text-left" scope="col">
@@ -47,12 +53,20 @@ export function EconomicsTable({ economics }: { economics: MerchantEconomics }) 
           {hasVenueCharge && (
             <Row label="Paga el venue" pick={(e) => e.venueChargeAmount} economics={economics} />
           )}
+          {hasHandlingFee && (
+            <Row
+              label="Manejo del intermediario"
+              pick={(e) => e.intermediaryFeeAmount ?? 0}
+              kind="cost"
+              economics={economics}
+            />
+          )}
           {hasAggregatorSplit && (
             <Row
-              label="Cobra el agregador"
+              label={hasHandlingFee ? 'Margen después del manejo' : 'Cobra el agregador'}
               pick={(e) =>
                 e.venueChargeAmount != null && e.aggregatorPriceAmount != null
-                  ? e.venueChargeAmount - e.aggregatorPriceAmount
+                  ? e.venueChargeAmount - e.aggregatorPriceAmount - (e.intermediaryFeeAmount ?? 0)
                   : null
               }
               economics={economics}

@@ -187,6 +187,7 @@ export async function fetchRevenueShare(
     aggregatorPrice,
     aggregatorPriceIncludesTax: (r.aggregatorPriceIncludesTax as boolean) ?? false,
     avoqadoShareOfProviderMargin: num(r.avoqadoShareOfProviderMargin, 0.5),
+    intermediaryFeeRate: num(r.intermediaryFeeRate),
     avoqadoShareOfAggregatorMargin:
       r.avoqadoShareOfAggregatorMargin == null ? null : num(r.avoqadoShareOfAggregatorMargin),
     taxRate: num(r.taxRate, 0.16),
@@ -378,6 +379,7 @@ export async function saveCost(
 }
 
 export interface SaveRevenueShareInput {
+  intermediaryFeeRate?: number
   aggregatorPrice: CardRates | null
   /** ¿El precio al agregador ya incluye IVA? `false` = base, el cálculo le suma IVA. */
   aggregatorPriceIncludesTax: boolean
@@ -393,6 +395,7 @@ export async function saveRevenueShare(
 ): Promise<void> {
   const body = {
     aggregatorPrice: input.aggregatorPrice,
+    intermediaryFeeRate: input.intermediaryFeeRate,
     aggregatorPriceIncludesTax: input.aggregatorPriceIncludesTax,
     avoqadoShareOfProviderMargin: input.avoqadoShareOfProviderMargin,
     avoqadoShareOfAggregatorMargin: input.avoqadoShareOfAggregatorMargin,
@@ -900,4 +903,32 @@ export async function updateAngelPayAccountCredentials(
 /** Rota el PIN (6 dígitos). Funciona en cualquier estado — es el camino de rotación. */
 export async function setAngelPayAccountPin(accountId: string, pin: string): Promise<void> {
   await api.patch(`/superadmin/angelpay-accounts/${encodeURIComponent(accountId)}/pin`, { pin })
+}
+
+/** Costo y reparto se confirman en una sola transacción del servidor. */
+export async function saveMerchantEconomics(
+  merchantAccountId: string,
+  input: {
+    costId: string | null
+    revenueShareId: string | null
+    cost: SaveCostInput
+    revenueShare: SaveRevenueShareInput
+  },
+): Promise<void> {
+  const { rates, ...cost } = input.cost
+  await api.put(
+    `/superadmin/merchant-accounts/${encodeURIComponent(merchantAccountId)}/economics`,
+    {
+      costId: input.costId,
+      revenueShareId: input.revenueShareId,
+      cost: {
+        ...cost,
+        debitRate: rates.DEBIT,
+        creditRate: rates.CREDIT,
+        amexRate: rates.AMEX,
+        internationalRate: rates.INTERNATIONAL,
+      },
+      revenueShare: input.revenueShare,
+    },
+  )
 }

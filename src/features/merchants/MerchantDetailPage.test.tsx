@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { delay, http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '@/test/render'
@@ -165,6 +165,59 @@ describe('MerchantDetailPage', () => {
       /Avoqado del margen proveedor/i,
     )) as HTMLInputElement
     expect(shareInput.value).toBe('100')
+  })
+
+  it('pricing usa el manejo revisado y guardado, aunque difiera del asistente', async () => {
+    let saved: Record<string, unknown> = {
+      id: 'rs1',
+      aggregatorPrice: null,
+      aggregatorPriceIncludesTax: true,
+      avoqadoShareOfProviderMargin: 0.5,
+      avoqadoShareOfAggregatorMargin: 1,
+      intermediaryFeeRate: 0.01,
+      taxRate: 0.16,
+      active: true,
+    }
+    server.use(
+      http.get(`${baseURL}/superadmin/merchant-revenue-shares/by-merchant`, () =>
+        HttpResponse.json({ data: saved }),
+      ),
+      http.put(`${baseURL}/superadmin/merchant-accounts/m1/economics`, async ({ request }) => {
+        const body = (await request.json()) as { revenueShare: Record<string, unknown> }
+        saved = { ...saved, ...body.revenueShare }
+        return HttpResponse.json({ data: { cost: {}, revenueShare: saved } })
+      }),
+      http.get(`${baseURL}/superadmin/venue-pricing/configs-by-merchant/m1`, () =>
+        HttpResponse.json({
+          data: [{ venue: { id: 'v1', name: 'Berthe', slug: 'berthe' }, secondaryAccountId: 'm1' }],
+        }),
+      ),
+      http.get(`${baseURL}/superadmin/venue-pricing/structures/active/v1/SECONDARY`, () =>
+        HttpResponse.json({ data: null }),
+      ),
+    )
+    renderWithProviders(
+      <Routes>
+        <Route path="/merchants/:id" element={<MerchantDetailPage />} />
+      </Routes>,
+      { initialEntries: ['/merchants/m1'] },
+    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Asistente' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Asistente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+    fireEvent.click(screen.getByRole('button', { name: /Vía agregador/ }))
+    fireEvent.change(document.getElementById('wiz-agg-DEBIT')!, { target: { value: '2' } })
+    fireEvent.change(document.getElementById('wiz-agg-markup')!, { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Prellenar y revisar' }))
+    await screen.findByText('Editar economía')
+    fireEvent.change(screen.getByLabelText('Manejo del intermediario (%)'), {
+      target: { value: '2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await screen.findByText('Pricing · Berthe')
+    expect(saved.intermediaryFeeRate).toBe(0.02)
+    expect(within(screen.getByRole('dialog')).getByText('$3.29')).toBeInTheDocument()
   })
 
   describe('Editar economía con la economía cargando DESPUÉS que la cuenta', () => {

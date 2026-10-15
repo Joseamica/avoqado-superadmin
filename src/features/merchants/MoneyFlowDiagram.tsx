@@ -32,6 +32,66 @@ function buildHops(
   mode: MerchantEconomics['mode'],
   shares?: { provider: number; aggregator: number | null },
 ): Hop[] {
+  if (
+    mode === 'aggregator' &&
+    (e.intermediaryFeeAmount ?? 0) > 0 &&
+    e.aggregatorPriceAmount != null
+  ) {
+    const transfers: Hop[] = [
+      {
+        node: 'Procesador → banco intermediario',
+        flowLabel: 'deposita después de su tarifa e IVA',
+        flowAmount: e.intermediaryReceivedAmount ?? 0,
+      },
+      {
+        node: 'Banco intermediario',
+        caption: `recibe ${money(e.intermediaryReceivedAmount ?? 0)}`,
+        flowLabel: 'retiene manejo final (sin IVA adicional)',
+        flowAmount: -(e.intermediaryFeeAmount ?? 0),
+      },
+      {
+        node: 'Procesador → Avoqado',
+        flowLabel: 'reparte el margen proveedor',
+        flowAmount: e.avoqadoMarginProvider ?? 0,
+        splitBase: e.aggregatorPriceAmount - e.providerCostAmount,
+        splitShare: shares?.provider,
+        splitCut: e.avoqadoMarginProvider,
+        splitLabel: 'margen proveedor',
+      },
+    ]
+    if (e.venueChargeAmount != null) {
+      const remaining =
+        e.venueChargeAmount - e.aggregatorPriceAmount - (e.intermediaryFeeAmount ?? 0)
+      transfers.push({
+        node: 'Banco → negocio',
+        flowLabel: 'dispersa',
+        flowAmount: e.amount - e.venueChargeAmount,
+      })
+      transfers.push({
+        node: 'Banco → Avoqado',
+        flowLabel: 'dispersa su parte del remanente',
+        flowAmount: e.avoqadoMarginAggregator ?? 0,
+        splitLabel: 'margen después del manejo',
+        splitBase: remaining,
+        splitShare: shares?.aggregator,
+        splitCut: e.avoqadoMarginAggregator,
+      })
+      const aggregatorKept = remaining - (e.avoqadoMarginAggregator ?? 0)
+      if (Math.abs(aggregatorKept) > 0.000001)
+        transfers.push({
+          node: 'Banco → agregador',
+          flowLabel: 'dispersa la otra parte',
+          flowAmount: aggregatorKept,
+        })
+    } else {
+      transfers.push({
+        node: 'Negocio y remanente',
+        pending: true,
+        caption: 'falta el pricing del negocio',
+      })
+    }
+    return transfers
+  }
   const hops: Hop[] = []
   hops.push({
     node: 'Proveedor',
@@ -56,7 +116,7 @@ function buildHops(
         flowLabel: 'cobra al venue',
         flowAmount: e.venueChargeAmount,
         splitLabel: 'markup agregador',
-        splitBase: e.venueChargeAmount - e.aggregatorPriceAmount,
+        splitBase: e.venueChargeAmount - e.aggregatorPriceAmount - (e.intermediaryFeeAmount ?? 0),
         splitShare: shares?.aggregator ?? null,
         splitCut: e.avoqadoMarginAggregator,
       })
@@ -194,6 +254,10 @@ export function MoneyFlowDiagram({
               )
             })}
           </ol>
+          <p className="text-sm text-[var(--ink-muted)]">
+            Flujo de efectivo con IVA según las tasas. Los reportes de ganancias muestran el margen
+            antes de IVA.
+          </p>
 
           <div className="flex items-baseline justify-between border-t border-[var(--line-strong)] pt-2">
             <span className="text-[13px] font-semibold text-[var(--ink)]">

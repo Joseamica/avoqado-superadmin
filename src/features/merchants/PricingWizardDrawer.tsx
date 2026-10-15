@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/Button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { CardRatesInput } from './CardRatesInput'
 import { PercentInput } from './PercentInput'
+import { IntermediaryFeeField } from './IntermediaryFeeField'
 import { EconomicsTable } from './EconomicsTable'
 import {
   EMPTY_WIZARD_STATE,
@@ -34,6 +35,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   cost: ProviderCostStructure | null
+  intermediaryFeeRate?: number
   venues: { venueId: string; venueName: string; slot: AccountSlot }[]
   onPrefill: (r: PricingWizardResult) => void
 }
@@ -42,13 +44,18 @@ const asPct = (d: number) => Math.round(d * 10000) / 100
 
 const labelCls = 'mb-1 block text-[12px] font-medium text-[var(--ink-muted)]'
 
-function initialState(cost: ProviderCostStructure | null, venues: Props['venues']): WizardState {
+function initialState(
+  cost: ProviderCostStructure | null,
+  venues: Props['venues'],
+  intermediaryFeeRate = 0,
+): WizardState {
   return {
     ...EMPTY_WIZARD_STATE,
     cost: cost ? rawCardRates(cost) : EMPTY_WIZARD_STATE.cost,
     costIncludesTax: cost?.includesTax ?? true,
     taxRate: cost?.taxRate ?? 0.16,
     venueId: venues[0]?.venueId ?? '',
+    intermediaryFeeRate,
   }
 }
 
@@ -69,9 +76,15 @@ export function PricingWizardDrawer({ open, onOpenChange, ...wizard }: Props) {
   )
 }
 
-function PricingWizard({ onOpenChange, cost, venues, onPrefill }: Omit<Props, 'open'>) {
+function PricingWizard({
+  onOpenChange,
+  cost,
+  venues,
+  onPrefill,
+  intermediaryFeeRate,
+}: Omit<Props, 'open'>) {
   const [step, setStep] = useState(1)
-  const [s, setS] = useState<WizardState>(() => initialState(cost, venues))
+  const [s, setS] = useState<WizardState>(() => initialState(cost, venues, intermediaryFeeRate))
   const patch = (p: Partial<WizardState>) => setS((prev) => ({ ...prev, ...p }))
 
   const economics = useMemo(() => wizardEconomics(s), [s])
@@ -102,246 +115,260 @@ function PricingWizard({ onOpenChange, cost, venues, onPrefill }: Omit<Props, 'o
         <DrawerTitle>Asistente de pricing</DrawerTitle>
         <DrawerSubtitle>Paso {step} de 3</DrawerSubtitle>
       </DrawerHeader>
-      <DrawerBody>
-        {step === 1 && (
-          <section className="flex flex-col gap-3">
-            <h3 className="text-[13px] font-semibold text-[var(--ink)]">
-              ¿Cuánto te cobra tu procesador?
-            </h3>
-            <CardRatesInput
-              value={s.cost}
-              onChange={(cost) => patch({ cost })}
-              idPrefix="wiz-cost"
-            />
-            <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-              <input
-                type="checkbox"
-                checked={s.costIncludesTax}
-                onChange={(e) => patch({ costIncludesTax: e.target.checked })}
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (step < 3) setStep((n) => n + 1)
+          else handlePrefill()
+        }}
+      >
+        <DrawerBody>
+          {step === 1 && (
+            <section className="flex flex-col gap-3">
+              <h3 className="text-[13px] font-semibold text-[var(--ink)]">
+                ¿Cuánto te cobra tu procesador?
+              </h3>
+              <CardRatesInput
+                value={s.cost}
+                onChange={(cost) => patch({ cost })}
+                idPrefix="wiz-cost"
               />
-              Estas tasas ya incluyen IVA
-            </label>
-          </section>
-        )}
-
-        {step === 2 && (
-          <section className="flex flex-col gap-4">
-            <div>
-              <span className={labelCls}>¿Cómo le cobras al venue?</span>
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    ['flat', 'Tasa pareja'],
-                    ['cost-plus', 'Costo + comisión'],
-                    ['aggregator', 'Vía agregador'],
-                  ] as [ChargeModel, string][]
-                ).map(([m, label]) => (
-                  <Button
-                    key={m}
-                    type="button"
-                    size="md"
-                    variant={s.model === m ? 'primary' : 'secondary'}
-                    onClick={() => patch({ model: m })}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {s.model === 'flat' && (
-              <div>
-                <label htmlFor="wiz-flat" className={labelCls}>
-                  % que paga el venue
-                </label>
-                <PercentInput
-                  id="wiz-flat"
-                  value={s.flatRate}
-                  onChange={(flatRate) => patch({ flatRate })}
+              <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                <input
+                  type="checkbox"
+                  checked={s.costIncludesTax}
+                  onChange={(e) => patch({ costIncludesTax: e.target.checked })}
                 />
-                <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                  <input
-                    type="checkbox"
-                    checked={s.flatIncludesTax}
-                    onChange={(e) => patch({ flatIncludesTax: e.target.checked })}
-                  />
-                  Ya incluye IVA
-                </label>
-              </div>
-            )}
+                Estas tasas ya incluyen IVA
+              </label>
+            </section>
+          )}
 
-            {s.model === 'cost-plus' && (
+          {step === 2 && (
+            <section className="flex flex-col gap-4">
               <div>
-                <label htmlFor="wiz-markup" className={labelCls}>
-                  Tu comisión (%)
-                </label>
-                <PercentInput
-                  id="wiz-markup"
-                  value={s.markup}
-                  onChange={(markup) => patch({ markup })}
-                />
-                <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                  <input
-                    type="checkbox"
-                    checked={!s.markupIncludesTax}
-                    onChange={(e) => patch({ markupIncludesTax: !e.target.checked })}
-                  />
-                  Súmale IVA aparte
-                </label>
+                <span className={labelCls}>¿Cómo le cobras al venue?</span>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ['flat', 'Tasa pareja'],
+                      ['cost-plus', 'Costo + comisión'],
+                      ['aggregator', 'Vía agregador'],
+                    ] as [ChargeModel, string][]
+                  ).map(([m, label]) => (
+                    <Button
+                      key={m}
+                      type="button"
+                      size="md"
+                      variant={s.model === m ? 'primary' : 'secondary'}
+                      onClick={() => patch({ model: m })}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            )}
 
-            {s.model === 'aggregator' && (
-              <div className="flex flex-col gap-3">
+              {s.model === 'flat' && (
                 <div>
-                  <span className={labelCls}>Precio base al venue (antes de tu markup)</span>
-                  <CardRatesInput
-                    value={s.aggregatorPrice}
-                    onChange={(aggregatorPrice) => patch({ aggregatorPrice })}
-                    idPrefix="wiz-agg"
+                  <label htmlFor="wiz-flat" className={labelCls}>
+                    % que paga el venue
+                  </label>
+                  <PercentInput
+                    id="wiz-flat"
+                    value={s.flatRate}
+                    onChange={(flatRate) => patch({ flatRate })}
                   />
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
                       type="checkbox"
-                      checked={s.aggIncludesTax}
-                      onChange={(e) => patch({ aggIncludesTax: e.target.checked })}
+                      checked={s.flatIncludesTax}
+                      onChange={(e) => patch({ flatIncludesTax: e.target.checked })}
                     />
                     Ya incluye IVA
                   </label>
                 </div>
+              )}
+
+              {s.model === 'cost-plus' && (
                 <div>
-                  <label htmlFor="wiz-agg-sp" className={labelCls}>
-                    Del margen (tu costo → precio base), ¿qué % es tuyo?
+                  <label htmlFor="wiz-markup" className={labelCls}>
+                    Tu comisión (%)
                   </label>
                   <PercentInput
-                    id="wiz-agg-sp"
-                    value={s.aggShareProvider}
-                    onChange={(aggShareProvider) => patch({ aggShareProvider })}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="wiz-agg-markup" className={labelCls}>
-                    Tu markup encima del precio base (%)
-                  </label>
-                  <PercentInput
-                    id="wiz-agg-markup"
-                    value={s.aggMarkup}
-                    onChange={(aggMarkup) => patch({ aggMarkup })}
+                    id="wiz-markup"
+                    value={s.markup}
+                    onChange={(markup) => patch({ markup })}
                   />
                   <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
                       type="checkbox"
-                      checked={!s.aggMarkupIncludesTax}
-                      onChange={(e) => patch({ aggMarkupIncludesTax: !e.target.checked })}
+                      checked={!s.markupIncludesTax}
+                      onChange={(e) => patch({ markupIncludesTax: !e.target.checked })}
                     />
                     Súmale IVA aparte
                   </label>
                 </div>
-                <div>
-                  <label htmlFor="wiz-agg-sa" className={labelCls}>
-                    De tu markup, ¿qué % es tuyo?
-                  </label>
-                  <PercentInput
-                    id="wiz-agg-sa"
-                    value={s.aggShareAggregator}
-                    onChange={(aggShareAggregator) => patch({ aggShareAggregator })}
-                  />
-                </div>
-              </div>
-            )}
+              )}
 
-            {(s.model === 'flat' || s.model === 'cost-plus') && (
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
-                  <input
-                    type="checkbox"
-                    checked={s.hasPartner}
-                    onChange={(e) =>
-                      patch({
-                        hasPartner: e.target.checked,
-                        avoqadoShare: e.target.checked ? 0.5 : 1,
-                      })
-                    }
-                  />
-                  Reparto mi ganancia con un socio
-                </label>
-                {s.hasPartner && (
+              {s.model === 'aggregator' && (
+                <div className="flex flex-col gap-3">
                   <div>
-                    <label htmlFor="wiz-share" className={labelCls}>
-                      % que es tuyo
+                    <span className={labelCls}>Precio base al venue (antes de tu markup)</span>
+                    <CardRatesInput
+                      value={s.aggregatorPrice}
+                      onChange={(aggregatorPrice) => patch({ aggregatorPrice })}
+                      idPrefix="wiz-agg"
+                    />
+                    <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={s.aggIncludesTax}
+                        onChange={(e) => patch({ aggIncludesTax: e.target.checked })}
+                      />
+                      Ya incluye IVA
+                    </label>
+                  </div>
+                  <div>
+                    <label htmlFor="wiz-agg-sp" className={labelCls}>
+                      Del margen (tu costo → precio base), ¿qué % es tuyo?
                     </label>
                     <PercentInput
-                      id="wiz-share"
-                      value={s.avoqadoShare}
-                      onChange={(avoqadoShare) => patch({ avoqadoShare })}
+                      id="wiz-agg-sp"
+                      value={s.aggShareProvider}
+                      onChange={(aggShareProvider) => patch({ aggShareProvider })}
                     />
                   </div>
-                )}
-                {s.model === 'cost-plus' && s.hasPartner && (
+                  <IntermediaryFeeField
+                    id="wiz-intermediary-fee"
+                    value={s.intermediaryFeeRate ?? 0}
+                    onChange={(intermediaryFeeRate) => patch({ intermediaryFeeRate })}
+                  />
+                  <div>
+                    <label htmlFor="wiz-agg-markup" className={labelCls}>
+                      Tu markup encima del precio base (%)
+                    </label>
+                    <PercentInput
+                      id="wiz-agg-markup"
+                      value={s.aggMarkup}
+                      onChange={(aggMarkup) => patch({ aggMarkup })}
+                    />
+                    <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={!s.aggMarkupIncludesTax}
+                        onChange={(e) => patch({ aggMarkupIncludesTax: !e.target.checked })}
+                      />
+                      Súmale IVA aparte
+                    </label>
+                  </div>
+                  <div>
+                    <label htmlFor="wiz-agg-sa" className={labelCls}>
+                      Del margen después del manejo, ¿qué % es tuyo?
+                    </label>
+                    <PercentInput
+                      id="wiz-agg-sa"
+                      value={s.aggShareAggregator}
+                      onChange={(aggShareAggregator) => patch({ aggShareAggregator })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(s.model === 'flat' || s.model === 'cost-plus') && (
+                <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
                     <input
                       type="checkbox"
-                      checked={s.markupIsNet}
-                      onChange={(e) => patch({ markupIsNet: e.target.checked })}
+                      checked={s.hasPartner}
+                      onChange={(e) =>
+                        patch({
+                          hasPartner: e.target.checked,
+                          avoqadoShare: e.target.checked ? 0.5 : 1,
+                        })
+                      }
                     />
-                    Esa comisión es lo que quiero ganar limpio (no la que reparto)
+                    Reparto mi ganancia con un socio
                   </label>
-                )}
-              </div>
-            )}
-          </section>
-        )}
+                  {s.hasPartner && (
+                    <div>
+                      <label htmlFor="wiz-share" className={labelCls}>
+                        % que es tuyo
+                      </label>
+                      <PercentInput
+                        id="wiz-share"
+                        value={s.avoqadoShare}
+                        onChange={(avoqadoShare) => patch({ avoqadoShare })}
+                      />
+                    </div>
+                  )}
+                  {s.model === 'cost-plus' && s.hasPartner && (
+                    <label className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={s.markupIsNet}
+                        onChange={(e) => patch({ markupIsNet: e.target.checked })}
+                      />
+                      Esa comisión es lo que quiero ganar limpio (no la que reparto)
+                    </label>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
-        {step === 3 && (
-          <section className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <p className="text-[12px] text-[var(--ink-muted)]">{modelSummary}</p>
-              <EconomicsTable economics={economics} />
-            </div>
-            {hasNegative && (
-              <p className="text-[12px] text-[var(--warn)]" role="alert">
-                Ojo: alguna tarjeta sale con margen negativo — pierdes en esa tarjeta.
-              </p>
-            )}
-            {venues.length === 0 ? (
-              <p className="text-[13px] text-[var(--ink-faint)]">
-                Este merchant no está asignado a ningún venue todavía. Asígnalo desde el detalle de
-                un venue para poder aplicarle este pricing.
-              </p>
-            ) : (
-              <div>
-                <span className={labelCls}>¿A qué venue le aplico este pricing?</span>
-                <Combobox
-                  value={s.venueId}
-                  onChange={(v) => patch({ venueId: v })}
-                  options={venues.map((v) => ({
-                    value: v.venueId,
-                    label: `${v.venueName} · ${v.slot}`,
-                  }))}
-                  placeholder="Elegir venue"
-                  ariaLabel="Venue destino"
-                />
+          {step === 3 && (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <p className="text-[12px] text-[var(--ink-muted)]">{modelSummary}</p>
+                <EconomicsTable economics={economics} />
               </div>
-            )}
-          </section>
-        )}
-      </DrawerBody>
-      <DrawerFooter>
-        {step > 1 && (
-          <Button type="button" variant="ghost" onClick={() => setStep((n) => n - 1)}>
-            Atrás
-          </Button>
-        )}
-        {step < 3 ? (
-          <Button type="button" size="lg" onClick={() => setStep((n) => n + 1)}>
-            Siguiente
-          </Button>
-        ) : (
-          <Button type="button" size="lg" disabled={!venue} onClick={handlePrefill}>
-            Prellenar y revisar
-          </Button>
-        )}
-      </DrawerFooter>
+              {hasNegative && (
+                <p className="text-[12px] text-[var(--warn)]" role="alert">
+                  Ojo: alguna tarjeta sale con margen negativo — pierdes en esa tarjeta.
+                </p>
+              )}
+              {venues.length === 0 ? (
+                <p className="text-[13px] text-[var(--ink-faint)]">
+                  Este merchant no está asignado a ningún venue todavía. Asígnalo desde el detalle
+                  de un venue para poder aplicarle este pricing.
+                </p>
+              ) : (
+                <div>
+                  <span className={labelCls}>¿A qué venue le aplico este pricing?</span>
+                  <Combobox
+                    value={s.venueId}
+                    onChange={(v) => patch({ venueId: v })}
+                    options={venues.map((v) => ({
+                      value: v.venueId,
+                      label: `${v.venueName} · ${v.slot}`,
+                    }))}
+                    placeholder="Elegir venue"
+                    ariaLabel="Venue destino"
+                  />
+                </div>
+              )}
+            </section>
+          )}
+        </DrawerBody>
+        <DrawerFooter>
+          {step > 1 && (
+            <Button type="button" variant="ghost" onClick={() => setStep((n) => n - 1)}>
+              Atrás
+            </Button>
+          )}
+          {step < 3 ? (
+            <Button type="submit" size="lg">
+              Siguiente
+            </Button>
+          ) : (
+            <Button type="submit" size="lg" disabled={!venue}>
+              Prellenar y revisar
+            </Button>
+          )}
+        </DrawerFooter>
+      </form>
     </>
   )
 }

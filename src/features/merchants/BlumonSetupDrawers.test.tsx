@@ -1,9 +1,19 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '@/test/render'
 import { AdditionalTerminalsDrawer, HardwareDrawer, RevenueShareDrawer } from './BlumonSetupDrawers'
 import { INITIAL_DRAFT } from './blumon-setup'
 import type { WizardTerminal } from './api'
+
+// Radix mide los checkboxes dentro del formulario; jsdom no implementa ResizeObserver.
+beforeAll(() => {
+  class StubResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('ResizeObserver', StubResizeObserver)
+})
 
 const terminals: WizardTerminal[] = [
   {

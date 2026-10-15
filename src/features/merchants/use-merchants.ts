@@ -18,6 +18,7 @@ import {
   getActiveVenuePricing,
   fullSetupAngelPay,
   fullSetupBlumon,
+  saveMerchantEconomics,
   saveCost,
   saveRevenueShare,
   saveSettlement,
@@ -134,6 +135,7 @@ export function useMerchantEconomicsData(id: string | undefined) {
                 : null,
               avoqadoShareOfProviderMargin: revenueShare.avoqadoShareOfProviderMargin,
               avoqadoShareOfAggregatorMargin: revenueShare.avoqadoShareOfAggregatorMargin,
+              intermediaryFeeRate: revenueShare.intermediaryFeeRate ?? 0,
               taxRate: revenueShare.taxRate,
             }
           : null,
@@ -363,6 +365,17 @@ export function useSetAngelPayPin() {
   return useMutation({
     mutationFn: (vars: { accountId: string; pin: string }) =>
       setAngelPayAccountPin(vars.accountId, vars.pin),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
+  })
+}
+
+export function useSaveMerchantEconomics() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: {
+      merchantAccountId: string
+      input: Parameters<typeof saveMerchantEconomics>[1]
+    }) => saveMerchantEconomics(vars.merchantAccountId, vars.input),
     onSuccess: () => qc.invalidateQueries({ queryKey: MERCHANTS_QUERY_KEY }),
   })
 }

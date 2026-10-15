@@ -13,6 +13,27 @@ const aggregatorPrice: CardRates = {
 }
 
 describe('MoneyFlowDiagram', () => {
+  it('separa el banco intermediario del margen del procesador', () => {
+    const eco = computeMerchantEconomics({
+      cost,
+      venuePrice: { ...aggregatorPrice, DEBIT: 0.1 },
+      revenueShare: {
+        aggregatorPrice,
+        intermediaryFeeRate: 0.01,
+        avoqadoShareOfProviderMargin: 0.5,
+        avoqadoShareOfAggregatorMargin: 1,
+        taxRate: 0.16,
+      },
+    })
+    render(<MoneyFlowDiagram economics={eco} />)
+    fireEvent.click(screen.getByRole('button', { name: /Flujo del dinero/ }))
+    expect(screen.getByText('Banco intermediario')).toBeInTheDocument()
+    expect(screen.getByText('Procesador → banco intermediario')).toBeInTheDocument()
+    expect(screen.getByText('Banco → negocio')).toBeInTheDocument()
+    expect(screen.getByText(/recibe \$96.52/)).toBeInTheDocument()
+    expect(screen.getByText('$6.71')).toBeInTheDocument()
+  })
+
   it('flujo completo por venue: muestra las 4 entidades y el total con los dos tramos', () => {
     const eco = computeMerchantEconomics({
       cost,

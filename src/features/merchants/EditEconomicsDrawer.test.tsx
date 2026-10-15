@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
@@ -57,13 +57,24 @@ const revenueShareAgregadorCero: MerchantRevenueShare = {
 }
 
 let capturedCostBody: Record<string, unknown> | null = null
+let capturedShareBody: Record<string, unknown> | null = null
 
 const server = setupServer(
+  http.put(`${baseURL}/superadmin/merchant-accounts/m1/economics`, async ({ request }) => {
+    const body = (await request.json()) as {
+      cost: Record<string, unknown>
+      revenueShare: Record<string, unknown>
+    }
+    capturedCostBody = body.cost
+    capturedShareBody = body.revenueShare
+    return HttpResponse.json({ data: {} })
+  }),
   http.put(`${baseURL}/superadmin/cost-structures/c1`, async ({ request }) => {
     capturedCostBody = (await request.json()) as Record<string, unknown>
     return HttpResponse.json({ data: {} })
   }),
-  http.put(`${baseURL}/superadmin/merchant-revenue-shares/rs1`, () => {
+  http.put(`${baseURL}/superadmin/merchant-revenue-shares/rs1`, async ({ request }) => {
+    capturedShareBody = (await request.json()) as Record<string, unknown>
     return HttpResponse.json({ data: {} })
   }),
 )
@@ -72,10 +83,96 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
 afterEach(() => {
   server.resetHandlers()
   capturedCostBody = null
+  capturedShareBody = null
 })
 afterAll(() => server.close())
 
 describe('EditEconomicsDrawer', () => {
+  it('guarda costo y reparto juntos en una sola petición y conserva el borrador si falla', async () => {
+    let combined: Record<string, unknown> | null = null
+    const closed = vi.fn()
+    server.use(
+      http.put(`${baseURL}/superadmin/merchant-accounts/m1/economics`, async ({ request }) => {
+        combined = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ message: 'No se pudo guardar' }, { status: 500 })
+      }),
+    )
+    renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={{ ...revenueShareAgregadorCero, intermediaryFeeRate: 0.01 }}
+        onOpenChange={closed}
+      />,
+    )
+    fireEvent.change(document.getElementById('cost-DEBIT')!, { target: { value: '0.8' } })
+    fireEvent.change(screen.getByLabelText('Manejo del intermediario (%)'), {
+      target: { value: '2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await waitFor(() =>
+      expect(combined).toMatchObject({
+        costId: 'c1',
+        revenueShareId: 'rs1',
+        cost: { debitRate: 0.008 },
+        revenueShare: { intermediaryFeeRate: 0.02 },
+      }),
+    )
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(capturedCostBody).toBeNull()
+    expect(capturedShareBody).toBeNull()
+    expect(closed).not.toHaveBeenCalled()
+    expect(document.getElementById('cost-DEBIT')).toHaveValue('0.8')
+  })
+
+  it('rechaza un manejo negativo antes de guardar cualquier costo', async () => {
+    renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={revenueShareAgregadorCero}
+        onOpenChange={() => {}}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Manejo del intermediario (%)'), {
+      target: { value: '-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(screen.getByLabelText('Manejo del intermediario (%)')).toBeInvalid()
+    expect(capturedCostBody).toBeNull()
+    expect(capturedShareBody).toBeNull()
+  })
+
+  it('guarda el manejo por separado y permite cambiar el reparto de 50 a 100', async () => {
+    renderWithProviders(
+      <EditEconomicsDrawer
+        open
+        merchantId="m1"
+        cost={costSinIva}
+        revenueShare={{ ...revenueShareAgregadorCero, intermediaryFeeRate: 0.01 }}
+        onOpenChange={() => {}}
+      />,
+    )
+    expect(screen.getByLabelText('Manejo del intermediario (%)')).toHaveValue('1')
+    fireEvent.change(screen.getByLabelText('Manejo del intermediario (%)'), {
+      target: { value: '1.2' },
+    })
+    fireEvent.change(screen.getByLabelText('Avoqado del margen proveedor (%)'), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await waitFor(() =>
+      expect(capturedShareBody).toMatchObject({
+        intermediaryFeeRate: 0.012,
+        avoqadoShareOfProviderMargin: 1,
+        aggregatorPrice: revenueShareAgregadorCero.aggregatorPrice,
+        aggregatorPriceIncludesTax: false,
+      }),
+    )
+  })
+
   it('envía debitRate convertido correctamente de % a decimal al cambiar el input de Débito', async () => {
     renderWithProviders(
       <EditEconomicsDrawer

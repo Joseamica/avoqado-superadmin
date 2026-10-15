@@ -172,6 +172,7 @@ describe('fetchRevenueShare', () => {
             aggregatorPrice: { DEBIT: '1.0', CREDIT: '2.0', AMEX: '3.0', INTERNATIONAL: '4.0' },
             aggregatorPriceIncludesTax: false,
             avoqadoShareOfProviderMargin: '0.50',
+            intermediaryFeeRate: '0.010000',
             avoqadoShareOfAggregatorMargin: null,
             taxRate: '0.16',
             active: true,
@@ -183,6 +184,7 @@ describe('fetchRevenueShare', () => {
     expect(result).not.toBeNull()
     expect(result!.aggregatorPrice!.DEBIT).toBe(1.0)
     expect(result!.avoqadoShareOfProviderMargin).toBe(0.5)
+    expect(result!.intermediaryFeeRate).toBe(0.01)
   })
 
   it('devuelve null cuando data es null', async () => {

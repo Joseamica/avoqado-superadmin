@@ -6,7 +6,8 @@
 
 ## Dos formas de cobrarle a un venue
 
-El founder usa **una de dos**, según el caso — ambas comparten el **reparto 50/50 con el procesador**:
+El founder usa **una de dos**, según el caso. El reparto con el procesador suele ser 50/50,
+pero es configurable: también puede ser 100 % para Avoqado.
 
 1. **Solo revenue share** (sin extra) — le cobra al venue un precio (que **puede ser menor que su
    costo**, p. ej. AMEX 2.6 % cuando le cuesta 3 %), y el **margen `precio − costo` se reparte 50/50**
@@ -42,7 +43,7 @@ competencia** (p. ej. Clip). **Puede ser MENOR que el costo del procesador.** Ej
 
 El margen `precio base − costo` se parte **mitad y mitad con el procesador**. Si es **negativo**
 (precio base < costo), **la pérdida también se comparte 50/50**: el procesador absorbe la mitad.
-Este reparto es **fijo, no negociable**.
+El porcentaje se configura por merchant; 50 % y 100 % para Avoqado son valores válidos.
 
 ### 4. Tramo 2 — precio base → venue: **el markup, 100% Avoqado**
 
@@ -54,7 +55,7 @@ por comercio**: unos lo pagan **sin IVA** (íntegro), otros **con IVA**.
 
 ```
 venue paga           = precio base + markup
-ganancia Avoqado     = 0.5 · (precio base − costo)   +   1.0 · markup
+ganancia Avoqado     = share proveedor · (precio base − costo) + share agregador · (markup − manejo)
                         └─ tramo 1 (puede ser negativo) ─┘   └─ tramo 2 ─┘
 ```
 
@@ -103,6 +104,41 @@ datos del modelo y **calcula solo el pricing final** (no lo tecleas a mano):
 2. **Del margen `costo → precio base`, ¿qué % es tuyo?** (tramo 1 — típico 50; el resto es del procesador)
 3. **Tu markup encima** (un %) + **¿le sumas IVA?** (por comercio: sin IVA = íntegro)
 4. **De tu markup, ¿qué % es tuyo?** (tramo 2 — típico 100)
+5. **Manejo del intermediario (%)** — cargo final sobre el depósito posterior a la tarifa del procesador.
 
 Pricing final del venue = `precio base efectivo + markup efectivo`. En código: `aggMarkup` /
 `aggMarkupIncludesTax` en `pricing-wizard.ts`.
+
+## Banco intermediario (TRF): cargo separado
+
+TRF custodia el depósito y dispersa al negocio; puede dispersar la diferencia a Avoqado.
+Su cargo no se suma al costo ni al precio del procesador. `intermediaryFeeRate` es
+una fracción (1 % = 0.01), final, sin IVA adicional; 0 conserva el acuerdo anterior.
+
+Sobre una venta de $100, con costo 0.64 % + IVA, tarifa al agregador 0.70 % + IVA,
+manejo 1 %, cobro al negocio 5.5 % final y reparto proveedor 50/50:
+
+```
+Procesador → TRF           100 − (0.70 × 1.16) = 99.188
+TRF cobra manejo          99.188 × 0.01       =  0.99188
+TRF → negocio             100 − 5.50         = 94.50
+TRF → Avoqado             99.188 − 0.99188 − 94.50 = 3.69612
+Procesador → Avoqado      (0.70 − 0.64) × 1.16 × 50 % = 0.0348
+```
+
+Si se comparte el segundo margen, el porcentaje se aplica después de descontar el manejo.
+El reparto proveedor puede cambiarse a 100 % sin alterar el manejo ni la tarifa.
+
+La vista de economía/calculadora proyecta **efectivo con IVA**, sin redondeos intermedios.
+Los reportes existentes de ganancias reparten **antes de IVA** y redondean cada transacción;
+el manejo final se descuenta completo, sin desglose fiscal adicional. En este ejemplo reportan
+$3.08 ($0.03 + $3.05); el flujo de efectivo total es $3.73092. No son la misma medida.
+No se reescriben tarifas ni pagos históricos al agregar el campo. Aplicar migración del servidor
+antes de publicar el frontend. La configuración es interna de SUPERADMIN; no se expone al MCP
+de clientes ni cambia cobros o dispersiones reales.
+
+### Guardado de economía
+
+La edición usa `PUT /api/v1/superadmin/merchant-accounts/:id/economics`: costo y reparto se confirman en una sola transacción. Si falla cualquiera, ambos conservan sus valores anteriores. Los endpoints individuales siguen disponibles para clientes anteriores.
+
+Los porcentajes aceptan punto o coma decimal, conservan los decimales guardados y bloquean textos inválidos antes de enviar. Un costo programado para el futuro no se confunde con el costo vigente.

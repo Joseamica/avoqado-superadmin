@@ -14,7 +14,7 @@ import { CardRatesInput } from './CardRatesInput'
 import { MarginPreview } from './MarginPreview'
 import { RetroactiveRateDialog } from './RetroactiveRateDialog'
 import { computeMerchantEconomics } from './economics'
-import { getActiveVenuePricing } from './api'
+import { getActiveVenuePricing, type SaveRevenueShareInput } from './api'
 import { MERCHANTS_QUERY_KEY, useSaveVenuePricing } from './use-merchants'
 import {
   cardRatesFromCost,
@@ -34,6 +34,7 @@ interface Props {
   venueName: string
   slot: AccountSlot
   cost: ProviderCostStructure | null
+  revenueShare?: SaveRevenueShareInput | null
   onSaved?: () => void
   /** Valores del Asistente de pricing para prellenar (override del fetch). */
   initialValues?: { rates: CardRates; includesTax: boolean }
@@ -46,6 +47,7 @@ export function EditVenuePricingDrawer({
   venueName,
   slot,
   cost,
+  revenueShare,
   onSaved,
   initialValues,
 }: Props) {
@@ -80,7 +82,18 @@ export function EditVenuePricingDrawer({
     cost: cost ? cardRatesFromCost(cost) : ZERO,
     // La preview necesita la tasa EFECTIVA (con IVA); el estado guarda la cruda.
     venuePrice: effectiveCardRates(rates, includesTax, taxRate),
-    revenueShare: null,
+    revenueShare: revenueShare
+      ? {
+          ...revenueShare,
+          aggregatorPrice: revenueShare.aggregatorPrice
+            ? effectiveCardRates(
+                revenueShare.aggregatorPrice,
+                revenueShare.aggregatorPriceIncludesTax,
+                revenueShare.taxRate,
+              )
+            : null,
+        }
+      : null,
   })
 
   function handleSubmit(e: React.FormEvent) {

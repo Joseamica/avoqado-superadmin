@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { cn } from '@/shared/lib/utils'
 
-const pctStr = (d: number) => String(Math.round(d * 10000) / 100)
-const toDec = (raw: string) => (raw.trim() === '' ? 0 : (parseFloat(raw) || 0) / 100)
+const pctStr = (d: number) => String(Number((d * 100).toFixed(6)))
+const percentage = /^(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)$/
 
 const baseCls =
   'h-9 w-28 rounded-[6px] border border-[var(--line-strong)] bg-[var(--canvas)] px-2.5 text-[13px] tabular-nums ' +
@@ -33,13 +34,22 @@ export function PercentInput({
   return (
     <input
       id={id}
-      className={className ?? baseCls}
+      className={cn(baseCls, className)}
       inputMode="decimal"
       placeholder="0"
       value={text}
       onChange={(e) => {
         setText(e.target.value)
-        onChange(toDec(e.target.value))
+        const raw = e.target.value.trim()
+        const dec = raw === '' ? 0 : Number(raw.replace(',', '.')) / 100
+        const valid =
+          (raw === '' || percentage.test(raw)) && Number.isFinite(dec) && dec >= 0 && dec <= 1
+        e.target.setCustomValidity(
+          valid
+            ? ''
+            : 'Escribe un porcentaje entre 0 y 100, sin letras. Puedes usar punto o coma decimal.',
+        )
+        if (valid) onChange(dec)
       }}
     />
   )
