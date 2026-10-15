@@ -127,6 +127,13 @@ describe('useRealtimeInvalidation', () => {
     handler()
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['superadmin', 'activity-log'] })
+
+    const venueCall = socket.on.mock.calls.find((c) => c[0] === 'superadmin:venue:updated')
+    const venueHandler = venueCall?.[1] as () => void
+    venueHandler()
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['superadmin', 'venues'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['superadmin', 'venue-administration'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['superadmin', 'activity-log'] })
   })
 
   it('coalesces terminal bursts and cancels the pending refresh on unmount', async () => {

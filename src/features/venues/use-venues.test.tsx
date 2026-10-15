@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { AllProviders } from '@/test/render'
 import {
   useCreateVenue,
@@ -123,6 +125,22 @@ describe('useFeatures', () => {
 })
 
 describe('useVenueDetail', () => {
+  it('ignora objetos de detalle al buscar un placeholder en los cachés del listado', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(['superadmin', 'venues', 'detail', 'otro-venue'], rawVenue)
+    server.use(
+      http.get(`${baseURL}/dashboard/superadmin/venues/v1`, () =>
+        HttpResponse.json({ success: true, data: rawVenue }),
+      ),
+    )
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    }
+    const { result } = renderHook(() => useVenueDetail('v1'), { wrapper: Wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.id).toBe('v1')
+  })
+
   it('devuelve null sin venueId — query disabled', () => {
     const { result } = renderHook(() => useVenueDetail(undefined), { wrapper: AllProviders })
     // disabled queries no corren ni triunfan

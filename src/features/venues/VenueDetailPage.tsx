@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Copy, Mail, Phone, ShieldOff } from 'lucide-react'
 import { Badge } from '@/shared/ui/Badge'
-import { Button } from '@/shared/ui/Button'
+import { buttonVariants } from '@/shared/ui/button-variants'
 import { IconButton } from '@/shared/ui/IconButton'
 import { QueryError } from '@/shared/components/QueryError'
 import {
@@ -13,6 +13,7 @@ import {
 import { cn } from '@/shared/lib/utils'
 import { useVenueDetail } from './use-venues'
 import { VenuePlanSection } from './VenuePlanSection'
+import { VenueAdministration } from './VenueAdministration'
 import {
   humanizeKycStatus,
   humanizeVenueStatus,
@@ -20,7 +21,6 @@ import {
   isOperationalVenue,
   isSuspendedVenue,
   KYC_STATUS_TONE,
-  ownerFullName,
   VENUE_STATUS_TONE,
   type Venue,
 } from './types'
@@ -37,15 +37,6 @@ const MXN_PRECISE = new Intl.NumberFormat('es-MX', {
 })
 const NUM = new Intl.NumberFormat('es-MX')
 
-/**
- * Detalle read-only de un venue.
- *
- * Iteración 1 — sólo lectura. Las quick actions (Aprobar KYC, Suspender,
- * Reactivar, Transferir) viven en el header pero quedan `disabled` con
- * `title="Próximamente"` hasta que en la iteración 2 las cableemos a las
- * mutations existentes en el backend (`POST /venues/:id/approve`,
- * `POST /venues/:id/suspend`, etc.).
- */
 export function VenueDetailPage() {
   const { venueId } = useParams<{ venueId: string }>()
   const query = useVenueDetail(venueId)
@@ -58,7 +49,7 @@ export function VenueDetailPage() {
     )
   }
 
-  if (query.isError) {
+  if (query.isError && !query.data) {
     return (
       <div className="mx-auto max-w-[800px] px-4 py-10">
         <BackLink />
@@ -97,6 +88,16 @@ export function VenueDetailPage() {
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-10">
       <BackLink />
 
+      {query.isError && venue && (
+        <QueryError
+          className="mt-5"
+          error={query.error}
+          context="actualizar el venue"
+          onRetry={() => query.refetch()}
+          isRetrying={query.isFetching}
+        />
+      )}
+
       {isLoading ? <SkeletonHeader /> : venue ? <VenueHeader venue={venue} /> : null}
 
       {venue && (
@@ -104,7 +105,7 @@ export function VenueDetailPage() {
           <div className="space-y-6">
             <IdentitySection venue={venue} />
             <VenuePlanSection venueId={venue.id} />
-            <OwnerSection venue={venue} />
+            <VenueAdministration venueId={venue.id} />
             {isSuspendedVenue(venue) && venue.suspensionReason && (
               <SuspensionSection venue={venue} />
             )}
@@ -128,12 +129,6 @@ export function VenueDetailPage() {
               >
                 Ver historial de acciones que mencionan este venue en el activity log
               </Link>
-            </li>
-            <li>
-              ·{' '}
-              <span className="text-[var(--ink-faint)]">
-                Terminales, KYC docs, staff y pagos — próximamente (iteración 2)
-              </span>
             </li>
           </ul>
         </div>
@@ -184,12 +179,12 @@ function VenueHeader({ venue }: { venue: Venue }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="secondary" size="md" disabled title="Próximamente">
-          Cambiar comisión
-        </Button>
-        <Button type="button" variant="secondary" size="md" disabled title="Próximamente">
-          {isSuspendedVenue(venue) ? 'Reactivar' : 'Suspender'}
-        </Button>
+        <Link
+          to={`/venues/${venue.id}/merchant`}
+          className={buttonVariants({ variant: 'secondary' })}
+        >
+          Afiliaciones de cobro
+        </Link>
       </div>
     </header>
   )
@@ -303,45 +298,6 @@ function IdentitySection({ venue }: { venue: Venue }) {
           }
         />
       )}
-    </Section>
-  )
-}
-
-function OwnerSection({ venue }: { venue: Venue }) {
-  const fullName = ownerFullName(venue.owner)
-  return (
-    <Section title="Owner principal">
-      <DefinitionRow label="Nombre" value={fullName} />
-      <DefinitionRow
-        label="Email"
-        value={
-          <a href={`mailto:${venue.owner.email}`} className="hover:text-[var(--accent)]">
-            <span className="inline-flex items-center gap-1">
-              <Mail className="h-3 w-3" aria-hidden />
-              {venue.owner.email}
-            </span>
-          </a>
-        }
-        copyable={venue.owner.email}
-      />
-      {venue.owner.phone && (
-        <DefinitionRow
-          label="Teléfono"
-          value={
-            <a href={`tel:${venue.owner.phone}`} className="hover:text-[var(--accent)]">
-              <span className="inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" aria-hidden />
-                {venue.owner.phone}
-              </span>
-            </a>
-          }
-        />
-      )}
-      <DefinitionRow label="Staff ID" value={venue.owner.id} mono copyable={venue.owner.id} />
-      <p className="mt-3 text-[11px] text-[var(--ink-faint)]">
-        El "owner" es el primer staff con rol ADMIN en el venue. Si hay varios admins, sólo se
-        muestra uno aquí — el resto vive en el tab de Staff (próximamente).
-      </p>
     </Section>
   )
 }

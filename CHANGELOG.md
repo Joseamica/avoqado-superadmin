@@ -26,6 +26,8 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- La ficha de cada negocio permite editar datos generales, contacto y domicilio, registro legal, organización y contacto del responsable por secciones. Confirma cambios compartidos, cambio de slug y estado; conserva borradores ante errores y conflictos, y actualiza ficha/listado/historial en tiempo real. El email de acceso, moneda y zona horaria permanecen de lectura.
+
 - El calendario de depósitos permite copiar el neto del negocio o de cada afiliación con dos decimales, sin comas ni símbolo de moneda. Una T amarilla junto al negocio identifica afiliaciones con una «T» sola en el nombre.
 
 - **«Descuento %» en Planes y funciones (`/hybrid-campaigns`): un % sobre el precio de lista de cada función, con vista previa, y su sección «Descuentos %».**

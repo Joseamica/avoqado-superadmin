@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '@/test/render'
 import { VenueDetailPage } from './VenueDetailPage'
@@ -49,10 +51,16 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
+let activeClient: QueryClient
+function PageWithClient() {
+  activeClient = useQueryClient()
+  return <VenueDetailPage />
+}
+
 function renderAtVenue(venueId: string) {
   return renderWithProviders(
     <Routes>
-      <Route path="/venues/:venueId" element={<VenueDetailPage />} />
+      <Route path="/venues/:venueId" element={<PageWithClient />} />
     </Routes>,
     { initialEntries: [`/venues/${venueId}`] },
   )
@@ -63,6 +71,22 @@ describe('VenueDetailPage', () => {
     server.use(
       http.get(`${baseURL}/dashboard/superadmin/venues/v1`, () =>
         HttpResponse.json({ success: true, data: rawVenue }),
+      ),
+      http.get(`${baseURL}/superadmin/venues/v1/administration`, () =>
+        HttpResponse.json({
+          data: {
+            venue: {
+              ...rawVenue,
+              type: 'RESTAURANT',
+              language: 'es',
+              currency: 'MXN',
+              timezone: 'America/Mexico_City',
+            },
+            organization: { ...rawVenue.organization, venueCount: 1 },
+            owner: { ...rawVenue.owner, role: 'OWNER', venueCount: 1 },
+            allowedStatusTransitions: ['ADMIN_SUSPENDED'],
+          },
+        }),
       ),
       // La sección Plan pide su estado a un namespace aparte (no superadmin).
       http.get(`${baseURL}/dashboard/venues/v1/plan`, () =>
@@ -91,7 +115,11 @@ describe('VenueDetailPage', () => {
       expect(screen.getByRole('heading', { level: 1, name: /pez volador/i })).toBeInTheDocument(),
     )
     // Sección Owner
-    expect(screen.getByText('Owner principal')).toBeInTheDocument()
+    expect(await screen.findByText('Contacto del responsable')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Afiliaciones de cobro' })).toHaveAttribute(
+      'href',
+      '/venues/v1/merchant',
+    )
     // Sección Actividad
     expect(screen.getByText('Actividad del mes en curso')).toBeInTheDocument()
     // Sección Identidad
@@ -109,6 +137,60 @@ describe('VenueDetailPage', () => {
     )
     renderAtVenue('missing')
     await waitFor(() => expect(screen.getByText('Venue no encontrado')).toBeInTheDocument())
+  })
+
+  it('conserva un borrador abierto si falla el refetch del detalle y al reintentarlo', async () => {
+    let detailFailed = false
+    server.use(
+      http.get(`${baseURL}/dashboard/superadmin/venues/v1`, () =>
+        detailFailed
+          ? HttpResponse.json({ message: 'Falla al refrescar' }, { status: 500 })
+          : HttpResponse.json({ success: true, data: rawVenue }),
+      ),
+      http.get(`${baseURL}/dashboard/venues/v1/plan`, () =>
+        HttpResponse.json({ data: { hasPlan: false, state: 'none' } }),
+      ),
+      http.get(`${baseURL}/superadmin/venues/v1/administration`, () =>
+        HttpResponse.json({
+          data: {
+            venue: {
+              ...rawVenue,
+              type: 'RESTAURANT',
+              language: 'es',
+              currency: 'MXN',
+              timezone: 'America/Mexico_City',
+            },
+            organization: { ...rawVenue.organization, venueCount: 1 },
+            owner: { ...rawVenue.owner, role: 'OWNER', venueCount: 1 },
+            allowedStatusTransitions: ['ADMIN_SUSPENDED'],
+          },
+        }),
+      ),
+    )
+    renderAtVenue('v1')
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Editar datos generales' }))
+    const dialog = screen.getByRole('dialog')
+    await user.clear(within(dialog).getByLabelText('Nombre del negocio'))
+    await user.type(within(dialog).getByLabelText('Nombre del negocio'), 'Mi borrador')
+    detailFailed = true
+    await act(async () => {
+      await activeClient.invalidateQueries({ queryKey: ['superadmin', 'venues'] })
+    })
+    const error = (await screen.findByText('Error del servidor (500)')).closest('[role="alert"]')
+    expect(within(dialog).getByLabelText('Nombre del negocio')).toHaveValue('Mi borrador')
+    expect(screen.getByRole('dialog')).toBe(dialog)
+    expect(error).toBeInTheDocument()
+    detailFailed = false
+    await act(async () => {
+      within(error as HTMLElement)
+        .getByRole('button', { name: 'Reintentar', hidden: true })
+        .click()
+    })
+    await waitFor(() =>
+      expect(screen.queryByText('Error del servidor (500)')).not.toBeInTheDocument(),
+    )
+    expect(within(dialog).getByLabelText('Nombre del negocio')).toHaveValue('Mi borrador')
   })
 
   it('muestra QueryError cuando el endpoint falla con 500', async () => {

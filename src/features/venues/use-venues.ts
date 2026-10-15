@@ -96,7 +96,7 @@ export function useVenueDetail(venueId: string | undefined) {
       if (!venueId) return undefined
       const caches = queryClient.getQueriesData<Venue[]>({ queryKey: VENUES_QUERY_KEY })
       for (const [, list] of caches) {
-        const hit = list?.find((v) => v.id === venueId)
+        const hit = Array.isArray(list) ? list.find((v) => v.id === venueId) : undefined
         if (hit) return hit
       }
       return undefined
