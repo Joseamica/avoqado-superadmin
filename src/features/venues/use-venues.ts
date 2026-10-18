@@ -73,6 +73,8 @@ export function useCreateVenue() {
       // Invalidar tanto la lista de venues como la de orgs (puede haber org nueva).
       queryClient.invalidateQueries({ queryKey: VENUES_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: ORGANIZATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['superadmin', 'document-requests'] })
+      queryClient.invalidateQueries({ queryKey: ['superadmin', 'activity-log'] })
     },
   })
 }

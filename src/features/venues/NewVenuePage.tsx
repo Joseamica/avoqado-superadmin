@@ -1,5 +1,22 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { QueryError } from '@/shared/components/QueryError'
+import { DocumentRequestPicker } from '@/shared/components/DocumentRequestPicker'
+import { Button } from '@/shared/ui/Button'
+import {
+  DOCUMENT_REQUESTS_KEY,
+  getDocumentRequest,
+  type DocumentRequest,
+} from '@/shared/lib/venue-document-requests'
 import { AlertTriangle, ArrowLeft, ChevronDown, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/shared/ui/Badge'
@@ -109,6 +126,60 @@ const RFC_REGEX = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/
 
 export function NewVenuePage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const hasDocumentRequest = searchParams.has('documentRequest')
+  const initialRequestId = searchParams.get('documentRequest')
+  const validRequestId = Boolean(initialRequestId && /^c[a-z0-9]{24}$/.test(initialRequestId))
+  const [documentRequest, setDocumentRequest] = useState<DocumentRequest | null>(null)
+  const [requestConfirmed, setRequestConfirmed] = useState(false)
+  const [initializedRequestId, setInitializedRequestId] = useState<string | null>(null)
+  const touchedFields = useRef(new Set<keyof FormState>())
+  const sourceQuery = useQuery({
+    queryKey: [...DOCUMENT_REQUESTS_KEY, initialRequestId],
+    queryFn: () => getDocumentRequest(initialRequestId!),
+    enabled: validRequestId,
+  })
+  const sourceError =
+    hasDocumentRequest &&
+    (!validRequestId
+      ? new Error(
+          'El identificador del expediente no es válido. Quita la selección o revisa la liga.',
+        )
+      : (sourceQuery.error ??
+        (sourceQuery.data && sourceQuery.data.request.status !== 'SUBMITTED'
+          ? new Error(
+              'El expediente debe estar enviado para crear un venue. Revisa la entrega o quita la selección.',
+            )
+          : null)))
+  const sourceBlocked = Boolean(
+    hasDocumentRequest &&
+    (sourceError || !sourceQuery.data || initializedRequestId !== initialRequestId),
+  )
+  const selectDocumentRequest = useCallback((request: DocumentRequest | null) => {
+    setDocumentRequest(request)
+    setRequestConfirmed(false)
+    if (!request) return
+    setForm((previous) => {
+      const next = { ...previous }
+      // Untouched fields are defaults or previous prefill; only operator edits (even an empty value) are protected.
+      if (!touchedFields.current.has('name')) next.name = request.businessName
+      if (!touchedFields.current.has('venueEmail')) next.venueEmail = request.email ?? ''
+      if (!touchedFields.current.has('venuePhone')) next.venuePhone = request.phone ?? ''
+      if (!touchedFields.current.has('entityType')) next.entityType = request.entityType
+      return next
+    })
+  }, [])
+  function clearSourceReference() {
+    const next = new URLSearchParams(searchParams)
+    next.delete('documentRequest')
+    setSearchParams(next, { replace: true })
+    setInitializedRequestId(null)
+  }
+  function discardSource() {
+    clearSourceReference()
+    selectDocumentRequest(null)
+  }
+
   const orgsQuery = useOrganizations()
   const featuresQuery = useFeatures()
   const createMutation = useCreateVenue()
@@ -121,6 +192,17 @@ export function NewVenuePage() {
   const [featuresExpanded, setFeaturesExpanded] = useState(false)
   const [adminExpanded, setAdminExpanded] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (
+      !initialRequestId ||
+      initializedRequestId === initialRequestId ||
+      !sourceQuery.data ||
+      sourceQuery.data.request.status !== 'SUBMITTED'
+    )
+      return
+    selectDocumentRequest(sourceQuery.data.request)
+    setInitializedRequestId(initialRequestId)
+  }, [initialRequestId, initializedRequestId, sourceQuery.data, selectDocumentRequest])
 
   // Cuando se cargan los features, pre-seleccionamos los `isCore: true`
   // una sola vez. Son los que casi todo venue necesita (pagos, etc.) —
@@ -147,6 +229,7 @@ export function NewVenuePage() {
   const orgs = orgsQuery.data ?? []
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    touchedFields.current.add(key)
     setForm((prev) => ({ ...prev, [key]: value }))
     // Limpiar el error del field cuando el usuario edita.
     if (errors[key as string]) {
@@ -169,6 +252,11 @@ export function NewVenuePage() {
 
   function validate(): boolean {
     const next: Record<string, string> = {}
+    if (sourceBlocked)
+      next.documentRequest =
+        'Revisa el expediente de la liga o quítalo expresamente antes de crear el venue.'
+    if (documentRequest && !requestConfirmed)
+      next.documentRequest = 'Confirma que el expediente corresponde a este negocio.'
 
     // Organization
     if (form.orgMode === 'existing' && !form.orgId) {
@@ -276,6 +364,14 @@ export function NewVenuePage() {
               },
             }
           : undefined,
+      documentRequest:
+        documentRequest && requestConfirmed
+          ? {
+              id: documentRequest.id,
+              submissionVersion: documentRequest.submissionVersion,
+              confirmed: true,
+            }
+          : undefined,
       features: form.features.size > 0 ? [...form.features] : undefined,
     }
 
@@ -288,7 +384,12 @@ export function NewVenuePage() {
       // No mostramos un éxito ciego: si algún step falló, avisamos qué quedó pendiente y aun así
       // llevamos al detalle para que el operador lo termine ahí.
       const failed = failedWizardSteps(result.steps)
-      if (failed.length > 0) {
+      if (result.configurationPending) {
+        toast.warning('Venue creado; configuración pendiente de revisar', {
+          description:
+            'El alta ya existe. Revisa su configuración en el detalle; no se repetirá automáticamente.',
+        })
+      } else if (failed.length > 0) {
         toast.warning('Venue creado con pasos incompletos', {
           description: `Fallaron: ${failed.join(', ')}. Revísalos en el detalle del venue.`,
         })
@@ -329,6 +430,47 @@ export function NewVenuePage() {
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-10" noValidate>
+        <Section title="Expediente recibido">
+          <p className="mb-4 text-sm text-[var(--ink-muted)]">
+            Opcional. Anexa una entrega recibida; no aprueba KYC ni cambia el proveedor de cobro.
+          </p>
+          {sourceError ? (
+            <QueryError
+              error={sourceError}
+              context="cargar el expediente de la liga"
+              onRetry={validRequestId ? () => sourceQuery.refetch() : undefined}
+            />
+          ) : sourceBlocked ? (
+            <p role="status">Cargando expediente de la liga…</p>
+          ) : null}
+          {sourceBlocked && (
+            <Button type="button" variant="ghost" onClick={discardSource}>
+              Quitar expediente de la liga
+            </Button>
+          )}
+          <DocumentRequestPicker
+            value={documentRequest}
+            disabled={createMutation.isPending || sourceBlocked}
+            onChange={(request) => {
+              if (hasDocumentRequest) clearSourceReference()
+              selectDocumentRequest(request)
+            }}
+          />
+          {documentRequest && (
+            <label className="mt-4 flex min-h-11 items-center gap-3 text-sm">
+              <Checkbox
+                checked={requestConfirmed}
+                onCheckedChange={(checked) => setRequestConfirmed(checked === true)}
+              />
+              Confirmo que este expediente y su versión corresponden al negocio que voy a crear.
+            </label>
+          )}
+          {errors.documentRequest && (
+            <p role="alert" className="mt-2 text-sm text-[var(--danger)]">
+              {errors.documentRequest}
+            </p>
+          )}
+        </Section>
         <Section title="Identidad">
           <OrgSelector
             mode={form.orgMode}

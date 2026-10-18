@@ -12,6 +12,7 @@ import {
 } from '@/shared/lib/datetime'
 import { cn } from '@/shared/lib/utils'
 import { useVenueDetail } from './use-venues'
+import { VenueDocumentsSection } from './VenueDocumentsSection'
 import { VenuePlanSection } from './VenuePlanSection'
 import { VenueAdministration } from './VenueAdministration'
 import {
@@ -104,6 +105,7 @@ export function VenueDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-6">
             <IdentitySection venue={venue} />
+            <VenueDocumentsSection key={venue.id} venueId={venue.id} />
             <VenuePlanSection venueId={venue.id} />
             <VenueAdministration venueId={venue.id} />
             {isSuspendedVenue(venue) && venue.suspensionReason && (

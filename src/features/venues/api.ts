@@ -239,6 +239,7 @@ export async function fetchFeatures(): Promise<PlatformFeature[]> {
 }
 
 export interface CreateVenuePayload {
+  documentRequest?: import('@/shared/lib/venue-document-requests').DocumentRequestSelection
   organization:
     | { mode: 'existing'; id: string }
     | { mode: 'new'; name: string; email: string; phone: string }
@@ -278,6 +279,8 @@ export interface WizardStep {
 }
 
 export interface WizardResponse {
+  replayed?: boolean
+  configurationPending?: boolean
   venueId: string
   organizationId: string
   venueSlug?: string

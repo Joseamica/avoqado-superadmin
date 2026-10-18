@@ -39,6 +39,11 @@ export interface ComboboxOption {
 }
 
 interface ComboboxProps {
+  /** Remote mode preserves server filtering and order. Defaults stay client-side. */
+  remote?: boolean
+  onSearchChange?: (search: string) => void
+  footer?: ReactNode
+
   value: string
   onChange: (next: string) => void
   options: readonly ComboboxOption[]
@@ -79,6 +84,9 @@ export function Combobox({
   disabled = false,
   renderTriggerValue,
   ariaLabel,
+  remote = false,
+  onSearchChange,
+  footer,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -101,6 +109,7 @@ export function Combobox({
     onChange(next)
     setOpen(false)
     setQuery('')
+    onSearchChange?.('')
   }
 
   return (
@@ -124,9 +133,14 @@ export function Combobox({
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)]" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="p-0" style={{ width }}>
+      <PopoverContent
+        align="start"
+        className="p-0"
+        style={{ width, maxWidth: 'calc(100vw - 2rem)' }}
+      >
         <Command
           className="flex flex-col"
+          shouldFilter={!remote}
           // cmdk hace fuzzy matching por default. Le damos los tokens de búsqueda
           // explícitos al `CommandItem` via la prop `value` y un `keywords`
           // (no soportado nativo) — lo manejamos via filtro propio:
@@ -140,7 +154,10 @@ export function Combobox({
             <Search className="h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)]" aria-hidden />
             <CommandInput
               value={query}
-              onValueChange={setQuery}
+              onValueChange={(next) => {
+                setQuery(next)
+                onSearchChange?.(next)
+              }}
               placeholder={searchPlaceholder}
               className="h-6 w-full bg-transparent text-[12.5px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
             />
@@ -206,6 +223,7 @@ export function Combobox({
             </CommandGroup>
           </CommandList>
         </Command>
+        {footer}
       </PopoverContent>
     </Popover>
   )

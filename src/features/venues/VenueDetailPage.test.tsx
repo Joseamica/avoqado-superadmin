@@ -45,7 +45,11 @@ const rawVenue = {
   updatedAt: '2026-03-01T00:00:00.000Z',
 }
 
-const server = setupServer()
+const server = setupServer(
+  http.get(`${baseURL}/superadmin/document-requests/venues/:id`, () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 10 }),
+  ),
+)
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
 afterEach(() => server.resetHandlers())

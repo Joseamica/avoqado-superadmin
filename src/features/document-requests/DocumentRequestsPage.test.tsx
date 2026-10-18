@@ -1,4 +1,4 @@
-import { beforeAll, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
@@ -22,6 +22,14 @@ const request = {
   submittedAt: null,
   createdAt: '2026-10-17T12:00:00.000Z',
 }
+beforeEach(() =>
+  server.use(
+    http.get(`${base}/:id/venue-links`, () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 10 }),
+    ),
+  ),
+)
+
 const uploadUrl = `http://localhost:5173/documentos/${request.id}#token=${'a'.repeat(64)}`
 
 beforeAll(() => {
@@ -229,4 +237,48 @@ it('muestra contacto recibido y el estado de cada buzón aunque falle un aviso',
   expect(within(notification).getByText('daniel@avoqado.io')).toBeInTheDocument()
   expect(within(notification).getByText('Falló')).toBeInTheDocument()
   expect(within(notification).getByText(/Próximo intento/)).toBeInTheDocument()
+})
+
+it('el ojito firma sólo al click y muestra PDF privado sin quitar Descargar', async () => {
+  const user = userEvent.setup()
+  const preview = vi.fn(() =>
+    HttpResponse.json({
+      url: 'https://storage.example.test/inline.pdf?signature=one',
+      mimeType: 'application/pdf',
+      fileName: 'constancia.pdf',
+    }),
+  )
+  server.use(
+    http.get(`${base}/${request.id}`, () =>
+      HttpResponse.json({
+        request,
+        documents: [
+          {
+            id: 'cfile123456789012345678901',
+            key: 'csf',
+            fileName: 'constancia.pdf',
+            mimeType: 'application/pdf',
+            sizeBytes: 2048,
+          },
+        ],
+      }),
+    ),
+    http.get(`${base}/${request.id}/documents/cfile123456789012345678901/preview`, preview),
+  )
+  renderPage(`/document-requests/${request.id}`)
+  const view = await screen.findByRole('button', { name: 'Ver constancia.pdf' })
+  expect(preview).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Descargar constancia.pdf' })).toBeInTheDocument()
+  await user.click(view)
+  const iframe = await screen.findByTitle('Vista previa de constancia.pdf')
+  expect(iframe).toHaveAttribute('src', 'https://storage.example.test/inline.pdf?signature=one')
+  expect(iframe).toHaveAttribute('referrerPolicy', 'no-referrer')
+  expect(screen.getByRole('link', { name: 'Abrir en otra pestaña' })).toHaveAttribute(
+    'rel',
+    'noopener noreferrer',
+  )
+  expect(screen.getByRole('button', { name: 'Descargar documento' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Cerrar vista previa' }))
+  expect(screen.queryByTitle('Vista previa de constancia.pdf')).not.toBeInTheDocument()
+  await waitFor(() => expect(view).toHaveFocus())
 })

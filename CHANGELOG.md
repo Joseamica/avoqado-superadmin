@@ -30,6 +30,10 @@ debe actualizar la sección `[Unreleased]` aquí en el mismo commit. Sin excepci
 
 ### Added
 
+- Vista previa privada de PDF y fotos con un ojito junto a Descargar en expedientes y versiones anexadas. Conserva descarga, reintento, apertura en otra pestaña y cierre con regreso al listado; ignora respuestas antiguas al cerrar, cambiar documento o reintentar.
+
+- Los expedientes enviados se pueden anexar al crear un venue o vincular a uno existente, con búsqueda/paginación remotas, versión y confirmación expresa. La ficha del venue conserva contacto y documentos privados por versión. Los reintentos del alta muestran la configuración pendiente sin inventar éxito ni aprobar KYC automáticamente.
+
 - La ficha de cada negocio permite editar datos generales, contacto y domicilio, registro legal, organización y contacto del responsable por secciones. Confirma cambios compartidos, cambio de slug y estado; conserva borradores ante errores y conflictos, y actualiza ficha/listado/historial en tiempo real. El email de acceso, moneda y zona horaria permanecen de lectura.
 - Bandeja de documentos de afiliación para prospectos sin venue: ligas individuales AngelPay/Blumon y persona física/moral, búsqueda y paginación servidor, contacto, descarga privada y revocación/renovación. Copiar y compartir por WhatsApp conserva el secreto sólo en la liga recién generada.
 

@@ -12,6 +12,12 @@ Desplegar primero las migraciones y API híbrida de `avoqado-server`. Mantener v
 
 `/document-requests` es la bandeja SUPERADMIN de prospectos, sin exigir venue ni plan. Permite crear ligas por negocio para AngelPay o Blumon, persona física o moral; buscar y paginar desde el servidor; revisar contacto y descargar archivos privados desde `/document-requests/:id`. Recibir documentos no aprueba KYC ni activa cobros.
 
+Los expedientes enviados permiten crear un venue con `/venues/new?documentRequest=<id>` o vincularlo a uno existente. El alta también ofrece un selector con búsqueda y paginación remotas. Sólo se precargan datos recibidos y cada versión requiere confirmación humana; no cambia el giro, proveedor de cobro ni la aprobación manual de KYC. Una selección inválida o que no carga bloquea el alta hasta revisarla o quitarla expresamente.
+
+La ficha del venue muestra **Documentos de afiliación**, con historial paginado de versiones, contacto conservado y descarga privada firmada solicitada al hacer clic. Las nuevas entregas se anexan expresamente. El servidor limita los vínculos a una organización y valida la versión al guardar. El alta con expediente se deduplica al reintentar; si responde `configurationPending`, se muestra «Venue creado; configuración pendiente de revisar» sin repetir acciones automáticamente. Las nuevas consultas y vínculos usan `/api/v1/superadmin/document-requests/*`; comparten la invalidación realtime de documentos.
+
+El botón **Ver** (ojito) junto a Descargar abre PDF, JPEG o PNG en una vista privada temporal, tanto en el expediente como en sus versiones anexadas. La firma se solicita sólo al abrir o reintentar y no se conserva al cerrar. El PDF usa el lector del navegador; Abrir en otra pestaña, Reintentar y Descargar siguen disponibles si no se muestra. Cerrar vuelve al listado o drawer. La propagación de Escape dentro del lector PDF depende del navegador; el botón Cerrar permanece accesible. No se usa un visor externo ni se publican archivos.
+
 La liga se muestra sólo al crearla o renovarla: cópiala antes de cerrar. WhatsApp abre un mensaje para envío manual. Renovar conserva archivos, reabre la entrega por 14 días e invalida la liga anterior; revocar cierra el acceso. Se requiere la API directa `/api/v1/superadmin/document-requests` del backend antes de habilitar esta pantalla. El flujo requiere conexión y usa el manejo de errores/reintento del panel.
 
 ## Stack

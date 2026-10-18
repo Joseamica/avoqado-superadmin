@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { PrivateDocumentPreview } from '@/shared/components/PrivateDocumentPreview'
 import { QueryError } from '@/shared/components/QueryError'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -13,8 +14,10 @@ import {
   renewDocumentRequest,
   revokeDocumentRequest,
   downloadRequestDocument,
+  previewRequestDocument,
   type RequestLink,
 } from './api'
+import { RequestVenueLinks } from './RequestVenueLinks'
 import { RequestStatus } from './RequestStatus'
 import { RequestLinkPanel } from './RequestLinkPanel'
 
@@ -98,6 +101,7 @@ export function DocumentRequestDetailPage() {
               </span>
             </div>
           </header>
+          <RequestVenueLinks key={request.id} request={request} />
           <section aria-label="Contacto y fechas" className="border-y border-[var(--line)] py-5">
             <h2 className="text-lg font-semibold">Contacto</h2>
             {request.contactName || request.email || request.phone ? (
@@ -156,14 +160,23 @@ export function DocumentRequestDetailPage() {
                         {document.mimeType} · {Math.ceil(document.sizeBytes / 1024)} KB
                       </p>
                     </div>
-                    <Button
-                      variant="secondary"
-                      disabled={download.isPending}
-                      onClick={() => download.mutate(document.id)}
-                      aria-label={`Descargar ${document.fileName}`}
-                    >
-                      Descargar
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <PrivateDocumentPreview
+                        documentKey={`${id}/${document.id}`}
+                        fileName={document.fileName}
+                        requestPreview={() => previewRequestDocument(id, document.id)}
+                        onDownload={() => download.mutate(document.id)}
+                        isDownloading={download.isPending}
+                      />
+                      <Button
+                        variant="secondary"
+                        disabled={download.isPending}
+                        onClick={() => download.mutate(document.id)}
+                        aria-label={`Descargar ${document.fileName}`}
+                      >
+                        Descargar
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
