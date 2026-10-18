@@ -8,6 +8,12 @@ Consola interna de operaciones para el equipo Avoqado. Apunta al backend princip
 
 Desplegar primero las migraciones y API híbrida de `avoqado-server`. Mantener ventas deshabilitadas hasta verificar onboarding, pagos y acceso en los clientes.
 
+## Documentos de afiliación
+
+`/document-requests` es la bandeja SUPERADMIN de prospectos, sin exigir venue ni plan. Permite crear ligas por negocio para AngelPay o Blumon, persona física o moral; buscar y paginar desde el servidor; revisar contacto y descargar archivos privados desde `/document-requests/:id`. Recibir documentos no aprueba KYC ni activa cobros.
+
+La liga se muestra sólo al crearla o renovarla: cópiala antes de cerrar. WhatsApp abre un mensaje para envío manual. Renovar conserva archivos, reabre la entrega por 14 días e invalida la liga anterior; revocar cierra el acceso. Se requiere la API directa `/api/v1/superadmin/document-requests` del backend antes de habilitar esta pantalla. El flujo requiere conexión y usa el manejo de errores/reintento del panel.
+
 ## Stack
 
 | Capa              | Librería                                                                                               |

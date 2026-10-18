@@ -77,6 +77,16 @@ export function CommandPalette() {
       },
     },
     {
+      id: 'nav-document-requests',
+      label: 'Ir a Documentos de afiliación',
+      icon: ShieldCheck,
+      group: 'Navegación',
+      run: () => {
+        navigate('/document-requests')
+        close()
+      },
+    },
+    {
       id: 'nav-activity',
       label: 'Ir a Activity log',
       icon: Activity,

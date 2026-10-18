@@ -7,6 +7,16 @@ import { RouteLoader } from '@/shared/components/RouteLoader'
 const LoginPage = lazy(() =>
   import('@/features/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
+const DocumentRequestsPage = lazy(() =>
+  import('@/features/document-requests/DocumentRequestsPage').then((m) => ({
+    default: m.DocumentRequestsPage,
+  })),
+)
+const DocumentRequestDetailPage = lazy(() =>
+  import('@/features/document-requests/DocumentRequestDetailPage').then((m) => ({
+    default: m.DocumentRequestDetailPage,
+  })),
+)
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 )
@@ -224,6 +234,8 @@ export function AppRoutes() {
           {/* `/new` ANTES de `:id` para que "new" no se capture como ID. */}
           <Route path="/payment-providers/new" element={<PaymentProviderFormPage />} />
           <Route path="/payment-providers/:id" element={<PaymentProviderFormPage />} />
+          <Route path="/document-requests" element={<DocumentRequestsPage />} />
+          <Route path="/document-requests/:id" element={<DocumentRequestDetailPage />} />
           <Route path="/tpv-orders" element={<TpvOrdersPage />} />
           <Route path="/tpv-orders/:id" element={<TpvOrderDetailPage />} />
         </Route>

@@ -60,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/earnings', label: 'Ganancias', icon: Wallet },
       { to: '/settlement-calendar', label: 'Depósitos', icon: CalendarDays },
       { to: '/tpv-orders', label: 'Pedidos TPV', icon: Package },
+      { to: '/document-requests', label: 'Documentos de afiliación', icon: ShieldCheck },
       { to: '/announcements', label: 'Anuncios', icon: Megaphone },
       { to: '/hybrid-campaigns', label: 'Planes y funciones', icon: BadgePercent },
       { to: '/launch-campaigns', label: 'Campañas de lanzamiento', icon: BadgePercent },

@@ -23,6 +23,7 @@ const EVENT_INVALIDATIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonl
   ['superadmin:hybrid-campaign:updated', [['superadmin', 'hybrid-campaigns']]],
   ['superadmin:activity-log:new', [['superadmin', 'activity-log']]],
   ['superadmin:kyc:updated', [['superadmin', 'kyc']]],
+  ['superadmin:document-request:updated', [['superadmin', 'document-requests']]],
   [
     'superadmin:venue:updated',
     [
